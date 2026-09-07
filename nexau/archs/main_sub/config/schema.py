@@ -66,9 +66,9 @@ class MCPServerBaseModel(BaseModel):
     timeout: int | None = Field(default=None, gt=0)
     env: dict[str, str] | None = None
     disable_parallel: bool = False
-    # RFC-0019: server default（None = auto-allow，backward compatibility）
+    # RFC-0019: server default (None = auto-allow, backward compatibility)
     permissions: dict[str, list[str]] | None = None
-    # RFC-0019: per-tool （key=，None value = auto-allow）
+    # RFC-0019: per-tool (key=, None value = auto-allow)
     tool_permissions: dict[str, dict[str, list[str]] | None] | None = None
 
 

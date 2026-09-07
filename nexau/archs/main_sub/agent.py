@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -17,8 +14,8 @@
 RFC-0006: Agent  neutral structured tool definitions
 
 Agent  structured  Tool / SubAgent  neutral
-structured definitions； provider-specific payload  LLMCaller 
- ``llm_config.api_type`` 。
+structured definitions;  provider-specific payload  LLMCaller 
+ ``llm_config.api_type`` . 
 """
 
 import asyncio
@@ -158,7 +155,7 @@ class Agent:
 
         # Session initialization: load storage and register agent
         if self.__class__._is_skip_sync_session_init():
-            # Agent.create() path: async init will be done after __init__ returns
+            # Agent.create path: async init will be done after __init__ returns
             self.global_storage = global_storage or GlobalStorage()
             self.agent_id = agent_id or f"pending_{uuid.uuid4().hex[:8]}"
         else:
@@ -177,11 +174,11 @@ class Agent:
         # YAML-created ones.
         self.exec_config = ExecutionConfig.from_agent_config(self.config)
 
-        # 1. RFC-0006:  Python / YAML  tool_call_mode ， legacy alias。
+        # 1. RFC-0006: Python / YAML tool_call_mode, legacy alias.
         self.tool_call_mode = normalize_tool_call_mode(self.exec_config.tool_call_mode)
         self.use_structured_tool_calls = self.tool_call_mode in STRUCTURED_TOOL_CALL_MODES
         if self.use_structured_tool_calls:
-            # 2. RFC-0006: structured provider  api_type ， tool_call_mode 。
+            # 2. RFC-0006: structured provider api_type, tool_call_mode .
             resolve_structured_provider_target(self.config.llm_config.api_type if self.config.llm_config else None)
 
         # Initialize services
@@ -189,8 +186,8 @@ class Agent:
         self.openai_client = openai_client if openai_client is not None else self._initialize_openai_client()
         self._async_openai_client = self._initialize_async_openai_client()
 
-        # OpenAI Responses API  prompt_cache_key， prompt 。
-        # agent  key（）， agent  key。
+        # OpenAI Responses API prompt_cache_key, prompt .
+        # agent key, agent key.
         if self.config.llm_config and self.config.llm_config.api_type == "openai_responses":
             if not self.config.llm_config.get_param("prompt_cache_key"):
                 cache_key = str(uuid.uuid4())
@@ -213,7 +210,7 @@ class Agent:
         if skill_tool is not None:
             skill_tools.append(skill_tool)
 
-        # RFC-0005:  ToolRegistry， deferred loading
+        # RFC-0005: ToolRegistry, deferred loading
         self._tool_registry = ToolRegistry()
         self._tool_registry.add_source("config", configured_tools)
         if mcp_tools:
@@ -221,8 +218,8 @@ class Agent:
         if skill_tools:
             self._tool_registry.add_source("builtin", skill_tools)
 
-        # RFC-0005:  deferred  ToolSearch 
-        # deferred  ToolSearch， payload 
+        # RFC-0005: deferred ToolSearch
+        # deferred ToolSearch, payload
         if self._tool_registry.deferred_count > 0:
             tool_search_tool = Tool.from_yaml(
                 str(nexau_package_path / "archs" / "tool" / "builtin" / "schemas" / "ToolSearch.tool.yaml"),
@@ -259,16 +256,16 @@ class Agent:
             agent_name=self.agent_name,
         )
 
-        # RFC-0009:  run  token trace session
+        # RFC-0009: run token trace session
         self._token_trace_session: TokenTraceSession | None = None
 
-        # RFC-0001:  run  context ， interrupt() 
+        # RFC-0001: run context, interrupt
         self._last_context: dict[str, Any] = {}
 
-        # RFC-0001:  _run_async_inner completed（ history ）
-        # asyncio.Event ，interrupt()  run_async 
+        # RFC-0001: _run_async_inner completed ( history )
+        # asyncio.Event, interrupt run_async
         self._run_complete: asyncio.Event = asyncio.Event()
-        self._run_complete.set()  # ：
+        self._run_complete.set()  # :
 
         # Queue for messages to be processed in the next execution cycle
         self.queued_messages: list[Message] = []
@@ -293,7 +290,7 @@ class Agent:
         team_state: "AgentTeamState | None" = None,
         sandbox_manager: "BaseSandboxManager[BaseSandbox] | None" = None,
     ) -> "Agent":
-        """Async factory for Agent — the preferred way to create agents from async code.
+        """Async factory for Agent - the preferred way to create agents from async code.
 
         Performs session initialization (DB models, agent registration, storage
         restore) natively on the running event loop, avoiding nest_asyncio and
@@ -306,22 +303,22 @@ class Agent:
 
         All parameters are identical to ``Agent.__init__``.
         """
-        # 1.  session_manager， _DEFERRED_INIT sentinel  sync init
+        # 1. session_manager, _DEFERRED_INIT sentinel sync init
         sm = session_manager
         if sm is None:
             default_engine = InMemoryDatabaseEngine.get_shared_instance()
             sm = SessionManager(engine=default_engine)
 
-        # 2. ： _skip_sync_init=True  __init__  sync session 
-        # __init__ ， object.__new__ + 
-        # ... 。： Agent（ transport ）
-        # create  async session init。
-        # ， running loop  Agent。
-        # ： __init__  async context  session init，
-        # create()  async init。
+        # 2.: _skip_sync_init=True __init__ sync session
+        # __init__, object.__new__ +
+        # ... .: Agent ( transport )
+        # create async session init.
+        # , running loop Agent.
+        # : __init__ async context session init
+        # create async init.
 
-        # __init__ ， thread-local flag 
-        # (:  Agent.create() )
+        # __init__, thread-local flag
+        # (: Agent.create )
         cls._create_flag.skip = True
         try:
             instance = cls(
@@ -340,7 +337,7 @@ class Agent:
         finally:
             cls._create_flag.skip = False
 
-        # 3. asynchronous execution session 
+        # 3. asynchronous execution session
         storage, resolved_agent_id = await instance._init_session_state_async(
             provided_storage=global_storage,
             proposed_agent_id=agent_id,
@@ -349,14 +346,14 @@ class Agent:
         instance.agent_id = resolved_agent_id
         instance.agent_name = instance.config.name or resolved_agent_id
 
-        # 3.5 P1 async/sync : async MCP 
-        # __init__  MCP （create_flag.skip=True），
-        # completed MCP 。
+        # 3.5 P1 async/sync: async MCP
+        # __init__ MCP (create_flag.skip=True)
+        # completed MCP .
         if instance.config.mcp_servers:
             mcp_tools = await instance._initialize_mcp_tools_async()
             if mcp_tools:
                 instance._tool_registry.add_source("mcp", mcp_tools)
-                # structured tool payload package MCP 
+                # structured tool payload package MCP
                 instance.executor.update_structured_tools(instance._build_tool_call_payload())
                 logger.info(
                     "Registered %d MCP tools via async init (total: %d eager, %d deferred)",
@@ -365,21 +362,21 @@ class Agent:
                     instance._tool_registry.deferred_count,
                 )
 
-        # 4.  agent_id/global_storage 
-        # Issue #431: （tracer + skill_registry ）
+        # 4. agent_id/global_storage
+        # Issue #431: (tracer + skill_registry )
         instance._reinject_transient_state()
         instance._rebuild_executor_with_resolved_id()
 
         return instance
 
-    # Sentinel for create() to skip sync session init in __init__
-    # Use threading.local to isolate concurrent Agent.create() calls across
-    # different threads.  Within a SINGLE thread (the common single-threaded
+    # Sentinel for create to skip sync session init in __init__
+    # Use threading.local to isolate concurrent Agent.create calls across
+    # different threads. Within a SINGLE thread (the common single-threaded
     # asyncio case), safety relies on the fact that there is NO await between
     # `skip = True` and `cls(...)`, so no other coroutine can observe the flag.
-    # ⚠️  INVARIANT: Do NOT insert any `await` between setting skip and the
-    #     cls(...) call — that would allow another coroutine in the same thread
-    #     to see the stale flag and skip its own session init.
+    # ⚠️ INVARIANT: Do NOT insert any `await` between setting skip and the
+    # cls(...) call - that would allow another coroutine in the same thread
+    # to see the stale flag and skip its own session init.
     _create_flag: threading.local = threading.local()
 
     @classmethod
@@ -441,7 +438,7 @@ class Agent:
         """Initialize session state synchronously.
 
         Uses asyncio.run() when no event loop is running (CLI, scripts, thread pool
-        workers). Raises RuntimeError if called from an async context — callers in
+        workers). Raises RuntimeError if called from an async context - callers in
         async code should use ``await Agent.create(...)`` instead.
         """
         from nexau.core.utils import get_running_loop_or_none
@@ -536,12 +533,12 @@ class Agent:
         """Re-inject non-serializable runtime state after storage swap.
 
         Issue #431: Agent.create()  session  storage  __init__ 
-         storage，。
-        method， key 。
+         storage, . 
+        method,  key . 
 
-        Note: skill_registry  AgentState（per-agent）， global_storage。
+        Note: skill_registry  AgentState (per-agent),  global_storage. 
         """
-        # 1.  tracer（）
+        # 1. tracer
         self._setup_tracer()
 
     @classmethod
@@ -620,8 +617,8 @@ class Agent:
     def _initialize_async_openai_client(self) -> Any:
         """Initialize async OpenAI/Anthropic client for native async LLM calls.
 
-        async/sync :  AsyncOpenAI / AsyncAnthropic ，
-         call_llm_async  await  to_thread 。
+        async/sync:  AsyncOpenAI / AsyncAnthropic, 
+         call_llm_async  await  to_thread . 
         """
         llm_config = self.config.llm_config or LLMConfig()
 
@@ -644,11 +641,11 @@ class Agent:
 
         P1 async/sync : async context  sync MCP 
 
-         Agent.create() （create_flag.skip=True），
-         sync MCP ，list。Agent.create() 
-         _initialize_mcp_tools_async() completed MCP 。
+         Agent.create()  (create_flag.skip=True), 
+         sync MCP, list. Agent.create() 
+         _initialize_mcp_tools_async() completed MCP . 
         """
-        # async factory path: defer MCP init to Agent.create()
+        # async factory path: defer MCP init to Agent.create
         if self.__class__._is_skip_sync_session_init():
             logger.info(
                 f"Deferring MCP tools initialization to async Agent.create() path ({len(self.config.mcp_servers)} servers configured)"
@@ -681,8 +678,8 @@ class Agent:
 
         P1 async/sync : async MCP 
 
-         Agent.create() ， async initialize_mcp_tools()，
-         MCP ， event loop。
+         Agent.create(),  async initialize_mcp_tools(), 
+         MCP,  event loop. 
         """
         try:
             from ..tool.builtin import initialize_mcp_tools
@@ -713,11 +710,11 @@ class Agent:
 
         RFC-0006: Agent  neutral structured definitions
 
-        structured ，Agent  Tool  neutral definitions；
-        provider-specific OpenAI / Anthropic / Gemini schema 。
+        structured, Agent  Tool  neutral definitions; 
+        provider-specific OpenAI / Anthropic / Gemini schema . 
 
-        RFC-0015: Agent  builtin tool  AgentConfig._finalize() ，
-        。
+        RFC-0015: Agent  builtin tool  AgentConfig._finalize(), 
+        . 
         """
 
         if not self.use_structured_tool_calls:
@@ -725,7 +722,7 @@ class Agent:
 
         tools_spec: list[StructuredToolDefinition] = []
 
-        # 1.  ToolRegistry  eager tool（ builtin / MCP / LoadSkill / ToolSearch / Agent）。
+        # 1. ToolRegistry eager tool ( builtin / MCP / LoadSkill / ToolSearch / Agent) .
         for tool in self._tool_registry.compute_eager_tools():
             tools_spec.append(
                 tool.to_structured_definition(
@@ -807,19 +804,19 @@ class Agent:
             merged_envs = {**sandbox_config.envs, **self._variables.sandbox_env}
             sandbox_config = sandbox_config.model_copy(update={"envs": merged_envs})
 
-        # typed config， typed property
+        # typed config, typed property
         self.config.sandbox_config = sandbox_config
 
-        # Local sandbox ，skill ，
+        # Local sandbox, skill
         self._is_local_sandbox = isinstance(sandbox_config, LocalSandboxConfig)
 
         if self._shared_sandbox_manager is not None:
-            # ： sandbox_manager（Team  caller-owned sub-agent ）
+            # : sandbox_manager (Team caller-owned sub-agent )
             self.sandbox_manager: BaseSandboxManager[BaseSandbox] = self._shared_sandbox_manager
             self._is_local_sandbox = isinstance(self.sandbox_manager, LocalSandboxManager)
-            # cleanup_manager， owner 
+            # cleanup_manager, owner
         else:
-            # ： sandbox_manager
+            # : sandbox_manager
             if isinstance(sandbox_config, E2BSandboxConfig):
                 self.sandbox_manager = E2BSandboxManager(
                     work_dir=sandbox_config.work_dir,
@@ -843,7 +840,7 @@ class Agent:
 
             cleanup_manager.register_sandbox_manager(self.sandbox_manager)
 
-        # sandbox  skill ；local sandbox ，
+        # sandbox skill ; local sandbox
         if not self._is_local_sandbox:
             upload_assets = self._build_skill_upload_assets()
             self.sandbox_manager.add_upload_assets(upload_assets)
@@ -870,7 +867,7 @@ class Agent:
         existing_skill_names: set[str] = set()
 
         for skill in self.config.skills:
-            # Local sandbox ，； sandbox  sandbox 
+            # Local sandbox, ; sandbox sandbox
             if skill.folder and not self._is_local_sandbox:
                 sandbox_folder = self._sandbox_skill_folder(skill.folder)
             else:
@@ -1019,21 +1016,20 @@ class Agent:
         Args:
             run_id: Run ID for this execution (generated by run_async)
         """
-        # #601 :(>20MiB  / >60MP)
-        # 、 history —— errorretry,
-        # omit 。
-        # ()。
+        # #601:(>20MiB / >60MP)
+        # , history -- errorretry
+        # omit .
         if isinstance(message, list):
             ensure_inbound_images_within_limits(message)
 
-        # RFC-0001:  run ，interrupt() 
+        # RFC-0001: run, interrupt
         self._run_complete.clear()
 
-        # async/sync : lazy re-init async client（ run  close）
+        # async/sync: lazy re-init async client ( run close)
         if self.executor.llm_caller.async_openai_client is None:
             self.executor.llm_caller.async_openai_client = self._initialize_async_openai_client()
 
-        # RFC-0019:  —  run
+        # RFC-0019: - run
         pending = await self._session_manager.get_pending_tool_calls(
             user_id=self._user_id,
             session_id=self._session_id,
@@ -1086,10 +1082,10 @@ class Agent:
         if effective_variables and effective_variables.sandbox_env:
             sandbox_instance = self.sandbox_manager.instance
             if sandbox_instance is not None:
-                # Sandbox already created — update its envs directly
+                # Sandbox already created - update its envs directly
                 sandbox_instance.envs = {**sandbox_instance.envs, **effective_variables.sandbox_env}
             else:
-                # Sandbox not yet created — update the stored session context
+                # Sandbox not yet created - update the stored session context
                 # so envs are included when the sandbox is lazily initialized
                 ctx_data = self.sandbox_manager.session_context
                 if ctx_data:
@@ -1121,7 +1117,7 @@ class Agent:
 
         # Create agent context
         with AgentContext(context=merged_context) as ctx:
-            # RFC-0001:  context ， interrupt() 
+            # RFC-0001: context, interrupt
             self._last_context = ctx.context
             runtime_client = self.openai_client
             if custom_llm_client_provider:
@@ -1232,14 +1228,12 @@ class Agent:
             # iter loop runs. Previously the user_message was only persisted as
             # part of the end-of-run batch APPEND, so any crash / OOM / network
             # failure during iter would lose the user's submission entirely
-            # — the playground UI's optimistic write was the only surviving
+            # - the playground UI's optimistic write was the only surviving
             # record (see parity scan findings).
-            #
             # Now: APPEND([user_message]) lands immediately. Subsequent iters
             # add their messages to ``_pending`` and the per-iter flush below
             # (see executor.py async iter loop) catches them at iter
             # boundaries. End-of-run flush remains as the final safety net.
-            #
             # Net cost: 2+ INSERTs per turn instead of 1, but each is a small
             # single-message payload and the user-visibility win pays for it
             # many times over (was the #1 source of UI/SDK drift in our
@@ -1248,16 +1242,14 @@ class Agent:
 
             # RFC-0022 Phase 2: write RUN_START lifecycle marker right after
             # the triggering user message lands in history. Class A
-            # (Reader-NOOP) — fold output unchanged. The marker carries
+            # (Reader-NOOP) - fold output unchanged. The marker carries
             # `run_id` + `created_at_ns` + `parent_run_id`, which is all
             # the call-tree boundary info current consumers need; trace_id
             # is wired separately (RFC-0024).
-            #
             # Both root and sub-agent runs write their own RUN_START.
-            #
             # RFC-0024: trace_id is an opaque caller-supplied W3C string;
             # nexau never auto-derives it (OTel global / ContextVar / env)
-            # because callers' observability stacks differ — see RFC-0024 §3
+            # because callers' observability stacks differ - see RFC-0024 §3
             # for the NAC vs xiaobei (isolated SdkTracerProvider) case.
             # Sub-agents inherit it explicitly via the
             # ``call_sub_agent(trace_id=...)`` chain
@@ -1273,15 +1265,15 @@ class Agent:
                 trace_id=trace_id,
             )
 
-            # RFC-0009:  token trace session， run 
+            # RFC-0009: token trace session, run
             if self.config.llm_config and self.config.llm_config.api_type == "generate_with_token" and self._token_trace_session is None:
                 self._token_trace_session = TokenTraceSession(self.config.llm_config)
 
             # Create the AgentState instance
-            # 1： sandbox_manager  AgentState， sandbox 
-            # 2：AgentState.get_sandbox()  sandbox 
-            # 3： asyncio 
-            # 4：sandbox 
+            # 1: sandbox_manager AgentState, sandbox
+            # 2: AgentState.get_sandbox sandbox
+            # 3: asyncio
+            # 4: sandbox
             sandbox_mgr = self.sandbox_manager
             agent_state = AgentState(
                 agent_name=self.agent_name,
@@ -1300,7 +1292,7 @@ class Agent:
                 skill_registry=self.skill_registry,
             )
 
-            # RFC-0019: Resume — 
+            # RFC-0019: Resume -
             if pending and all(v.get("decision") is not None for v in pending.values()):
                 from nexau.archs.main_sub.framework_context import FrameworkContext
 
@@ -1346,13 +1338,13 @@ class Agent:
                 if self.executor.stop_signal:
                     run_status = "cancelled"
 
-                # stop_signal  stop() ，run_async 
+                # stop_signal stop, run_async
                 if not self.executor.stop_signal:
                     await self._persist_session_state(ctx.context)
 
                 # Handle sandbox lifecycle after agent execution.
-                # sandbox  AgentTeam ；sub-agent  sandbox 
-                # caller/root agent ， sub-agent completed keepalive。
+                # sandbox AgentTeam ; sub-agent sandbox
+                # caller/root agent, sub-agent completed keepalive.
                 if self._shared_sandbox_manager is None and self._is_root:
                     self.sandbox_manager.on_run_complete()
 
@@ -1377,7 +1369,7 @@ class Agent:
                 run_reason = f"{type(e).__name__}: {str(e)[:200]}"
                 # RFC-0001: exception session state
                 try:
-                    # stop_signal  stop() ，run_async 
+                    # stop_signal stop, run_async
                     if not self.executor.stop_signal:
                         await self._persist_session_state(ctx.context)
                 except Exception:
@@ -1387,25 +1379,23 @@ class Agent:
 
             finally:
                 # RFC-0022 Phase 2: write RUN_END marker before everything else.
-                # persist_run_end is idempotent (run_id:end key) and never raises,
+                # persist_run_end is idempotent (run_id:end key) and never raises
                 # so safe to call from finally even if the run was already torn
-                # down by the caller. Class A (Reader-NOOP) — fold output unchanged.
-                #
+                # down by the caller. Class A (Reader-NOOP) - fold output unchanged.
                 # Cancellation hardening: when the run is cancelled (RFC-0001
                 # client-disconnect-stop, agent.stop(force=True), parent task
                 # cancellation), the current task is in a cancelled state and
                 # any bare ``await`` in finally re-raises CancelledError
-                # *before* the awaited coroutine starts executing — so the
+                # *before* the awaited coroutine starts executing - so the
                 # RUN_END row never lands. Wrap in ``asyncio.shield`` so the
                 # persist call gets a chance to complete even on the
                 # cancellation path. We then re-await with a small timeout to
                 # cap unbounded wait if shield itself is also cancelled.
-                #
-                # If both layers are cancelled (extreme: pod kill mid-shield),
-                # the read-side ``load_messages`` falls back to "no RUN_END,
-                # treat as in_progress" — graceful degradation, no broken
+                # If both layers are cancelled (extreme: pod kill mid-shield)
+                # the read-side ``load_messages`` falls back to "no RUN_END
+                # treat as in_progress" - graceful degradation, no broken
                 # state. Real fix for that case is at the read-side bandaid
-                # (mirror of the orphan tool_use synthesis) — separate issue.
+                # (mirror of the orphan tool_use synthesis) - separate issue.
                 try:
                     persist_coro = self._session_manager.agent_run_action.persist_run_end(
                         key=history_key,
@@ -1425,7 +1415,7 @@ class Agent:
                     # The shielded coro keeps running on the loop; we just
                     # can't await its completion. Re-raise so the caller still
                     # sees cancellation. RUN_END will land slightly after
-                    # the agent task ends — acceptable race.
+                    # the agent task ends - acceptable race.
                     raise
                 except TimeoutError:
                     logger.warning(
@@ -1439,10 +1429,10 @@ class Agent:
                     # mask the original exception (if any) bubbling out of try.
                     logger.warning("RUN_END persist failed (ignored): %s", exc)
 
-                # async/sync :  async LLM client  event loop 
-                # httpx.AsyncClient.__del__ 。 run  lazy re-init 。
+                # async/sync: async LLM client event loop
+                # httpx.AsyncClient.__del__ . run lazy re-init .
                 await self._close_async_llm_client()
-                # RFC-0001:  run completed， interrupt() 
+                # RFC-0001: run completed, interrupt
                 self._run_complete.set()
 
     def run(
@@ -1462,9 +1452,9 @@ class Agent:
 
         P1 async/sync :  syncify 
 
-         sync （CLI、）。async  run_async()。
-         asyncio.run()  run_async()， syncify 
-         BlockingPortal 。
+         sync  (CLI, ) . async  run_async(). 
+         asyncio.run()  run_async(),  syncify 
+         BlockingPortal . 
 
         Args:
             message: User message or list of messages
@@ -1555,8 +1545,8 @@ class Agent:
 
         RFC-0001: 
 
-        finally 、Exception  CancelledError，
-         flush 。
+        finally, Exception  CancelledError, 
+         flush . 
         """
         try:
             response, updated_messages = await self.executor.execute_async(
@@ -1593,22 +1583,21 @@ class Agent:
             # Errors are NOT persisted into history. Previously this branch
             # appended ``Message.assistant(error_text)`` rows, but those rows:
             # (1) carry no ReasoningBlock, which DeepSeek-style providers reject
-            #     when the resumed history is sent back ("assistant must have
-            #     thinking") — bricks the session forever.
-            # (2) corrupt model context generally — every subsequent turn sees
-            #     "I previously replied with a stack trace" and produces
-            #     nonsense follow-ups regardless of provider.
-            #
+            # when the resumed history is sent back ("assistant must have
+            # thinking") - bricks the session forever.
+            # (2) corrupt model context generally - every subsequent turn sees
+            # "I previously replied with a stack trace" and produces
+            # nonsense follow-ups regardless of provider.
             # Errors are still observed:
             # - Logged at ERROR level above by ``logger.debug``-equivalent
-            #   exception logging upstream.
+            # exception logging upstream.
             # - Captured in Langfuse: every LLM call is wrapped in
-            #   ``TraceContext(...)``; ``__exit__`` forwards the exception
-            #   to ``langfuse_adapter.end_span(error=...)``, which sets
-            #   ``level=ERROR`` + ``status_message=str(error)`` on the span.
+            # ``TraceContext(...)``; ``__exit__`` forwards the exception
+            # to ``langfuse_adapter.end_span(error=...)``, which sets
+            # ``level=ERROR`` + ``status_message=str(error)`` on the span.
             # - The error_handler callback (if configured) still fires and
-            #   its return value is returned to the caller — that's the
-            #   appropriate channel for surfacing errors to user code.
+            # its return value is returned to the caller - that's the
+            # appropriate channel for surfacing errors to user code.
             if self.config.error_handler:
                 error_response = self.config.error_handler(e, self, merged_context)
                 # Flush whatever was already in history before the failure
@@ -1620,12 +1609,12 @@ class Agent:
                 self.history.flush()
                 raise
         finally:
-            # RFC-0001: 、exceptioncancel， flush 
-            # CancelledError (BaseException)  except Exception ，
-            # finally  flush 
-            # :  flush()， has_pending_messages，
-            # team_mode  executor  replace_all  _pending_messages，
-            # flush()  fingerprint 。
+            # RFC-0001: exceptioncancel, flush
+            # CancelledError (BaseException) except Exception
+            # finally flush
+            # : flush, has_pending_messages
+            # team_mode executor replace_all _pending_messages
+            # flush fingerprint .
             try:
                 self.history.flush()
             except Exception:
@@ -1640,8 +1629,8 @@ class Agent:
 
         RFC-0019: interface
 
-         pending_tool_calls  tool_call  decision 。
-         decision  "allow"， permission_key  allow 。
+         pending_tool_calls  tool_call  decision . 
+         decision  "allow",  permission_key  allow . 
 
         Args:
             tool_call_id: The tool_call_id to resolve
@@ -1657,7 +1646,7 @@ class Agent:
         entry = pending[tool_call_id]
         entry["decision"] = decision
 
-        # "allow" →  DB， key 
+        # "allow" → DB, key
         if decision == "allow":
             await self._session_manager.save_permission_rule(
                 user_id=self._user_id,
@@ -1684,10 +1673,10 @@ class Agent:
 
         RFC-0019: Resume 
 
-         pending entries：
+         pending entries: 
         - allow / allow_once →  tool
         - deny →  denial ToolResult
-         pending_tool_calls。
+         pending_tool_calls. 
         """
         from nexau.archs.main_sub.framework_context import FrameworkContext
         from nexau.core.messages import ToolResultBlock, coerce_tool_result_content
@@ -1721,7 +1710,7 @@ class Agent:
                     )
                     self.history.append(Message(role=Role.TOOL, content=[tool_result_block]))
                 else:
-                    # per-tool-call context：allow_once  permission_key
+                    # per-tool-call context: allow_once permission_key
                     permission_key = entry.get("permission_key", "")
                     if decision == "allow_once":
                         tool_ctx: FrameworkContext = framework_context.for_tool_call(
@@ -1730,7 +1719,7 @@ class Agent:
                             deny_rules=[],
                         )
                     else:
-                        # allow →  DB， ["**"] 
+                        # allow → DB, ["**"]
                         tool_ctx = framework_context.for_tool_call(
                             tool_name=tool_name,
                             allow_rules=["**"],
@@ -1743,7 +1732,7 @@ class Agent:
                         exec_params["sandbox"] = agent_state.get_sandbox()
                         exec_params["ctx"] = tool_ctx
 
-                        # MCPTool  async  async 
+                        # MCPTool async async
                         if getattr(tool_obj, "_has_native_async_execute", False):
                             result = await tool_obj.execute_async(**exec_params)
                         else:
@@ -1766,7 +1755,7 @@ class Agent:
                         self.history.append(Message(role=Role.TOOL, content=[tool_result_block]))
 
             entry["consumed"] = True
-            # RFC-0019:  tool  consumed ，
+            # RFC-0019: tool consumed
             await self._session_manager.update_pending_tool_calls(
                 user_id=self._user_id,
                 session_id=self._session_id,
@@ -1825,7 +1814,7 @@ class Agent:
     def sync_cleanup(self, *, _from_del: bool = False) -> None:
         """Synchronous cleanup for __del__ and other sync contexts.
 
-        #495: Flush and shutdown tracer on exit to prevent losing buffered trace data.
+        # 495: Flush and shutdown tracer on exit to prevent losing buffered trace data.
 
         Args:
             _from_del: Internal flag. True when called from __del__ to skip
@@ -1856,13 +1845,13 @@ class Agent:
 
         RFC-0001: Agent 
 
-        interface， force 。
-         force value， session state。
+        interface,  force . 
+         force value,  session state. 
 
         Args:
-            force: True （completed），
-                   False （）
-            timeout: completed（ force=False ）
+            force: True  (completed), 
+                   False  () 
+            timeout: completed ( force=False ) 
 
         Returns:
             StopResult package
@@ -1873,8 +1862,8 @@ class Agent:
         """Close the async LLM client to prevent httpx.__del__ crashes.
 
         async/sync :  event loop  AsyncOpenAI /
-        AsyncAnthropic  httpx.AsyncClient， GC  event loop
-         __del__ → RuntimeError('Event loop is closed')。
+        AsyncAnthropic  httpx.AsyncClient,  GC  event loop
+         __del__ → RuntimeError('Event loop is closed'). 
         """
         client = self.executor.llm_caller.async_openai_client
         if client is not None:
@@ -1890,40 +1879,40 @@ class Agent:
         RFC-0001: Agent 
 
         Args:
-            force: True ，False 
-            timeout: completed（ force=False ）
+            force: True, False 
+            timeout: completed ( force=False ) 
 
         Returns:
             StopResult package
         """
         logger.info(f"🛑 Stopping agent '{self.config.name}' (force={force})...")
 
-        # 1.  executor；force_stop  running sub-agents，
-        # graceful  executor 、 timeout  cleanup。
+        # 1. executor; force_stop running sub-agents
+        # graceful executor, timeout cleanup.
         self.executor.force_stop()
 
         if force:
-            # 2a. ： executor
+            # 2a.: executor
             self.executor.cleanup()
         else:
-            # 2b. ：（timeout）
+            # 2b.: (timeout)
             await self._wait_for_execution_complete(timeout=timeout)
 
-            # 3.  _run_async_inner completed history 
-            # execute() ，_run_inner  messages  self.history
+            # 3. _run_async_inner completed history
+            # execute, _run_inner messages self.history
             try:
                 await asyncio.wait_for(self._run_complete.wait(), timeout=5.0)
             except TimeoutError:
                 logger.warning("Timed out waiting for run to complete after execute() finished")
 
-        # 4.  flush 
+        # 4. flush
         try:
             if self.history.has_pending_messages:
                 self.history.flush()
         except Exception as e:
             logger.warning(f"Failed to flush history during stop: {e}")
 
-        # 5.  session state
+        # 5. session state
         try:
             await self._persist_session_state(
                 self._last_context if hasattr(self, "_last_context") else {},
@@ -1934,7 +1923,7 @@ class Agent:
 
         logger.info(f"✅ Agent '{self.config.name}' stopped successfully")
 
-        # async/sync : stop  async client
+        # async/sync: stop async client
         await self._close_async_llm_client()
 
         return StopResult(
@@ -1947,23 +1936,23 @@ class Agent:
 
         RFC-0001: 
 
-         executor._execution_done 。
-        stop_signal ，execute() ，
-         _execution_done  set，wait() 。
+         executor._execution_done . 
+        stop_signal, execute(), 
+         _execution_done  set, wait() . 
 
         Args:
             timeout: 
         """
-        # execute() ，
+        # execute
         if not self.executor.is_executing:
             return
 
-        # _execution_done  set（）
+        # _execution_done set
         event = self.executor.execution_done_event
         completed = await asyncio.to_thread(event.wait, timeout)
 
         if not completed:
-            # timeout：
+            # timeout:
             logger.warning(
                 f"Interrupt timeout ({timeout}s) reached for agent '{self.agent_name} id {self.agent_id}', performing hard cleanup",
             )

@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -22,9 +19,9 @@ from typing import Any
 class LLMConfig:
     """Configuration class for LLM-related parameters."""
 
-    # default idle timeout 5 （ Codex stream_idle_timeout ）
+    # default idle timeout 5 ( Codex stream_idle_timeout )
     DEFAULT_STREAM_IDLE_TIMEOUT_MS: int = 300_000
-    # defaulttimeout 15 （ Codex websocket_connect_timeout ）
+    # defaulttimeout 15 ( Codex websocket_connect_timeout )
     DEFAULT_CONNECT_TIMEOUT_MS: int = 15_000
 
     def __init__(
@@ -69,8 +66,8 @@ class LLMConfig:
             debug: Enable debug logging of LLM messages
             stream: Enable streaming responses when supported by backend
             api_type: API type
-            tokenizer_path: HuggingFace tokenizer ， "meta-llama/Llama-3.1-8B-Instruct"。
-                 api_type="generate_with_token" ， AutoTokenizer.from_pretrained 。
+            tokenizer_path: HuggingFace tokenizer,  "meta-llama/Llama-3.1-8B-Instruct". 
+                 api_type="generate_with_token",  AutoTokenizer.from_pretrained . 
             stream_idle_timeout_ms: Per-chunk idle timeout in ms for streaming responses.
                 If no chunk arrives within this duration, the stream is aborted.
                 None → DEFAULT_STREAM_IDLE_TIMEOUT_MS (300_000ms = 5 min).
@@ -111,7 +108,7 @@ class LLMConfig:
         self.tool_streaming = tool_streaming
         self.allow_unsigned_thinking = allow_unsigned_thinking
 
-        # tool_streaming  Anthropic
+        # tool_streaming Anthropic
         if tool_streaming is not True and api_type != "anthropic_chat_completion":
             raise ValueError("tool_streaming is only supported for api_type='anthropic_chat_completion'")
 
@@ -216,9 +213,9 @@ class LLMConfig:
     def to_client_kwargs(self) -> dict[str, Any]:
         """Convert to OpenAI/Anthropic client initialization kwargs.
 
-        stream_idle_timeout_ms → httpx read timeout，timeouttimeout。
-        connect_timeout_ms → httpx connect timeout。
-         httpx.Timeout  SDK。
+        stream_idle_timeout_ms → httpx read timeout, timeouttimeout. 
+        connect_timeout_ms → httpx connect timeout. 
+         httpx.Timeout  SDK. 
         """
         import httpx as _httpx
 
@@ -231,7 +228,7 @@ class LLMConfig:
         if self.max_retries:
             kwargs["max_retries"] = self.max_retries
 
-        # httpx.Timeout：read  stream_idle_timeout，connect  connect_timeout
+        # httpx.Timeout: read stream_idle_timeout, connect connect_timeout
         connect = self.get_connect_timeout()
         read = self.get_stream_idle_timeout()
         total = self.timeout if self.timeout else None

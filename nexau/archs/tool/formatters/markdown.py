@@ -23,15 +23,15 @@ def format_tool_output_as_markdown(context: ToolFormatterContext) -> object:
 
     RFC-0017: default Markdown formatter
 
-    1. string，package
-    2.  / multimodal  Markdown，
+    1. string, package
+    2.  / multimodal  Markdown, 
     3.  Dict / List /  Markdown 
     """
 
     sanitized_output = _strip_display_only_fields(context.tool_output)
-    # RFC-0017: 。
-    # returnDisplay key，value LLM，
-    # Markdown ； multimodal/image value。
+    # RFC-0017: .
+    # returnDisplay key, value LLM
+    # Markdown ; multimodal/image value.
     direct_content = _unwrap_single_content_field(sanitized_output)
     if direct_content is not None:
         return direct_content
@@ -51,7 +51,7 @@ def _unwrap_single_content_field(value: object) -> object | None:
     RFC-0017: 
 
      display-only  ``{"content": ...}`` 
-    ``{"result": ...}`` ，value， Markdown 。
+    ``{"result": ...}``, value,  Markdown . 
     """
 
     if not isinstance(value, dict):

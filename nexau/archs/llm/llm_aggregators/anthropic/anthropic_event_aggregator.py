@@ -14,7 +14,7 @@ emission logic requires:
    type), record a fixture via
    ``tests/aggregator_parity/scripts/record_fixture.py``.
 3. If parity surfaces a divergence, fix the buggy side rather than
-   xfail — real Set A↔Set B drift = real production bug visible to
+   xfail - real Set A↔Set B drift = real production bug visible to
    end users (live SSE vs persisted history).
 
 See ``tests/aggregator_parity/README.md`` for the full protocol.
@@ -108,7 +108,7 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
         self._tool_ended: dict[int, bool] = {}
         # Thinking state per index
         self._thinking_ids: dict[int, str] = {}
-        # Per-thinking-block metadata (RFC-0023 § ②) — captured during
+        # Per-thinking-block metadata (RFC-0023 § ②) - captured during
         # the stream, attached to ThinkingTextMessageEndEvent at block close.
         self._thinking_signatures: dict[int, str] = {}
         self._thinking_redacted_data: dict[int, str] = {}
@@ -116,11 +116,11 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
         # Buffer for input_json_delta fragments that arrive before content_block_start.
         # key = content-block index, value = list of non-empty partial_json strings.
         self._pending_tool_deltas: dict[int, list[str]] = {}
-        # Per-call metadata (RFC-0023 § ②) — captured across the stream,
+        # Per-call metadata (RFC-0023 § ②) - captured across the stream
         # emitted as a single ModelCallFinishedEvent at message_stop.
         self._model_name: str | None = None
         self._model_call_id: str | None = None
-        # Keep SDK's narrow Literal type — assigned only from
+        # Keep SDK's narrow Literal type - assigned only from
         # ``RawMessageDeltaEvent.delta.stop_reason`` which IS this type, so
         # the constructor below needs no cast and stays type-safe.
         self._stop_reason: StopReason | None = None
@@ -130,13 +130,12 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
         # in place (Pydantic v2 BaseModels are mutable), which keeps the
         # type strict as ``Usage`` instead of falling back to a dict.
         self._usage: AnthropicUsage | None = None
-        # Per-block content accumulators for ``build() -> Message`` (RFC-0023
-        # § ③). Each entry is a strict SDK block type — pydantic v2
+        # Per-block content accumulators for ``build -> Message`` (RFC-0023
+        # § ③). Each entry is a strict SDK block type - pydantic v2
         # BaseModels are mutable so we can update fields as deltas arrive
         # without intermediate ``dict[str, object]`` plumbing. Mirrors the
         # OpenAI Chat aggregator's pattern of storing ``ChatCompletionChoice``
         # directly and mutating it in place.
-        #
         # Index reuse (e.g. thinking + tool both at idx 0 in
         # rec_single_tool_call) is preserved because each block is sealed at
         # its own content_block_stop and appended to the ordered list before
@@ -169,7 +168,7 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
     def build(self) -> AnthropicMessage:
         """Construct the final Anthropic Message from accumulated stream state.
 
-        RFC-0023 § ③ — Set A becomes the canonical aggregator. The
+        RFC-0023 § ③ - Set A becomes the canonical aggregator. The
         returned object is a strict ``anthropic.types.Message``; downstream
         code that wants a unified ``ModelResponse`` calls
         ``ModelResponse.from_anthropic_message(aggregator.build())``.
@@ -217,7 +216,7 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
         if not buffer:
             return {}
         # Type ``parsed`` as ``object`` so mypy/pyright treat narrowing
-        # strictly — ``json.loads`` would otherwise propagate ``Any`` and
+        # strictly - ``json.loads`` would otherwise propagate ``Any`` and
         # poison downstream type inference.
         parsed: object
         try:
@@ -313,7 +312,7 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
             # field. MessageDeltaUsage's fields overlap Usage but are a strict
             # subset, so we copy through any non-None values.
             if self._usage is None:
-                # No message_start usage seen — synthesize a fresh Usage with
+                # No message_start usage seen - synthesize a fresh Usage with
                 # zero input tokens and the delta-supplied output tokens.
                 self._usage = AnthropicUsage(input_tokens=0, output_tokens=event.usage.output_tokens or 0)
             else:
@@ -399,7 +398,7 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
                     input={},
                 )
             case AnthropicServerToolUseBlock():
-                # （web_search、code_execution ） id/name interface
+                # (web_search, code_execution ) id/name interface
                 self._register_tool_and_flush(idx, block.id, block.name)
                 self._active_payloads[idx] = block.model_copy()
             case AnthropicThinkingBlock():
@@ -423,9 +422,9 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
                     )
                 )
             case AnthropicRedactedThinkingBlock():
-                # Opaque encrypted-thinking block. Synthesize a thinking_id,
+                # Opaque encrypted-thinking block. Synthesize a thinking_id
                 # mark redacted, capture the data; consumers don't expect
-                # ContentEvents — only Start (is_redacted=True) and End
+                # ContentEvents - only Start (is_redacted=True) and End
                 # (with redacted_data set).
                 thinking_id = str(uuid.uuid4())
                 self._thinking_ids[idx] = thinking_id
@@ -436,7 +435,7 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
                 )
                 if block.data:
                     self._thinking_redacted_data[idx] = block.data
-                # Re-tag for the stop handler — RedactedThinkingBlock.type is
+                # Re-tag for the stop handler - RedactedThinkingBlock.type is
                 # "redacted_thinking" but our close path keys on "thinking".
                 self._block_types[idx] = "thinking"
                 self._on_event(
@@ -461,8 +460,8 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
                 # Mark this index as a text block (covers the case where the
                 # corresponding content_block_start hasn't been processed yet).
                 self._block_types.setdefault(idx, "text")
-                # Retain content for build() (RFC-0023 § ③). Mutate the
-                # SDK TextBlock in place — pre-allocated here if the start
+                # Retain content for build (RFC-0023 § ③). Mutate the
+                # SDK TextBlock in place - pre-allocated here if the start
                 # event hasn't been processed.
                 existing = self._active_payloads.get(idx)
                 if isinstance(existing, AnthropicTextBlock):
@@ -481,7 +480,7 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
                     return
                 tool_id = self._tool_ids.get(idx, "")
                 if tool_id:
-                    # ：content_block_start ，
+                    # : content_block_start
                     self._tool_args[idx] = self._tool_args.get(idx, "") + fragment
                     self._on_event(
                         ToolCallArgsEvent(
@@ -491,8 +490,8 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
                         )
                     )
                 else:
-                    # eager_input_streaming  delta  content_block_start ，
-                    # ， start  ID  flush。
+                    # eager_input_streaming delta content_block_start
+                    # , start ID flush.
                     self._pending_tool_deltas.setdefault(idx, []).append(fragment)
             case ThinkingDelta(thinking=thinking):
                 if not thinking:
@@ -501,7 +500,7 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
                 if not thinking_id:
                     # Eager streaming / wire pathology: thinking_delta arrived
                     # before any content_block_start. Mirror Set B's
-                    # AnthropicStreamAggregator behavior — lazily synthesize a
+                    # AnthropicStreamAggregator behavior - lazily synthesize a
                     # thinking block here so the delta isn't silently dropped.
                     # Same pattern as InputJSONDelta's _pending_tool_deltas
                     # buffering, but for thinking we don't need to buffer
@@ -517,7 +516,7 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
                             timestamp=self._ts(),
                         )
                     )
-                # Retain content for build() — mutate the SDK ThinkingBlock
+                # Retain content for build - mutate the SDK ThinkingBlock
                 # in place; pre-allocate if start event hasn't run yet.
                 existing = self._active_payloads.get(idx)
                 if isinstance(existing, AnthropicThinkingBlock):
@@ -560,14 +559,14 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
         idx = event.index
         block_type = self._block_types.get(idx)
 
-        # 1.  content_block_start  →  ID 
+        # 1. content_block_start → ID
         if idx in self._pending_tool_deltas:
             self._flush_pending_with_synthetic(idx)
-            # tool ，
+            # tool
 
         if block_type in {"tool_use", "server_tool_use"} or (block_type is None and idx in self._tool_ids):
-            # tool_use / server_tool_use ；
-            # block_type  None  content_block_start  delta 。
+            # tool_use / server_tool_use ;
+            # block_type None content_block_start delta .
             tool_id = self._tool_ids.get(idx)
             if not tool_id:
                 _logger.warning("Received content_block_stop for unknown tool at index %d", idx)
@@ -594,8 +593,8 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
                 )
             )
 
-        # Seal the in-flight payload (RFC-0023 § ③) — this finalizes
-        # the block for build(). If the block is a tool, the input JSON
+        # Seal the in-flight payload (RFC-0023 § ③) - this finalizes
+        # the block for build. If the block is a tool, the input JSON
         # gets parsed here.
         self._seal_active_payload(idx)
 
@@ -627,7 +626,7 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
                         timestamp=self._ts(),
                     )
                 )
-        # Flush any active payloads that didn't see content_block_stop —
+        # Flush any active payloads that didn't see content_block_stop -
         # truncated streams (max_tokens, network cut) leave blocks in-flight.
         for idx in list(self._active_payloads):
             self._seal_active_payload(idx)
@@ -638,7 +637,7 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
                 timestamp=self._ts(),
             )
         )
-        # RFC-0023 § ② — emit per-call metadata as the closing event so
+        # RFC-0023 § ② - emit per-call metadata as the closing event so
         # consumers (parity tests, agent_events_middleware) get model_name /
         # stop_reason / model_call_id without peeking at Set B's ModelResponse.
         # Token usage is owned by ``UsageUpdateEvent`` (canonical TokenUsage).

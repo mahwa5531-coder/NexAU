@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -61,9 +58,9 @@ from .base_sandbox import (
 
 logger = logging.getLogger(__name__)
 
-# get_file_info (64KB):,
-# metadata  O()  IO/(21MB )。
-# E2BSandbox 。
+# get_file_info (64KB):
+# metadata O IO/(21MB ).
+# E2BSandbox .
 _ENCODING_PROBE_MAX_BYTES = 64 * 1024
 
 
@@ -329,12 +326,12 @@ class LocalSandbox(BaseSandbox):
         timeout_seconds = timeout / 1000.0
 
         try:
-            # 1.  shell backend （ heredoc  / PowerShell ）
+            # 1. shell backend ( heredoc / PowerShell )
             command = self.prepare_shell_command(command)
             launch_config = self._shell_backend.build_launch_config(command)
 
             if background:
-                # 1. ，stdout/stderr 
+                # 1., stdout/stderr
                 output_dir = self._prepare_output_dir(command)
                 stdout_path = f"{output_dir}/stdout.txt"
                 stderr_path = f"{output_dir}/stderr.txt"
@@ -376,7 +373,6 @@ class LocalSandbox(BaseSandbox):
                     except Exception as exc:
                         info["error"] = str(exc)
                     finally:
-                        # ，
                         for f in (info.get("stdout_file"), info.get("stderr_file")):
                             if f:
                                 try:
@@ -406,7 +402,7 @@ class LocalSandbox(BaseSandbox):
                     stderr_file=f"{output_dir}/stderr.txt" if output_dir else None,
                 )
 
-            # Foreground mode:  stdout/stderr 
+            # Foreground mode: stdout/stderr
             output_dir = self._prepare_output_dir(command)
             stdout_path = f"{output_dir}/stdout.txt"
             stderr_path = f"{output_dir}/stderr.txt"
@@ -437,7 +433,6 @@ class LocalSandbox(BaseSandbox):
                     stdout_raw = Path(stdout_path).read_bytes().decode("utf-8", errors="replace")
                     stderr_raw = Path(stderr_path).read_bytes().decode("utf-8", errors="replace")
 
-                    # 
                     t_stdout, t_stderr, was_truncated, o_out, o_err = smart_truncate_output(
                         stdout_raw,
                         stderr_raw,
@@ -462,7 +457,6 @@ class LocalSandbox(BaseSandbox):
                         stderr_file=f"{output_dir}/stderr.txt" if output_dir else None,
                     )
             finally:
-                # （）
                 if not fout.closed:
                     fout.close()
                 if not ferr.closed:
@@ -470,11 +464,9 @@ class LocalSandbox(BaseSandbox):
 
             duration_ms = int((time.time() - start_time) * 1000)
 
-            # 
             stdout_raw = Path(stdout_path).read_bytes().decode("utf-8", errors="replace")
             stderr_raw = Path(stderr_path).read_bytes().decode("utf-8", errors="replace")
 
-            # 
             t_stdout, t_stderr, was_truncated, orig_stdout_len, orig_stderr_len = smart_truncate_output(
                 stdout_raw,
                 stderr_raw,
@@ -537,7 +529,7 @@ class LocalSandbox(BaseSandbox):
         """
         Get the status and output of a background task.
 
-         output_dir  stdout.txt / stderr.txt （ OS ）。
+         output_dir  stdout.txt / stderr.txt  ( OS ) . 
 
         Args:
             pid: The process ID of the background task
@@ -557,7 +549,6 @@ class LocalSandbox(BaseSandbox):
         duration_ms = int((time.time() - task_info["start_time"]) * 1000)
         output_dir: str | None = task_info.get("std_output_dir")
 
-        # （）
         stdout = ""
         stderr = ""
         if output_dir:
@@ -570,7 +561,6 @@ class LocalSandbox(BaseSandbox):
             except Exception:
                 pass
 
-        # 
         if output_dir:
             t_stdout, t_stderr, was_truncated, o_out, o_err = smart_truncate_output(
                 stdout,
@@ -641,14 +631,14 @@ class LocalSandbox(BaseSandbox):
 
         try:
             self._graceful_kill(process)
-            # （ _wait_process ）
+            # ( _wait_process )
             for f in (task_info.get("stdout_file"), task_info.get("stderr_file")):
                 if f and not f.closed:
                     try:
                         f.close()
                     except Exception:
                         pass
-            # wait_thread 
+            # wait_thread
             t = task_info.get("wait_thread")
             if t is not None:
                 t.join(timeout=2)
@@ -1028,10 +1018,10 @@ class LocalSandbox(BaseSandbox):
             stat_result = path.stat()
 
             if path.is_file():
-                # read-only 64KB : read  get_file_info
-                # O() /IO  —— read_visual_file  >20MB
-                # ,( metadata 
-                # 21MB )。chardet class,。
+                # read-only 64KB: read get_file_info
+                # O /IO -- read_visual_file >20MB
+                # ,( metadata
+                # 21MB ). chardet class,.
                 with open(path, "rb") as f:
                     raw_data = f.read(_ENCODING_PROBE_MAX_BYTES)
                     encoding = self._detect_file_encoding(raw_data)

@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -164,7 +161,7 @@ class UserModelFullTraceAdaptiveCompaction:
     def _split_two_segments(self, messages: list[Message]) -> tuple[list[Message], list[Message]]:
         """Split *messages* into two segments at pair-safe unit boundaries.
 
-        RFC-0496:  unit ， tool call/result 
+        RFC-0496:  unit,  tool call/result 
         """
         if len(messages) <= 1:
             return messages, []
@@ -173,7 +170,7 @@ class UserModelFullTraceAdaptiveCompaction:
         if len(units) <= 1:
             return messages, []
 
-        # 1.  unit  token 
+        # 1. unit token
         unit_tokens: list[int] = []
         for unit in units:
             unit_msgs = [messages[i] for i in unit]
@@ -186,7 +183,7 @@ class UserModelFullTraceAdaptiveCompaction:
             seg_b = [messages[i] for u in units[mid:] for i in u]
             return seg_a, seg_b
 
-        # 2.  token  50% （ unit ）
+        # 2. token 50% ( unit )
         target = total_tokens * 0.5
         accumulated = 0
         split_unit_idx = 0
@@ -199,7 +196,7 @@ class UserModelFullTraceAdaptiveCompaction:
         segment_a = [messages[i] for u in units[: split_unit_idx + 1] for i in u]
         segment_b = [messages[i] for u in units[split_unit_idx + 1 :] for i in u]
 
-        # 3. ： segment_b ， unit  segment_b
+        # 3.: segment_b, unit segment_b
         if not segment_b:
             segment_a = [messages[i] for u in units[:-1] for i in u]
             segment_b = [messages[i] for u in units[-1:] for i in u]
@@ -212,7 +209,7 @@ class UserModelFullTraceAdaptiveCompaction:
     ) -> tuple[list[Message], bool]:
         """Truncate *segment* to fit within *budget_tokens* at unit boundaries.
 
-        RFC-0496:  unit ， tool call/result 
+        RFC-0496:  unit,  tool call/result 
         """
         if not segment:
             return [], False
@@ -220,7 +217,7 @@ class UserModelFullTraceAdaptiveCompaction:
         if self._count_tokens(segment) <= budget_tokens:
             return segment, False
 
-        # 1.  pair-safe units， unit 
+        # 1. pair-safe units, unit
         units = self._build_pair_safe_units(segment)
         truncated: list[Message] = []
         for unit in units:
@@ -233,7 +230,7 @@ class UserModelFullTraceAdaptiveCompaction:
         if truncated:
             return truncated, True
 
-        # 2.  unit ：，（tool ）
+        # 2. unit: (tool )
         first_unit_msgs = [segment[i] for i in units[0]]
         if len(first_unit_msgs) == 1:
             return [self._truncate_single_message(first_unit_msgs[0], budget_tokens)], True
@@ -269,8 +266,8 @@ class UserModelFullTraceAdaptiveCompaction:
         if last_user_index is not None:
             keep_indices.add(last_user_index)
 
-        # RFC-0496:  keep  assistant completed tool result，
-        # compactable_messages  ToolResultBlock
+        # RFC-0496: keep assistant completed tool result
+        # compactable_messages ToolResultBlock
         keep_indices.update(self._collect_paired_tool_result_indices(messages, keep_indices))
 
         return keep_indices
@@ -286,7 +283,7 @@ class UserModelFullTraceAdaptiveCompaction:
         ``Role.TOOL`` results would otherwise fall into ``compactable_messages``
         as orphan ``ToolResultBlock`` items.
         """
-        # 1.  keep  assistant  tool_use_id
+        # 1. keep assistant tool_use_id
         kept_tool_use_ids: set[str] = set()
         for idx in keep_indices:
             if idx >= len(messages):
@@ -301,7 +298,7 @@ class UserModelFullTraceAdaptiveCompaction:
         if not kept_tool_use_ids:
             return set()
 
-        # 2.  keep_indices  TOOL （ + ）
+        # 2. keep_indices TOOL ( + )
         paired: set[int] = set()
         for idx, msg in enumerate(messages):
             if idx in keep_indices or msg.role != Role.TOOL:
@@ -312,7 +309,7 @@ class UserModelFullTraceAdaptiveCompaction:
                 if block.tool_use_id in kept_tool_use_ids:
                     paired.add(idx)
                     break
-                # （ _collect_unresolved_tool_use_indices ）
+                # ( _collect_unresolved_tool_use_indices )
                 if any(block.tool_use_id.startswith(tid) for tid in kept_tool_use_ids):
                     paired.add(idx)
                     break
@@ -368,14 +365,14 @@ class UserModelFullTraceAdaptiveCompaction:
         i = 0
         while i < n:
             msg = messages[i]
-            # 1. package ToolUseBlock  assistant 
+            # 1. package ToolUseBlock assistant
             tool_use_ids: set[str] = set()
             if msg.role == Role.ASSISTANT:
                 for block in msg.content:
                     if isinstance(block, ToolUseBlock):
                         tool_use_ids.add(block.id)
             if tool_use_ids:
-                # 2.  TOOL  unit
+                # 2. TOOL unit
                 unit = [i]
                 j = i + 1
                 while j < n and messages[j].role == Role.TOOL:
@@ -386,7 +383,7 @@ class UserModelFullTraceAdaptiveCompaction:
                         if block.tool_use_id in tool_use_ids:
                             has_match = True
                             break
-                        # （ _collect_unresolved_tool_use_indices ）
+                        # ( _collect_unresolved_tool_use_indices )
                         for tid in tool_use_ids:
                             if block.tool_use_id.startswith(tid):
                                 has_match = True
@@ -401,7 +398,7 @@ class UserModelFullTraceAdaptiveCompaction:
                 units.append(unit)
                 i = j
             else:
-                # 3.  tool-call  unit
+                # 3. tool-call unit
                 units.append([i])
                 i += 1
         return units

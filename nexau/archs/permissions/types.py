@@ -1,10 +1,8 @@
 # Permission types for tool permission management.
-#
-# RFC-0019: 
-#
-# exceptiontype ToolOutcome class。
-# Tool function raise AskPermission / PermissionDenied ，
-# Executor exception ToolOutcome 。
+# RFC-0019:
+# exceptiontype ToolOutcome class.
+# Tool function raise AskPermission / PermissionDenied
+# Executor exception ToolOutcome .
 
 from __future__ import annotations
 
@@ -15,13 +13,13 @@ if TYPE_CHECKING:
     from nexau.archs.main_sub.execution.tool_executor import ToolExecutionResult
 
 
-class AskPermission(Exception):  # noqa: N818 — signal, not error
-    """Tool function allow/deny  raise。
+class AskPermission(Exception):  # noqa: N818 - signal, not error
+    """Tool function allow/deny  raise. 
 
     RFC-0019: Ask exception
 
-     prompt（） permission_key（ allow ）。
-    tool_call_id / tool_name  executor 。
+     prompt ()  permission_key ( allow ) . 
+    tool_call_id / tool_name  executor . 
     """
 
     def __init__(self, *, prompt: str, permission_key: str) -> None:
@@ -30,8 +28,8 @@ class AskPermission(Exception):  # noqa: N818 — signal, not error
         super().__init__(prompt)
 
 
-class PermissionDenied(Exception):  # noqa: N818 — signal, not error
-    """Tool function deny  raise。
+class PermissionDenied(Exception):  # noqa: N818 - signal, not error
+    """Tool function deny  raise. 
 
     RFC-0019: Deny exception
     """
@@ -43,11 +41,11 @@ class PermissionDenied(Exception):  # noqa: N818 — signal, not error
 
 
 class PendingPermissionsError(Exception):
-    """agent.run()  pending_tool_calls  raise。
+    """agent.run()  pending_tool_calls  raise. 
 
     RFC-0019: 
 
-     run。
+     run. 
     """
 
     def __init__(self, *, session_id: str, pending: dict[str, Any]) -> None:
@@ -59,15 +57,15 @@ class PendingPermissionsError(Exception):
 
 
 # ---------------------------------------------------------------------------
-# ToolOutcome: Executor  tool  ToolOutcome
+# ToolOutcome: Executor tool ToolOutcome
 # ---------------------------------------------------------------------------
 
 
 @dataclass
 class AllowOutcome:
-    """Tool 。
+    """Tool . 
 
-    RFC-0019:  — Allow
+    RFC-0019:  - Allow
     """
 
     tool_call_id: str
@@ -76,9 +74,9 @@ class AllowOutcome:
 
 @dataclass
 class DenyOutcome:
-    """Tool  deny 。
+    """Tool  deny . 
 
-    RFC-0019:  — Deny
+    RFC-0019:  - Deny
     """
 
     tool_call_id: str
@@ -88,11 +86,11 @@ class DenyOutcome:
 
 @dataclass
 class AskOutcome:
-    """Tool 。
+    """Tool . 
 
-    RFC-0019:  — Ask
+    RFC-0019:  - Ask
 
-    ， resume  tool。
+,  resume  tool. 
     """
 
     tool_call_id: str

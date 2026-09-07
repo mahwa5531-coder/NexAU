@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -40,8 +37,8 @@ class TeamRegistry:
 
     RFC-0002: AgentTeam 
 
-     team configuration（leader + candidates），
-    HTTP  (user_id, session_id)  AgentTeam 。
+     team configuration (leader + candidates), 
+    HTTP  (user_id, session_id)  AgentTeam . 
     """
 
     def __init__(
@@ -53,10 +50,10 @@ class TeamRegistry:
         self._engine = engine
         self._session_manager = session_manager
 
-        # team config : config_name -> (leader_config, candidates)
+        # team config: config_name -> (leader_config, candidates)
         self._configs: dict[str, tuple[AgentConfig, dict[str, AgentConfig]]] = {}
 
-        # team : (user_id, session_id) -> AgentTeam
+        # team: (user_id, session_id) -> AgentTeam
         self._teams: dict[tuple[str, str], AgentTeam] = {}
 
     def register_config(
@@ -125,7 +122,7 @@ class TeamRegistry:
     def get(self, user_id: str, session_id: str) -> AgentTeam | None:
         """Get an existing team instance without creating one.
 
-        RFC-0002:  team （）
+        RFC-0002:  team  () 
 
         Args:
             user_id: User identifier.

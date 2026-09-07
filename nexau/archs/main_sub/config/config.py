@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -63,9 +60,9 @@ HookConfig = str | dict[str, Any] | Callable[..., Any]
 
 _BUILTIN_TOOL_SCHEMA_ROOT = "nexau:archs/tool/builtin/schemas"
 
-# RFC-0028:  Web 。"configuration"，
-# ，**configuration**——
-# Agent list，。
+# RFC-0028: Web . "configuration"
+# , **configuration** --
+# Agent list, .
 _CONDITIONAL_BUILTIN_TOOL_BINDINGS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     (
         "web_search",
@@ -76,9 +73,9 @@ _CONDITIONAL_BUILTIN_TOOL_BINDINGS: tuple[tuple[str, str, tuple[str, ...]], ...]
 
 
 def _conditional_builtin_bindings() -> tuple[tuple[str, str], ...]:
-    """。
+    """. 
 
-    RFC-0028: configuration。
+    RFC-0028: configuration. 
     """
     enabled: list[tuple[str, str]] = []
     for name, binding, env_keys in _CONDITIONAL_BUILTIN_TOOL_BINDINGS:
@@ -170,7 +167,7 @@ def _require_dict(value: object, *, context: str) -> dict[str, Any]:
 def _inject_builtin_tools(config: dict[str, Any]) -> None:
     """Inject conditional runtime built-in tools without replacing declared tools.
 
-     agent ，runtime 。
+     agent, runtime . 
     """
     tools_raw: object = config.get("tools")
     if tools_raw is None:
@@ -181,7 +178,7 @@ def _inject_builtin_tools(config: dict[str, Any]) -> None:
     else:
         raise ConfigError("'tools' must be a list")
 
-    # 1.  agent 
+    # 1. agent
     existing_names: set[str] = set()
     for tool in tools:
         if not isinstance(tool, dict):
@@ -191,7 +188,7 @@ def _inject_builtin_tools(config: dict[str, Any]) -> None:
         if isinstance(name, str):
             existing_names.add(name)
 
-    # 2.  runtime 
+    # 2. runtime
     for name, binding in _conditional_builtin_bindings():
         if name in existing_names:
             continue
@@ -354,7 +351,7 @@ class AgentConfig(
             if ignored_plugins:
                 logger.info("sub_agent_load plugins_ignored=%d", len(ignored_plugins))
 
-        # agent  runtime 
+        # agent runtime
         _inject_builtin_tools(config_dict)
 
         agent_builder = AgentConfigBuilder(
@@ -429,7 +426,7 @@ class AgentConfig(
 
         RFC-0015:  Sub-agent  Agent 
 
-         sub_agents  Agent ，list。
+         sub_agents  Agent, list. 
         """
         if self._is_finalized:
             return self
@@ -444,7 +441,7 @@ class AgentConfig(
                 sub_agent_desc_parts.append(f"\n- **{_sa_name}**: {_sa_desc}")
             sub_agent_description_suffix = "".join(sub_agent_desc_parts)
 
-            # 2.  Agent 
+            # 2. Agent
             agent_tool = Tool.from_yaml(
                 str(nexau_package_path / "archs" / "tool" / "builtin" / "schemas" / "Agent.tool.yaml"),
                 binding=call_sub_agent,

@@ -1,7 +1,7 @@
 """Filter DSL 
 
- PostgREST  Filter ， JSON 、
-SQLAlchemy 、Python  HTTP string。
+ PostgREST  Filter,  JSON, 
+SQLAlchemy, Python  HTTP string. 
 """
 
 from collections.abc import Sequence
@@ -20,8 +20,8 @@ class FilterOperator(str, Enum):
     GTE = "gte"  # 
     LT = "lt"  # 
     LTE = "lte"  # 
-    LIKE = "like"  # （）
-    ILIKE = "ilike"  # （）
+    LIKE = "like"  # 
+    ILIKE = "ilike"  # 
     IN = "in"  # packagelist
     IS = "is"  # IS NULL / IS NOT NULL
 
@@ -123,8 +123,8 @@ class NotFilter(FilterBase):
 # Filter type
 Filter = ComparisonFilter | AndFilter | OrFilter | NotFilter
 
-# ， Pydantic  Filter type
-# （discriminated union）
+# , Pydantic Filter type
+# (discriminated union)
 AndFilter.model_rebuild()
 OrFilter.model_rebuild()
 NotFilter.model_rebuild()

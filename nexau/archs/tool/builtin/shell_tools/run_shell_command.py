@@ -189,7 +189,7 @@ def run_shell_command(
     if WaitMsBeforeAsync is not None and WaitMsBeforeAsync > 0 and WaitMsBeforeAsync < 1000:
         is_background = True
 
-    # RFC-0019: permission check（）
+    # RFC-0019: permission check
     if ctx is not None:
         check_shell_permission(ctx, command)
 

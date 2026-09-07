@@ -1,23 +1,20 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
 """Typed framework context for tool and middleware authors.
 
-RFC-0006: FrameworkContext — type
+RFC-0006: FrameworkContext - type
 
- AgentState， API 。
-function ctx: FrameworkContext 。
+ AgentState,  API . 
+function ctx: FrameworkContext . 
 """
 
 from __future__ import annotations
@@ -43,7 +40,7 @@ class HistoryAPI:
 
     RFC-0026: replaces the RFC-0022 Phase 3 ``agent_state.history`` direct
     backreference. ContextCompactionMiddleware (and any future writer of
-    typed REPLACE events — ``/clear`` / ``/compact <focus>``) emits through
+    typed REPLACE events - ``/clear`` / ``/compact <focus>``) emits through
     this API instead of reaching into HistoryList directly.
 
     RPC-friendly by design: every public method takes only serializable
@@ -52,15 +49,15 @@ class HistoryAPI:
     running in remote-tool mode (lambda / RPC future), this becomes a
     thin RPC stub with no in-process state to marshal.
 
-    Intentional minimal surface — only operations with concrete callers
+    Intentional minimal surface - only operations with concrete callers
     today are exposed:
-      - :meth:`replace` — typed REPLACE (compaction, /clear, /compact)
+      -:meth:`replace` - typed REPLACE (compaction, /clear, /compact)
     Read access (``inspect prior messages``) and other event types
     (``append`` / ``undo``) are deliberately NOT pre-exposed; they get
     added when a real production caller appears.
 
     Internal: holds an optional ``HistoryList`` handle. None when the
-    agent has no SessionManager (in-process tests) — all methods become
+    agent has no SessionManager (in-process tests) - all methods become
     safe no-ops, matching the existing HistoryList persistence-disabled
     semantics.
     """
@@ -95,7 +92,7 @@ class HistoryAPI:
                 in-memory list is realigned synchronously so subsequent
                 flushes don't double-write.
             extra: Required typed variant. There is no untyped path through
-                this API — untyped REPLACE inferred from the
+                this API - untyped REPLACE inferred from the
                 fingerprint-diff fallback inside ``HistoryList.flush()``
                 stays as the back-compat path for middleware that hasn't
                 migrated yet (RFC-0026 Stage 2 will close that gap).
@@ -124,10 +121,10 @@ class HistoryAPI:
 class ExecutionAPI:
     """Execution lifecycle API for stop-aware tools.
 
-    RFC-0006:  shutdown ，interface
+    RFC-0006:  shutdown, interface
 
-     threading.Event ，tool 
-    ``ctx.execution.is_shutting_down()`` 。
+     threading.Event, tool 
+    ``ctx.execution.is_shutting_down()`` . 
     """
 
     def __init__(
@@ -151,7 +148,7 @@ class ExecutionAPI:
 class ToolsAPI:
     """Tools management API.
 
-    RFC-0006:  ToolRegistry，
+    RFC-0006:  ToolRegistry, 
     """
 
     def __init__(
@@ -166,8 +163,8 @@ class ToolsAPI:
 
         RFC-0006:  ToolRegistry.search()
 
-        ， LLM  function call。
-         "+keyword" 。
+,  LLM  function call. 
+         "+keyword" . 
 
         Args:
             query: Search query string
@@ -210,11 +207,11 @@ class ToolsAPI:
 class FrameworkContext:
     """Typed framework context for tool and middleware authors.
 
-    RFC-0006:  AgentState，type API。
-    function ctx: FrameworkContext 。
+    RFC-0006:  AgentState, type API. 
+    function ctx: FrameworkContext . 
 
-    ：Tools API + Execution API（Phase 1）
-     skills / agents / sandbox / variables  API。
+: Tools API + Execution API (Phase 1) 
+     skills / agents / sandbox / variables  API. 
     """
 
     def __init__(
@@ -238,7 +235,7 @@ class FrameworkContext:
         self.run_id = run_id
         self.root_run_id = root_run_id
 
-        # RFC-0024: caller-supplied W3C trace id (32-hex). Opaque to nexau —
+        # RFC-0024: caller-supplied W3C trace id (32-hex). Opaque to nexau -
         # populated by ``Agent.run_async(trace_id=...)``, threaded into the
         # Executor → FrameworkContext, and inherited explicitly by sub-agents
         # via ``call_sub_agent(trace_id=...)``. Surfaced into RUN_START rows
@@ -246,7 +243,7 @@ class FrameworkContext:
         # call tree. None when caller didn't supply one.
         self.trace_id: str | None = trace_id
 
-        # RFC-0019: 
+        # RFC-0019:
         self.session_id = session_id
         self.tool_name = tool_name
         self.allow_rules: list[str] = allow_rules if allow_rules is not None else ["**"]
@@ -263,7 +260,7 @@ class FrameworkContext:
         # Replaces the deprecated ``agent_state.history`` direct backref.
         self.history = HistoryAPI(_history=_history)
 
-        # RFC-0019:  for_tool_call 
+        # RFC-0019: for_tool_call
         self._tool_registry = _tool_registry
         self._shutdown_event = _shutdown_event
         self._history = _history
@@ -279,8 +276,8 @@ class FrameworkContext:
 
         RFC-0019:  tool call  FrameworkContext
 
-         ToolsAPI / ExecutionAPI / HistoryAPI ， permission ，
-         tool call 。
+         ToolsAPI / ExecutionAPI / HistoryAPI,  permission, 
+         tool call . 
         """
         return FrameworkContext(
             agent_name=self.agent_name,
@@ -315,8 +312,8 @@ class FrameworkContext:
 
         RFC-0006: factorymethod
 
-        defaultvalue，。
-        tools API  ToolRegistry（ search/add/get ）。
+        defaultvalue, . 
+        tools API  ToolRegistry ( search/add/get ) . 
 
         Example::
 

@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -142,14 +139,11 @@ class BaseTracer(ABC):
         """
 
     # ---- Optional vendor context propagation hooks ----
-    #
     # Some tracer backends (e.g., Langfuse's OpenAI auto-instrumentation) rely on
     # their own notion of an "active span" (often via OpenTelemetry contextvars).
-    #
-    # Nexau's TraceContext manages its own contextvar (`nexau.archs.tracer.context`),
+    # Nexau's TraceContext manages its own contextvar (`nexau.archs.tracer.context`)
     # so we provide optional hooks for tracer implementations to also set / restore
     # vendor-specific "current span" state when a span becomes active.
-    #
     # Implementations should return an opaque token that can later be passed to
     # `deactivate_span` to restore the previous vendor context.
     def activate_span(self, span: Span) -> Any | None:  # noqa: ANN401

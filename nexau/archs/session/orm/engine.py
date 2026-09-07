@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -137,29 +134,29 @@ class DatabaseEngine(ABC):
 _BRIDGE_TIMEOUT_SECONDS: float = 60.0
 """Timeout for cross-loop bridge calls (future.result).
 
-timeout。 worker  run_coroutine_threadsafe
- owner loop ， future.result(timeout=...) 。
- loop ，worker  TimeoutError pending。
+timeout.  worker  run_coroutine_threadsafe
+ owner loop,  future.result(timeout=...) . 
+ loop, worker  TimeoutError pending. 
 """
 
 
 class LoopSafeDatabaseEngine(DatabaseEngine):
     """Transparent wrapper ensuring all DB operations run on the owner event loop.
 
-    Cross-loop package， loop-bound  async DB （asyncpg, aiomysql）。
+    Cross-loop package,  loop-bound  async DB  (asyncpg, aiomysql) . 
 
-     setup_models()  owner event loop。 DB 
-    event loop （ worker  asyncio.run()  loop），
-     run_coroutine_threadsafe  owner loop，completed。
+     setup_models()  owner event loop.  DB 
+    event loop  ( worker  asyncio.run()  loop), 
+     run_coroutine_threadsafe  owner loop, completed. 
 
-     worker ，：
+     worker,: 
     - worker  event loop 
     -  event loop 
 
-     bridge  future.result(timeout=_BRIDGE_TIMEOUT_SECONDS)，
-     loop  worker pending。
+     bridge  future.result(timeout=_BRIDGE_TIMEOUT_SECONDS), 
+     loop  worker pending. 
 
-     engine 。
+     engine . 
     """
 
     def __init__(self, inner: DatabaseEngine) -> None:
@@ -169,17 +166,17 @@ class LoopSafeDatabaseEngine(DatabaseEngine):
     def _get_bridge_loop(self) -> asyncio.AbstractEventLoop | None:
         """Return the owner loop if bridging is needed, else None.
 
-        value None  owner loop ，
-         run_coroutine_threadsafe 。
+        value None  owner loop, 
+         run_coroutine_threadsafe . 
 
-         owner loop 。 owner loop 
-        （ asyncio.run() ），，
-         loop 。
+         owner loop .  owner loop 
+         ( asyncio.run() ),, 
+         loop . 
         """
         owner = self._owner_loop
         if owner is None:
             return None
-        # owner loop ，
+        # owner loop
         if not owner.is_running():
             return None
         try:
@@ -194,8 +191,8 @@ class LoopSafeDatabaseEngine(DatabaseEngine):
 
     async def setup_models(self, model_classes: list[type[SQLModel]]) -> None:
         """Initialize models and capture the owner event loop."""
-        # owner loop，。
-        # _get_bridge_loop()  is_running() 。
+        # owner loop, .
+        # _get_bridge_loop is_running .
         self._owner_loop = asyncio.get_running_loop()
         await self._inner.setup_models(model_classes)
 

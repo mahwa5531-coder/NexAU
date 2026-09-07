@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -256,7 +253,7 @@ class ToolExecutor:
         execution_params: JsonDict = dict(tool_parameters)
         execution_params["agent_state"] = agent_state
         execution_params["sandbox"] = sandbox
-        # RFC-0006:  FrameworkContext
+        # RFC-0006: FrameworkContext
         if framework_context is not None:
             execution_params["ctx"] = framework_context
 
@@ -280,9 +277,9 @@ class ToolExecutor:
                 result = self.middleware_manager.wrap_tool_call(call_params, _execute_tool_call)
             else:
                 result = _execute_tool_call(call_params)
-            # NAC#1304: Tool.execute() exception error dict ，
-            # "✅ executed successfully" 
-            # （ Connection refused ）。value。
+            # NAC#1304: Tool.execute exception error dict
+            # "✅ executed successfully"
+            # ( Connection refused ) . value.
             if isinstance(result, dict):
                 result_view = cast(JsonDict, result)
                 is_error_result = bool(result_view.get("error")) or result_view.get("status") == "error"
@@ -293,7 +290,7 @@ class ToolExecutor:
             else:
                 logger.info(f"✅ Tool '{tool_name}' executed successfully")
         except (AskPermission, PermissionDenied):
-            # RFC-0019: exception， Executor 
+            # RFC-0019: exception, Executor
             raise
         except Exception as e:
             logger.error(f"❌ Tool '{tool_name}' execution failed: {e}")
@@ -384,10 +381,10 @@ class ToolExecutor:
         # RFC-0024: returnDisplay is preserved on raw_output going forward so
         # the persisted ToolResultBlock.raw_output retains it for downstream
         # UI replay. The LLM-facing `llm_tool_output` is still stripped to
-        # avoid token waste — it's the only consumer that doesn't want it.
-        # (Pre-RFC-0024: we used to pop returnDisplay from raw_output here too,
-        #  which made the persisted view a strict subset of the live event view
-        #  — see NAC RFC-0088 v2 §3.5 for why that was a SSOT-breaking bug.)
+        # avoid token waste - it's the only consumer that doesn't want it.
+        # (Pre-RFC-0024: we used to pop returnDisplay from raw_output here too
+        # which made the persisted view a strict subset of the live event view
+        # - see NAC RFC-0088 v2 §3.5 for why that was a SSOT-breaking bug.)
         llm_tool_output = self._strip_display_only_from_llm_output(llm_tool_output)
 
         return ToolExecutionResult(raw_output=raw_output, llm_tool_output=llm_tool_output)

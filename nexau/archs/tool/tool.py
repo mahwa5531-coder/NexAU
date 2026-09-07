@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -16,9 +13,9 @@
 
 RFC-0006:  Structured Tool Definitions
 
- structured tool calling ，Tool/SubAgent 
-structured definition， adapter  OpenAI / Anthropic /
-Gemini  provider schema。
+ structured tool calling, Tool/SubAgent 
+structured definition,  adapter  OpenAI / Anthropic /
+Gemini  provider schema. 
 """
 
 from __future__ import annotations
@@ -89,8 +86,8 @@ def build_structured_tool_definition(
 
     RFC-0006:  Structured Tool Definitions
 
-     Tool  SubAgent  structured ， Agent /
-    Executor  vendor-specific schema。
+     Tool  SubAgent  structured,  Agent /
+    Executor  vendor-specific schema. 
     """
 
     return {
@@ -108,8 +105,8 @@ def normalize_structured_tool_definition(
 
     RFC-0006:  Structured Tool Definitions
 
-     definition， OpenAI / Anthropic ，
-    runtime  neutral structured definition。
+     definition,  OpenAI / Anthropic, 
+    runtime  neutral structured definition. 
     """
 
     if tool_definition.get("type") == "function":
@@ -226,8 +223,8 @@ def structured_tool_definition_to_anthropic(
 
     RFC-0006: Provider 
 
-    Anthropic tool schema  provider ， Agent / Executor 
-     neutral structured definition 。
+    Anthropic tool schema  provider,  Agent / Executor 
+     neutral structured definition . 
 
     Parameters
     ----------
@@ -236,7 +233,7 @@ def structured_tool_definition_to_anthropic(
     tool_streaming:
         When *True* (default), include ``eager_input_streaming: True`` to
         enable fine-grained tool streaming and reduce first-token latency for
-        large arguments.  Set to *False* to omit the field entirely — some
+        large arguments.  Set to *False* to omit the field entirely - some
         non-Anthropic providers that share the schema shape reject unknown
         fields.
     """
@@ -248,8 +245,8 @@ def structured_tool_definition_to_anthropic(
         "input_schema": normalize_input_schema(normalized["input_schema"]),
     }
     if tool_streaming:
-        # fine-grained tool streaming，（） token ，
-        # SSE timeout。
+        # fine-grained tool streaming, token
+        # SSE timeout.
         result["eager_input_streaming"] = True
     return result
 
@@ -357,9 +354,9 @@ class Tool:
         # RFC-0019: configuration
         self.permissions = permissions
 
-        # class（ MCPTool）property True， execute_async()
-        # async ，executor  await 
-        # to_thread → sync execute → asyncio.run 。
+        # class ( MCPTool) property True, execute_async
+        # async, executor await
+        # to_thread → sync execute → asyncio.run .
         self._has_native_async_execute: bool = False
 
         # Validate schema
@@ -457,7 +454,7 @@ class Tool:
 
         RFC-0017: formatter resolver
 
-        configuration builtin `markdown` formatter。
+        configuration builtin `markdown` formatter. 
         """
 
         if self._resolved_formatter is None:
@@ -476,8 +473,8 @@ class Tool:
 
         RFC-0017: tool output flattening
 
-         formatter， after_tool middleware，
-         llm-facing output。
+         formatter,  after_tool middleware, 
+         llm-facing output. 
         """
 
         formatter_context = ToolFormatterContext(
@@ -579,10 +576,10 @@ class Tool:
     def has_native_async_execute(self) -> bool:
         """Whether this tool has a native async execute_async() override.
 
-        class（ MCPTool） execute_async()  async ，
-         __init__  ``_has_native_async_execute = True``。
+        class ( MCPTool)  execute_async()  async, 
+         __init__  ``_has_native_async_execute = True``. 
         executor  await execute_async() 
-        to_thread → sync execute 。
+        to_thread → sync execute . 
         """
         return self._has_native_async_execute
 
@@ -601,7 +598,7 @@ class Tool:
             else:
                 raise ValueError(f"Tool '{self.name}' has no implementation")
 
-        # RFC-0006:  — ctx ，agent_state backward compatibility
+        # RFC-0006: - ctx, agent_state backward compatibility
         merged_params = {**self.extra_kwargs, **params}
         filtered_params = merged_params.copy()
 
@@ -609,11 +606,11 @@ class Tool:
         if impl is not None:
             sig = inspect.signature(impl)
 
-            # RFC-0006: ctx (FrameworkContext) 
+            # RFC-0006: ctx (FrameworkContext)
             if "ctx" not in sig.parameters:
                 filtered_params.pop("ctx", None)
 
-            # backward compatibility: agent_state 
+            # backward compatibility: agent_state
             if "agent_state" in merged_params:
                 if "agent_state" not in sig.parameters:
                     filtered_params.pop("agent_state", None)
@@ -637,17 +634,17 @@ class Tool:
             raw_result: Any = impl(**filtered_params)
 
             # Support async tool implementations.
-            # impl  coroutine ，：
-            # -  running loop（ThreadPoolExecutor worker / CLI / ）→ asyncio.run() 
-            # -  running loop（async context  execute()）→ ， execute_async()
+            # impl coroutine,:
+            # - running loop (ThreadPoolExecutor worker / CLI / ) → asyncio.run
+            # - running loop (async context execute) →, execute_async
             if inspect.iscoroutine(raw_result):
                 try:
                     asyncio.get_running_loop()
                 except RuntimeError:
-                    # running loop — sync （ThreadPoolExecutor worker / CLI）
-                    # : async tool  event loop ，
-                    # loop  async （ task group、shared lock ）。
-                    # loop， executor async  execute_async()。
+                    # running loop - sync (ThreadPoolExecutor worker / CLI)
+                    # : async tool event loop
+                    # loop async ( task group, shared lock ) .
+                    # loop, executor async execute_async.
                     logger.warning(
                         "Tool '%s' is async but invoked via sync execute() — running in an "
                         "isolated event loop. Use execute_async() to run on the main loop.",
@@ -655,7 +652,7 @@ class Tool:
                     )
                     raw_result = asyncio.run(raw_result)
                 else:
-                    # await  coroutine  RuntimeWarning
+                    # await coroutine RuntimeWarning
                     raw_result.close()
                     raise RuntimeError(
                         f"Tool '{self.name}' returned a coroutine but execute() was called "
@@ -682,7 +679,7 @@ class Tool:
             return final_result
 
         except (AskPermission, PermissionDenied):
-            # RFC-0019: exception， Executor 
+            # RFC-0019: exception, Executor
             raise
         except Exception as e:
             # Return error information
@@ -698,9 +695,9 @@ class Tool:
 
         P1 async/sync :  asyncio.run() 
 
-         async tool  await（ asyncio.run()  event loop），
-         sync tool  asyncio.to_thread() （ event loop）。
-         execute() method， sync （ ThreadPoolExecutor workers）。
+         async tool  await ( asyncio.run()  event loop), 
+         sync tool  asyncio.to_thread()  ( event loop) . 
+         execute() method,  sync  ( ThreadPoolExecutor workers) . 
         """
         if self.implementation is None:
             if self.implementation_import_path:
@@ -714,7 +711,7 @@ class Tool:
             else:
                 raise ValueError(f"Tool '{self.name}' has no implementation")
 
-        # RFC-0006:  — ctx ，agent_state backward compatibility
+        # RFC-0006: - ctx, agent_state backward compatibility
         merged_params = {**self.extra_kwargs, **params}
         filtered_params = merged_params.copy()
 
@@ -722,11 +719,11 @@ class Tool:
         if impl is not None:
             sig = inspect.signature(impl)
 
-            # RFC-0006: ctx (FrameworkContext) 
+            # RFC-0006: ctx (FrameworkContext)
             if "ctx" not in sig.parameters:
                 filtered_params.pop("ctx", None)
 
-            # backward compatibility: agent_state 
+            # backward compatibility: agent_state
             if "agent_state" in merged_params:
                 if "agent_state" not in sig.parameters:
                     filtered_params.pop("agent_state", None)
@@ -747,13 +744,13 @@ class Tool:
             if impl is None:
                 raise ValueError(f"Tool '{self.name}' has no implementation")
 
-            # type：async  await，sync  to_thread
+            # type: async await, sync to_thread
             if inspect.iscoroutinefunction(impl):
                 raw_result: Any = await impl(**filtered_params)
             else:
-                # asyncio.to_thread (Python 3.12+)  contextvars
-                # worker ， TraceContext  contextvar 。
-                # copy_context()。
+                # asyncio.to_thread (Python 3.12+) contextvars
+                # worker, TraceContext contextvar .
+                # copy_context.
                 raw_result = await asyncio.to_thread(impl, **filtered_params)
 
             # Ensure result is a dictionary
@@ -776,7 +773,7 @@ class Tool:
             return final_result
 
         except (AskPermission, PermissionDenied):
-            # RFC-0019: exception， Executor 
+            # RFC-0019: exception, Executor
             raise
         except Exception as e:
             # Return error information
@@ -954,8 +951,8 @@ class Tool:
 
         RFC-0006:  Structured Tool Definitions
 
-        structured ，Tool  neutral definition；provider-specific
-        schema  LLM adapter  ``api_type`` 。
+        structured, Tool  neutral definition; provider-specific
+        schema  LLM adapter  ``api_type`` . 
         """
 
         return build_structured_tool_definition(
@@ -970,8 +967,8 @@ class Tool:
 
         RFC-0006: Provider package
 
-        method， neutral structured definition →
-        OpenAI adapter， OpenAI schema  runtime 。
+        method,  neutral structured definition →
+        OpenAI adapter,  OpenAI schema  runtime . 
         """
 
         return structured_tool_definition_to_openai(self.to_structured_definition())
@@ -981,8 +978,8 @@ class Tool:
 
         RFC-0006: Provider package
 
-        method， neutral structured definition →
-        Anthropic adapter， Tool  Anthropic 。
+        method,  neutral structured definition →
+        Anthropic adapter,  Tool  Anthropic . 
 
         Parameters
         ----------

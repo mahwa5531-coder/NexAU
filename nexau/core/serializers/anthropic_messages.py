@@ -75,7 +75,7 @@ def serialize_ump_to_anthropic_messages_payload(
         # Buffer for unsigned reasoning content. Decided at end of message:
         # drop if any companion (text / tool_use / signed thinking) is
         # present, else demote one block to text so the message isn't
-        # empty (Anthropic rejects content=[] on assistant turns).
+        # empty (Anthropic rejects content= on assistant turns).
         unsigned_reasoning_buffer: list[str] = []
         for block in msg.content:
             if isinstance(block, TextBlock):
@@ -92,7 +92,7 @@ def serialize_ump_to_anthropic_messages_payload(
                     # Unsigned thinking, no opt-in: buffer for post-iteration
                     # decision. Default policy is DROP (avoids leaking the
                     # agent's internal reasoning into the LLM's outbound
-                    # context as if it were the assistant's reply — the
+                    # context as if it were the assistant's reply - the
                     # "answer prefixed by stream-of-consciousness reasoning"
                     # symptom for sessions hitting Bedrock claude-opus-4.x's
                     # orphan `thinking_delta` path). Reasoning content stays
@@ -145,22 +145,22 @@ def serialize_ump_to_anthropic_messages_payload(
 
         # Decide what to do with buffered unsigned reasoning.
         # - If the message has companion content (text / tool_use / signed
-        #   thinking / image / tool_result) → DROP the unsigned reasoning;
-        #   it's the agent's internal reasoning, exposing it as `text` to
-        #   the LLM would leak it into the next-turn outbound as if it
-        #   were the assistant's reply.
-        # - If the message would be EMPTY without it (no companion at all,
-        #   pathological state from a truncated stream / aggregator bug /
-        #   hand-built UMP) → emit a STUB text block. Anthropic rejects
-        #   messages with content=[], and dropping a middle message would
-        #   break the strict user/assistant alternation. The stub preserves
-        #   alternation without leaking the actual reasoning text — same
-        #   guarantee as the companion-present DROP path.
+        # thinking / image / tool_result) → DROP the unsigned reasoning;
+        # it's the agent's internal reasoning, exposing it as `text` to
+        # the LLM would leak it into the next-turn outbound as if it
+        # were the assistant's reply.
+        # - If the message would be EMPTY without it (no companion at all
+        # pathological state from a truncated stream / aggregator bug /
+        # hand-built UMP) → emit a STUB text block. Anthropic rejects
+        # messages with content=, and dropping a middle message would
+        # break the strict user/assistant alternation. The stub preserves
+        # alternation without leaking the actual reasoning text - same
+        # guarantee as the companion-present DROP path.
         if unsigned_reasoning_buffer:
             # Tier-1 observability (PR #554): record every unsigned-reasoning
-            # encounter so production can count "how often does Layer 3 fire,
+            # encounter so production can count "how often does Layer 3 fire
             # is companion-present DROP or empty-only stub?". Log-only at this
-            # layer (no trace span attr) — core/ shouldn't depend on archs/
+            # layer (no trace span attr) - core/ shouldn't depend on archs/
             # tracer. The surrounding llm_caller adds span attributes via the
             # L1/L4 handlers.
             _logger.warning(

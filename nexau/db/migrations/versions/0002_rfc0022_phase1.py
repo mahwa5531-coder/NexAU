@@ -1,24 +1,22 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 
-"""RFC-0022 Phase 1 — add idempotency_key + extra to agent_run_actions
+"""RFC-0022 Phase 1 - add idempotency_key + extra to agent_run_actions
 
 Adds two nullable columns to ``agent_run_actions`` that nexau Phase 1
 introduces for typed *Extra payloads (RUN_START / RUN_END / typed
 ReplaceExtra variants) and streaming idempotency:
 
-- ``idempotency_key VARCHAR(255)`` — UNIQUE-when-non-NULL. Streaming
+- ``idempotency_key VARCHAR(255)`` - UNIQUE-when-non-NULL. Streaming
   writers use ``"{run_id}:start"`` / ``"{run_id}:end"`` to make the
   RUN_START/END markers idempotent across retries.
-- ``extra JSONB`` — typed *Extra payloads dispatched by ``action_type``
+- ``extra JSONB`` - typed *Extra payloads dispatched by ``action_type``
   (RunStartExtra / RunEndExtra / ReplaceExtra discriminated union).
 
-## Idempotency note
+# # Idempotency note
 
 For fresh databases ``SQLModel.metadata.create_all`` already created
 ``agent_run_actions`` with these columns (the model in master has them).
@@ -26,7 +24,7 @@ This migration uses ``ADD COLUMN IF NOT EXISTS`` semantics via batch
 mode + a column-presence check so re-running on a fresh DB is a no-op,
 matching ``upgrade_to_head``'s baseline-detect-then-stamp behaviour.
 
-## SQLite ALTER caveat
+# # SQLite ALTER caveat
 
 SQLite ``ALTER TABLE ADD COLUMN`` always works for nullable columns.
 But ALTER COLUMN / DROP COLUMN need batch mode. ``env.py`` enables
@@ -65,7 +63,7 @@ def _has_column(table_name: str, column_name: str) -> bool:
 
 
 def upgrade() -> None:
-    # 1. idempotency_key — VARCHAR(255), nullable, UNIQUE when not NULL.
+    # 1. idempotency_key - VARCHAR(255), nullable, UNIQUE when not NULL.
     if not _has_column("agent_run_actions", "idempotency_key"):
         op.add_column(
             "agent_run_actions",
@@ -90,7 +88,7 @@ def upgrade() -> None:
             sqlite_where=sa.text("idempotency_key IS NOT NULL"),
         )
 
-    # 3. extra — JSONB on PG, JSON on SQLite (sa.JSON dispatches per dialect).
+    # 3. extra - JSONB on PG, JSON on SQLite (sa.JSON dispatches per dialect).
     if not _has_column("agent_run_actions", "extra"):
         op.add_column(
             "agent_run_actions",

@@ -15,9 +15,9 @@ Any change to this module's parsing or emission logic requires:
    thoughtSignature shape / new function call wire format), record a
    fixture via ``tests/aggregator_parity/scripts/record_fixture.py``.
 3. If parity surfaces a divergence, fix the buggy side rather than xfail
-   — real Set A↔Set B drift = real production bug. The harness has
+   - real Set A↔Set B drift = real production bug. The harness has
    already caught a block-ordering bug here (thinking → tool transition
-   produced wrong block order — fixed in 16288c5c via
+   produced wrong block order - fixed in 16288c5c via
    ``_close_thinking_if_open``).
 
 See ``tests/aggregator_parity/README.md`` for the full protocol.
@@ -51,7 +51,7 @@ from ..events import (
 # Gemini has no SDK-typed object (unlike Anthropic's ``Message`` or OpenAI's
 # ``ChatCompletion``); the wire format is raw JSON. These TypedDicts pin the
 # shape statically so the aggregator never touches ``dict[str, object]`` /
-# ``dict[str, Any]`` unconstrained — strict typing parity with the OpenAI
+# ``dict[str, Any]`` unconstrained - strict typing parity with the OpenAI
 # Chat aggregator. Fields marked ``NotRequired`` reflect Gemini's actual wire
 # behavior (e.g. a chunk may omit ``content`` if it carries only finishReason).
 # ============================================================================
@@ -132,13 +132,13 @@ class GeminiRestEventAggregator(Aggregator[GeminiResponse, GeminiResponse]):
         self._usage: GeminiUsageMetadata | None = None
         # Thinking signature stored per chunk; attached to End event.
         self._thought_signature: str | None = None
-        # Whether ModelCallFinishedEvent has fired (idempotent guard — _handle_finish
+        # Whether ModelCallFinishedEvent has fired (idempotent guard - _handle_finish
         # may run multiple times if chunks repeat finishReason).
         self._metadata_emitted = False
-        # Per-call content accumulators for ``build() -> GeminiResponse`` (RFC-0023
+        # Per-call content accumulators for ``build -> GeminiResponse`` (RFC-0023
         # § ③). Mirror Set B's GeminiRestStreamAggregator structure so
-        # the dict ``build()`` returns is byte-equivalent to Set B's
-        # ``finalize()`` output (and round-trips through
+        # the dict ``build`` returns is byte-equivalent to Set B's
+        # ``finalize`` output (and round-trips through
         # ``ModelResponse.from_gemini_rest`` identically).
         self._content_text_parts: list[str] = []
         self._reasoning_text_parts: list[str] = []
@@ -153,7 +153,7 @@ class GeminiRestEventAggregator(Aggregator[GeminiResponse, GeminiResponse]):
             item: Parsed JSON chunk from a Gemini SSE data line, conforming
                 to ``GeminiResponse``. Wire dicts that don't match the
                 TypedDict shape are tolerated (TypedDict is structural at
-                runtime — bad shapes just fall through the isinstance/key
+                runtime - bad shapes just fall through the isinstance/key
                 guards below).
         """
         chunk = item
@@ -168,10 +168,10 @@ class GeminiRestEventAggregator(Aggregator[GeminiResponse, GeminiResponse]):
         if isinstance(usage_md, dict):
             self._usage = usage_md
 
-        # 1.  candidates. The TypedDict promises ``list[GeminiCandidate]``
+        # 1. candidates. The TypedDict promises ``list[GeminiCandidate]``
         # but the wire JSON can be malformed; defensively isinstance-guard.
         # ``# pyright: ignore[reportUnnecessaryIsInstance]`` suppresses
-        # pyright's "TypedDict already implies the type" warning — TypedDict
+        # pyright's "TypedDict already implies the type" warning - TypedDict
         # gives static narrowing, NOT runtime validation, so the guard is
         # real protection against bad wire data.
         candidates = chunk.get("candidates")
@@ -183,7 +183,7 @@ class GeminiRestEventAggregator(Aggregator[GeminiResponse, GeminiResponse]):
 
         content = candidate.get("content")
         if not isinstance(content, dict):  # pyright: ignore[reportUnnecessaryIsInstance]
-            # finishReason  content  chunk 
+            # finishReason content chunk
             finish_reason = candidate.get("finishReason")
             if isinstance(finish_reason, str) and finish_reason:
                 self._finish_reason = finish_reason
@@ -194,7 +194,7 @@ class GeminiRestEventAggregator(Aggregator[GeminiResponse, GeminiResponse]):
         if not isinstance(parts, list):  # pyright: ignore[reportUnnecessaryIsInstance]
             return
 
-        # 2.  parts，class
+        # 2. parts, class
         for part in parts:
             if not isinstance(part, dict):  # pyright: ignore[reportUnnecessaryIsInstance]
                 continue
@@ -218,7 +218,7 @@ class GeminiRestEventAggregator(Aggregator[GeminiResponse, GeminiResponse]):
             elif has_function_call:
                 self._handle_function_call_part(part)
 
-        # 3.  finish reason
+        # 3. finish reason
         finish_reason = candidate.get("finishReason")
         if isinstance(finish_reason, str) and finish_reason:
             self._finish_reason = finish_reason
@@ -300,7 +300,7 @@ class GeminiRestEventAggregator(Aggregator[GeminiResponse, GeminiResponse]):
         part (text or tool call) within the same response. Without this,
         block ordering downstream (e.g. via the parity-test reconstructor
         or any other Start/End-driven aggregator) produces blocks in
-        End-event order rather than wire order — putting tool/text BEFORE
+        End-event order rather than wire order - putting tool/text BEFORE
         reasoning when the wire ordered them reasoning-then-tool/text.
         """
         if self._thinking_started and not self._thinking_ended:
@@ -319,7 +319,7 @@ class GeminiRestEventAggregator(Aggregator[GeminiResponse, GeminiResponse]):
         if not isinstance(text, str) or not text:
             return
 
-        # Retain content for build() (RFC-0023 § ③).
+        # Retain content for build (RFC-0023 § ③).
         self._content_text_parts.append(text)
 
         self._ensure_message_started()
@@ -348,7 +348,7 @@ class GeminiRestEventAggregator(Aggregator[GeminiResponse, GeminiResponse]):
         if not isinstance(text, str) or not text:
             return
 
-        # Retain content for build() (RFC-0023 § ③).
+        # Retain content for build (RFC-0023 § ③).
         self._reasoning_text_parts.append(text)
 
         self._ensure_message_started()
@@ -389,7 +389,7 @@ class GeminiRestEventAggregator(Aggregator[GeminiResponse, GeminiResponse]):
         args_raw = fc.get("args", {})
         args: dict[str, object] = args_raw if isinstance(args_raw, dict) else {}  # pyright: ignore[reportUnnecessaryIsInstance]
 
-        # Retain the full part for build() (RFC-0023 § ③). Mirror Set B's
+        # Retain the full part for build (RFC-0023 § ③). Mirror Set B's
         # GeminiRestStreamAggregator: it stores the full part (not just the
         # functionCall) so any sibling fields (thoughtSignature attached to
         # the same part) survive into the rebuilt response.
@@ -433,7 +433,7 @@ class GeminiRestEventAggregator(Aggregator[GeminiResponse, GeminiResponse]):
 
     def _handle_finish(self) -> None:
         """Emit end events when the stream finishes."""
-        # 1.  thinking（）
+        # 1. thinking
         if self._thinking_started and not self._thinking_ended:
             self._thinking_ended = True
             self._on_event(
@@ -444,7 +444,7 @@ class GeminiRestEventAggregator(Aggregator[GeminiResponse, GeminiResponse]):
                 )
             )
 
-        # 2.  message
+        # 2. message
         if self._started:
             self._on_event(
                 TextMessageEndEvent(
@@ -453,7 +453,7 @@ class GeminiRestEventAggregator(Aggregator[GeminiResponse, GeminiResponse]):
                 )
             )
 
-        # 3. RFC-0023 § ② — emit per-call metadata exactly once.
+        # 3. RFC-0023 § ② - emit per-call metadata exactly once.
         # Token usage owned by UsageUpdateEvent (canonical TokenUsage).
         if not self._metadata_emitted:
             self._metadata_emitted = True

@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -39,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 
 # ============================================================================
-# Defensive helpers — guard the persistence + read boundaries against
+# Defensive helpers - guard the persistence + read boundaries against
 # stream-interrupted / partial-iteration artifacts that violate provider
 # message contracts (DeepSeek "assistant must have thinking", Anthropic
 # "tool_use must be paired with tool_result").
@@ -233,12 +230,12 @@ class AgentRunActionService:
             idempotency_key: UNIQUE-when-non-NULL dedup key for retry /
                 Consumer Group redelivery. Convention: ``f"{run_id}:{iter_index}"``
                 for iter-stream writers. Phase 1 batch callers leave None
-                (column allows multi-NULL — see RFC-0022 §6.2).
+                (column allows multi-NULL - see RFC-0022 §6.2).
 
         Returns:
             The created action record, or ``None`` when a row with the same
             ``idempotency_key`` already exists (idempotent collapse: caller-side
-            retry / Consumer Group redelivery — same iter, same content,
+            retry / Consumer Group redelivery - same iter, same content,
             already durable). UNIQUE-violation handling matches ``persist_run_start`` /
             ``persist_run_end``: swallow, log info, never raise. Real DB errors
             are still propagated by the surrounding ``flush`` path's broad
@@ -248,7 +245,7 @@ class AgentRunActionService:
         messages = [m for m in messages if m.role != Role.SYSTEM]
 
         # Drop reasoning-only assistant messages (LLM stream interrupted before
-        # text/tool_use was emitted). These have no semantic value — feeding
+        # text/tool_use was emitted). These have no semantic value - feeding
         # them back to the LLM produces nonsense follow-ups, and DeepSeek-style
         # providers reject "assistant message with no thinking" on resume too.
         # Real-data forensic scan found 27 such messages across two production
@@ -355,7 +352,7 @@ class AgentRunActionService:
             # exists (caller-side retry, Consumer Group redelivery, or the
             # rare case of two flushers racing on the same iter). The earlier
             # write owns the content; this one is a no-op. Only IntegrityError
-            # (UNIQUE violation) is swallowed — other DB errors propagate.
+            # (UNIQUE violation) is swallowed - other DB errors propagate.
             logger.info(
                 "persist_append: idempotent collapse, key=%s run_id=%s idempotency_key=%s already persisted",
                 key,
@@ -428,8 +425,8 @@ class AgentRunActionService:
             extra: Optional typed ``ReplaceExtra`` variant
                 (``CompactAutoVariant`` / ``CompactFocusedVariant`` / etc.)
                 to annotate the REPLACE event with reason + stats. RFC-0022
-                Phase 3: writers who know "why" — context compaction
-                middleware, ``/clear`` handler, ``/compact`` handler — must
+                Phase 3: writers who know "why" - context compaction
+                middleware, ``/clear`` handler, ``/compact`` handler - must
                 pass a typed variant here so consumers (UI, replay, billing)
                 can match on ``reason`` instead of inferring from message diffs.
 
@@ -469,14 +466,14 @@ class AgentRunActionService:
         # NOTE: REPLACE is append-only. We MUST NOT delete prior action rows
         # here even though REPLACE supersedes earlier history at the load
         # layer (load_messages stops at the first REPLACE seen during DESC
-        # scan — see line 573). The previous "GC prior rows" branch
+        # scan - see line 573). The previous "GC prior rows" branch
         # contradicted RFC-0022's event-sourcing model, broke RFC-0088's
         # ``persisted ⊇ event`` SSOT invariant for NAC, made /undo
         # impossible past a REPLACE boundary, dropped audit / billing
         # token records, and introduced a cross-task GC race when two
         # REPLACEs landed concurrently (each task's
         # ``delete WHERE action_id != self.id`` could wipe the peer's
-        # row, leaving zero survivors). Retention is a separate concern —
+        # row, leaving zero survivors). Retention is a separate concern -
         # implement it via a periodic job at the storage layer, NEVER as
         # a side-effect inside an event write.
         return created
@@ -493,17 +490,17 @@ class AgentRunActionService:
     ) -> AgentRunActionModel | None:
         """Persist a RUN_START lifecycle marker (RFC-0022 Phase 2).
 
-        RFC-0022:  run iteration  RUN_START 。
+        RFC-0022:  run iteration  RUN_START . 
 
-        RUN_START  **Class A** (Reader-NOOP) action —  messages
-        ， ``trace_id``  observability （RFC-0024）。
+        RUN_START  **Class A** (Reader-NOOP) action -  messages
+,  ``trace_id``  observability  (RFC-0024) . 
 
         ``idempotency_key=f"{run_id}:start"`` retry / 
-        （DB ）； None，。
+         (DB ) ;  None, . 
 
         Returns:
             The created action record, or ``None`` if the row already exists
-            for this run_id (idempotency key collision — treat as success).
+            for this run_id (idempotency key collision - treat as success).
         """
         record = AgentRunActionModel.create_run_start(
             user_id=key.user_id,
@@ -545,7 +542,7 @@ class AgentRunActionService:
     ) -> AgentRunActionModel | None:
         """Persist a RUN_END lifecycle marker (RFC-0022 Phase 2).
 
-        Same semantics as ``persist_run_start`` — Class A reader-NOOP,
+        Same semantics as ``persist_run_start`` - Class A reader-NOOP,
         idempotent via ``idempotency_key=f"{run_id}:end"``, never raises.
 
         ``status`` is business-required (Literal['ok','error','cancelled']
@@ -721,12 +718,12 @@ class AgentRunActionService:
             )
 
         # Read-side defenses against stream-interrupted artifacts:
-        # 1. Drop reasoning-only assistant messages — heals legacy rows
-        #    written before persist_append got the same filter (DeepSeek
-        #    rejects them; other providers get confused).
-        # 2. Synthesize tool_result for orphan tool_use — Anthropic / OpenAI
-        #    APIs reject messages lists with unpaired tool_use, would brick
-        #    sessions on resume.
+        # 1. Drop reasoning-only assistant messages - heals legacy rows
+        # written before persist_append got the same filter (DeepSeek
+        # rejects them; other providers get confused).
+        # 2. Synthesize tool_result for orphan tool_use - Anthropic / OpenAI
+        # APIs reject messages lists with unpaired tool_use, would brick
+        # sessions on resume.
         before_filter = len(messages)
         messages = [m for m in messages if not _is_reasoning_only_assistant(m)]
         dropped = before_filter - len(messages)

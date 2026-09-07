@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -45,11 +42,11 @@ logger = logging.getLogger(__name__)
 
 
 def _resize_image_block(block: ImageBlock) -> None:
-    """ ImageBlock 。
+    """ ImageBlock . 
 
-    url-only（``base64`` ） —— 。、
-    /failure no-op（``resize_base64_image_if_oversized``  None），
-    。
+    url-only (``base64`` )   --  ., 
+    /failure no-op (``resize_base64_image_if_oversized``  None), 
+    . 
     """
     if not block.base64:
         return
@@ -60,13 +57,13 @@ def _resize_image_block(block: ImageBlock) -> None:
 
 
 def _omit_or_resize_image_block(block: ImageBlock) -> TextBlock | None:
-    """ →  ``TextBlock``（ ``ImageBlock``）；
-     ``None``（ block ）。
+    """ →  ``TextBlock`` ( ``ImageBlock``) ; 
+     ``None`` ( block ) . 
 
-    ``image_exceeds_hard_limit``  ``_resize_image_block`` ：，
-     gate  decode  +  payload。url-only（``base64``
-    ） gate（） resize， ``None`` 
-    。
+    ``image_exceeds_hard_limit``  ``_resize_image_block``: 
+     gate  decode  +  payload. url-only (``base64``
+    )  gate ()  resize,  ``None`` 
+    . 
     """
     if block.base64 and image_exceeds_hard_limit(block.base64):
         return TextBlock(text=OVERSIZED_IMAGE_PLACEHOLDER)
@@ -74,12 +71,11 @@ def _omit_or_resize_image_block(block: ImageBlock) -> TextBlock | None:
     return None
 
 
-# (#601):**** ImageBlock。
-# (ToolResultBlock.content  raw_output ) —— builtin 
-# ;/MCP 、、
-# ,,(
-# resize/omit  >20MiB  base64、 image_token_budget=0 
-# escape hatch )。
+# (#601):**** ImageBlock.
+# (ToolResultBlock.content raw_output ) -- builtin
+# ;/MCP,
+# resize/omit >20MiB base64, image_token_budget=0
+# escape hatch ).
 
 
 class HistoryList(list[Message]):
@@ -131,7 +127,7 @@ class HistoryList(list[Message]):
         self._agent_name = agent_name
 
         # Capture the owning event loop for cross-thread async scheduling.
-        # When flush() is called from a worker thread (e.g. executor via
+        # When flush is called from a worker thread (e.g. executor via
         # asyncio.to_thread), we use run_coroutine_threadsafe to dispatch
         # persistence I/O to the main loop instead of creating a nested loop.
         try:
@@ -146,8 +142,8 @@ class HistoryList(list[Message]):
         self._pending_messages: list[Message] = []
         self._baseline_fingerprints: list[str] = self._compute_fingerprints([m for m in self if m.role != Role.SYSTEM])
 
-        # fire-and-forget persistence tasks ， GC 
-        # task completed（ done-callback ）。
+        # fire-and-forget persistence tasks, GC
+        # task completed ( done-callback ) .
         self._background_tasks: set[asyncio.Task[None]] = set()
 
     def update_history_key(self, history_key: AgentRunActionKey) -> None:
@@ -164,25 +160,25 @@ class HistoryList(list[Message]):
         return bool(self._pending_messages)
 
     def _resize_oversized_images(self, messages: Iterable[Message]) -> None:
-        """ ``DEFAULT_IMAGE_MAX_PIXELS`` ，
-        （``image_exceeds_hard_limit``：base64 > 20 MiB  > 60 MP） omit
-        （ resize、， decode  +  payload）。
+        """ ``DEFAULT_IMAGE_MAX_PIXELS``, 
+         (``image_exceeds_hard_limit``: base64 > 20 MiB  > 60 MP)  omit
+         ( resize,,  decode  +  payload) . 
 
          append / extend / replace_all  ``_pending_messages`` 
-         ——  persist ，、tool result、
-        、 REPLACE ， ``ImageBlock``。
-        #599  ``read_visual_file``  LLM ；
-        ， base64  SQL / JSONL / memory / remote
-        backend。/MCP ，：
+          --   persist,, tool result, 
+,  REPLACE,  ``ImageBlock``. 
+        # 599 ``read_visual_file`` LLM ;
+,  base64  SQL / JSONL / memory / remote
+        backend. /MCP,: 
 
          ``content`` **** ``ImageBlock``(; → ,
-         →  resize)。(``ToolResultBlock`` 
+         →  resize). (``ToolResultBlock`` 
         ``raw_output``):builtin ,/
-        MCP 。
+        MCP . 
 
-        object —— ， LLM  token。
-        graceful： try/except，exception，
-        failurefailure（ read_visual_file “ fail”）。
+        object  --,  LLM  token. 
+        graceful:  try/except, exception, 
+        failurefailure ( read_visual_file " fail") . 
         """
         for message in messages:
             try:
@@ -196,9 +192,8 @@ class HistoryList(list[Message]):
 
     @staticmethod
     def _resize_message_images(message: Message) -> None:
-        # block： ImageBlock →  TextBlock （TextBlock 
-        # DiscriminatedBlock ，type）； resize。
-        # 、，。
+        # block: ImageBlock → TextBlock (TextBlock
+        # DiscriminatedBlock, type) ; resize.
         for index, block in enumerate(message.content):
             if isinstance(block, ImageBlock):
                 placeholder = _omit_or_resize_image_block(block)
@@ -269,7 +264,7 @@ class HistoryList(list[Message]):
             update_baseline: If True, update baseline fingerprints to match new messages.
                            Use this when loading history from storage to set initial state.
                            Default is False to allow flush() to detect changes.
-            replace_extra: RFC-0026 — when provided, treats this call as a
+            replace_extra: RFC-0026 - when provided, treats this call as a
                            typed REPLACE event (compaction / ``/clear`` / etc.)
                            and synchronously schedules the persist write with
                            the typed variant. Implies ``update_baseline=True``
@@ -288,12 +283,12 @@ class HistoryList(list[Message]):
         super().extend(new_messages)
         if self._persistence_enabled:
             self._pending_messages.clear()
-            # RFC-0026: replace_extra implies update_baseline — the typed
-            # write below sets the post-REPLACE ground truth, so flush()
+            # RFC-0026: replace_extra implies update_baseline - the typed
+            # write below sets the post-REPLACE ground truth, so flush
             # must NOT compute a fingerprint diff against the old baseline.
             if update_baseline or replace_extra is not None:
                 # Update baseline fingerprints to match the new message list
-                # This ensures flush() only persists truly new messages added after this call
+                # This ensures flush only persists truly new messages added after this call
                 current_non_system = [m for m in self if m.role != Role.SYSTEM]
                 self._baseline_fingerprints = self._compute_fingerprints(current_non_system)
             if replace_extra is not None:
@@ -353,36 +348,36 @@ class HistoryList(list[Message]):
         - No owner loop → best-effort asyncio.run (sync-only entry points)
 
          create_task / run_coroutine_threadsafe  task/future 
-        done-callback error，failure。
+        done-callback error, failure. 
 
         Args:
             coro: Coroutine to schedule
         """
         owner = self._owner_loop
 
-        # 1.  running loop
+        # 1. running loop
         try:
             running = asyncio.get_running_loop()
         except RuntimeError:
             running = None
 
         if running is not None and running is owner:
-            # ， create_task（）
+            # , create_task
             task = asyncio.create_task(coro)  # type: ignore[arg-type]
             task.add_done_callback(self._on_task_done)
             self._background_tasks.add(task)
         elif owner is not None and owner.is_running():
-            # ： run_coroutine_threadsafe 
+            # : run_coroutine_threadsafe
             future = asyncio.run_coroutine_threadsafe(coro, owner)  # type: ignore[arg-type]
             future.add_done_callback(self._on_task_done)
         elif running is not None:
-            # （ owner）， create_task
+            # ( owner), create_task
             task = asyncio.create_task(coro)  # type: ignore[arg-type]
             task.add_done_callback(self._on_task_done)
             self._background_tasks.add(task)
         else:
-            # running loop（ sync ， CLI ）
-            # asyncio.run()  loop 
+            # running loop ( sync, CLI )
+            # asyncio.run loop
             try:
                 asyncio.run(coro)  # type: ignore[arg-type]
             except RuntimeError:
@@ -394,8 +389,8 @@ class HistoryList(list[Message]):
     def _on_task_done(self, task: asyncio.Task[object] | asyncio.Future[object] | ConcurrentFuture[object]) -> None:
         """Done-callback for fire-and-forget persistence tasks.
 
-        failure，exception（Python  Task  GC 
-         'Task exception was never retrieved' ，）。
+        failure, exception (Python  Task  GC 
+         'Task exception was never retrieved', ) . 
         """
         self._background_tasks.discard(task)  # type: ignore[arg-type]
         try:

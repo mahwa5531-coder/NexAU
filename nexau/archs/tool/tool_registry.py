@@ -1,23 +1,20 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
 """Tool registry with deferred loading support.
 
-RFC-0005: Tool Search — 
+RFC-0005: Tool Search - 
 
-ToolRegistry 、class。
-（source），（inject）， source。
+ToolRegistry, class. 
+ (source),  (inject),  source. 
 """
 
 import logging
@@ -41,7 +38,7 @@ class ToolRegistry:
     - compute_deferred_tools(): ToolSearch 
     - compute_serial_tool_names(): list
     - inject(tool_name):  deferred tool
-    - get_all(): （）
+    - get_all():  () 
     - search(query, max_results):  deferred 
     """
 
@@ -53,7 +50,7 @@ class ToolRegistry:
     def add_source(self, name: str, tools: Sequence[Tool]) -> None:
         """Register a tool source (append-only, does not modify existing entries).
 
-        RFC-0005: （，）
+        RFC-0005:  (, ) 
 
         Args:
             name: Source identifier (e.g. 'config', 'mcp', 'builtin')
@@ -114,7 +111,7 @@ class ToolRegistry:
     def inject(self, tool_name: str) -> bool:
         """Inject a deferred tool so it appears in eager tools next turn.
 
-        RFC-0005:  deferred tool（ source）
+        RFC-0005:  deferred tool ( source) 
 
         Args:
             tool_name: Name of the tool to inject
@@ -136,7 +133,7 @@ class ToolRegistry:
     def get_all(self) -> dict[str, Tool]:
         """Get complete registry (for tool execution lookup).
 
-        RFC-0005: （）
+        RFC-0005:  () 
 
         Returns:
             Dict mapping tool name to Tool object
@@ -165,7 +162,7 @@ class ToolRegistry:
     ) -> list[Tool]:
         """Search deferred tools and inject matches.
 
-        RFC-0005: ， activate 
+        RFC-0005:  activate 
 
         Weighted keyword search on name + description + search_hint.
 
@@ -199,7 +196,7 @@ class ToolRegistry:
         if not deferred:
             return []
 
-        # 1.  required tokens (+keyword)  tokens
+        # 1. required tokens (+keyword) tokens
         raw_tokens = query.lower().split()
         required_tokens: list[str] = []
         search_tokens: list[str] = []
@@ -214,7 +211,7 @@ class ToolRegistry:
         if not all_tokens:
             return []
 
-        # 2. （required tokens  name ）
+        # 2. (required tokens name )
         candidates = deferred
         if required_tokens:
             filtered: list[Tool] = []
@@ -224,18 +221,18 @@ class ToolRegistry:
                     filtered.append(tool)
             candidates = filtered
 
-        # 3. 
+        # 3.
         scored: list[tuple[float, Tool]] = []
         for tool in candidates:
             score = self._score_tool(tool, all_tokens)
             if score > 0:
                 scored.append((score, tool))
 
-        # 4. 
+        # 4.
         scored.sort(key=lambda x: x[0], reverse=True)
         results = [tool for _, tool in scored[:limit]]
 
-        # 5. 
+        # 5.
         with self._lock:
             for tool in results:
                 self._injected.add(tool.name)
@@ -253,14 +250,14 @@ class ToolRegistry:
         desc_lower = (tool.description or "").lower()
         hint_lower = (tool.search_hint or "").lower()
 
-        # Phase 1.5: CamelCase 
-        # re.sub ：HTTPClient → HTTP_Client → http_client → ["http", "client"]
+        # Phase 1.5: CamelCase
+        # re.sub: HTTPClient → HTTP_Client → http_client → ["http", "client"]
         s = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", tool.name)
         s = re.sub(r"([a-z\d])([A-Z])", r"\1_\2", s)
         name_parts = [p for p in re.split(r"[_\-]", s.lower()) if p]
 
         for token in tokens:
-            # name  token（ _ / CamelCase ）
+            # name token ( _ / CamelCase )
             if token in name_parts:
                 score += 10
             elif token in name_lower:
@@ -268,11 +265,11 @@ class ToolRegistry:
             elif name_lower in token or token in name_lower:
                 score += 3
 
-            # search_hint 
+            # search_hint
             if hint_lower and token in hint_lower:
                 score += 4
 
-            # description 
+            # description
             if token in desc_lower:
                 score += 2
 
@@ -281,7 +278,7 @@ class ToolRegistry:
     def build_deferred_index(self) -> str:
         """Build a compact index of deferred tools for ToolSearch description.
 
-        RFC-0005: description  deferred tools （ + ）
+        RFC-0005: description  deferred tools  ( + ) 
 
         Returns:
             Formatted string listing available deferred tools

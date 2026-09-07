@@ -39,28 +39,26 @@ logger = logging.getLogger(__name__)
 # Oversized-image thresholds live in `image_probe` (single source, shared with
 # the persistence-entry omit gate and mirrored by Rust `nexau-rs`): a file
 # above `OVERSIZED_IMAGE_FILE_SIZE_BYTES` (20MB) is never pulled into process
-# memory — it is compressed by ffmpeg inside the sandbox first — and an image
+# memory - it is compressed by ffmpeg inside the sandbox first - and an image
 # probed above `OVERSIZED_IMAGE_PIXELS` (60MP) must likewise be compressed
-# before it may reach the model. When ffmpeg is unavailable in the sandbox,
+# before it may reach the model. When ffmpeg is unavailable in the sandbox
 # reading such an image fails with a structured error instead of falling back
 # to the original bytes (which would blow the context window or be rejected
 # by the provider API). Only SVG keeps a plain size rejection: its rasterized
 # PNG exists in memory, not at a sandbox path, so ffmpeg cannot compress it.
-#
 # Videos are streamed by ffmpeg (frame extraction), so they carry no size cap.
 
 # Incident fix (session bf6ef5c923ce; Rust counterpart nexau-rs#94): a
 # full-resolution image can push a single prompt past the model's context
 # window, so when the caller doesn't pass `image_max_size`, images are
-# downscaled to a pixel-area cap derived from a per-image token budget — the
+# downscaled to a pixel-area cap derived from a per-image token budget - the
 # same shape as Claude Code's `readImageWithTokenBudget` (budget → physical
 # size cap), except the budget→size exchange rate is pixels, not base64
 # bytes, because providers bill images by pixel area.
-#
 # The budget constants and the area-cap geometry
-# (`OFFICIAL_PIXELS_PER_TOKEN`, `DEFAULT_IMAGE_TOKEN_BUDGET`,
+# (`OFFICIAL_PIXELS_PER_TOKEN`, `DEFAULT_IMAGE_TOKEN_BUDGET`
 # `DEFAULT_IMAGE_MAX_PIXELS`, `floor_even_dimension`, `area_capped_dimensions`)
-# live in `image_probe` — the shared low-level image module — so this
+# live in `image_probe` - the shared low-level image module - so this
 # ffmpeg-based read downscale, the Pillow-based persistence downscale
 # (`resize_base64_image_if_oversized`) and the token counter all cap against the
 # same exchange rate. They are imported above; the tests still import them from
@@ -71,14 +69,14 @@ logger = logging.getLogger(__name__)
 # pixel count is within bound. The public API rejects unknown media types with
 # a 400 ("media_type: Input should be 'image/jpeg', 'image/png', 'image/gif'
 # or 'image/webp'"). Behind the production gateway the symptom varies by
-# upstream channel — measured live (northgate, 2026-07): raw image/tiff and
+# upstream channel - measured live (northgate, 2026-07): raw image/tiff and
 # image/bmp came back as a hard 400 on one channel, a 503 on another, and on a
 # third a 200 whose image was silently dropped (model reports seeing nothing).
 # All three mean the same thing: a non-whitelist format never reaches the
 # model, so we re-encode to JPEG before sending.
 _API_SAFE_IMAGE_MIME_TYPES: Final[frozenset[str]] = frozenset({"image/jpeg", "image/png", "image/gif", "image/webp"})
 
-# Pure-transcode scale expression: keeps dimensions (even-floored — ffmpeg's
+# Pure-transcode scale expression: keeps dimensions (even-floored - ffmpeg's
 # default mjpeg 4:2:0 pixel format requires even width/height) while
 # re-encoding to JPEG. Used for within-bound images whose *format* is the
 # problem rather than their size.
@@ -335,8 +333,8 @@ def _edge_capped_dimensions(width: int, height: int, max_edge: int) -> tuple[int
     The governed (longest) edge lands on the cap (even-floored); the short
     side scales proportionally, so both dimensions stay <= the cap. Bounding
     the longest edge (rather than just the width, as the pre-incident
-    `scale='min(max_width,iw)':-2` did) also caps tall-narrow images — e.g. a
-    long mobile screenshot — whose pixel area, and therefore provider token
+    `scale='min(max_width,iw)':-2` did) also caps tall-narrow images - e.g. a
+    long mobile screenshot - whose pixel area, and therefore provider token
     cost, would otherwise stay unbounded.
     """
     if max(width, height) <= max_edge:
@@ -380,7 +378,7 @@ def _ffmpeg_scale_in_sandbox(
     ``single_frame`` adds ``-frames:v 1``: without it, an animated GIF/WebP
     input makes ffmpeg fail against the single-file ``.jpg`` output ("Cannot
     write more than one file with the same name"). The mandatory oversized
-    path sets it — first frame beats a hard error for an image that must be
+    path sets it - first frame beats a hard error for an image that must be
     compressed to be readable at all. The graceful default path deliberately
     does NOT: there the ffmpeg failure falls back to the original bytes,
     preserving the animation (persistence-side "never flatten" semantics).
@@ -419,10 +417,10 @@ def _downscale_image_content(
 ) -> bytes | None:
     """Downscale image bytes to their token bound via ffmpeg in the sandbox.
 
-    Incident fix (Rust counterpart nexau-rs#94): default token 。
+    Incident fix (Rust counterpart nexau-rs#94): default token . 
 
     Returns the downscaled JPEG bytes, or ``None`` meaning "keep the original
-    bytes/mime unchanged" — either because the image is already within bound
+    bytes/mime unchanged" - either because the image is already within bound
     AND in an API-safe format (true no-op: such images are never re-encoded)
     or because downscaling can't proceed safely (graceful degradation; a read
     must never fail over an image-processing hiccup).
@@ -431,10 +429,10 @@ def _downscale_image_content(
     (`probe_dimensions`) and passed to ffmpeg as an exact ``scale=W:H``, so
     the bound guarantees don't depend on ffmpeg expression arithmetic. Only
     when the header can't be parsed does it fall back to a shrink-only ffmpeg
-    longest-edge expression — ffmpeg decodes formats the prober doesn't cover.
+    longest-edge expression - ffmpeg decodes formats the prober doesn't cover.
 
     Within-bound images whose format is outside `_API_SAFE_IMAGE_MIME_TYPES`
-    (e.g. a probeable BMP) are still transcoded — without resizing — because
+    (e.g. a probeable BMP) are still transcoded - without resizing - because
     the model can't see them otherwise (northgate silently drops
     `image/tiff`; the public API 400s).
     """
@@ -456,7 +454,7 @@ def _downscale_image_content(
                 return None
     else:
         # Default bound: pixel-area cap derived from the per-image token
-        # budget (configured `image_token_budget` or the built-in default) —
+        # budget (configured `image_token_budget` or the built-in default) -
         # identical worst-case cost for every aspect ratio. A budget of 0 is
         # the same explicit escape hatch as `image_max_size: 0`.
         if image_token_budget is not None:
@@ -482,7 +480,7 @@ def _downscale_image_content(
     # Downscale must never fail the read: since this runs by default on every
     # image, any ffmpeg/sandbox hiccup falls back to the original bytes rather
     # than surfacing a tool error (graceful-degradation parity with the Rust
-    # `downscale_image_bytes`). Oversized images never take this path — their
+    # `downscale_image_bytes`). Oversized images never take this path - their
     # compression is mandatory and raises instead (see `_read_image_file`).
     try:
         return _ffmpeg_scale_in_sandbox(file_path, sandbox, scale_expr)
@@ -516,10 +514,10 @@ def _oversized_scale_expr(
     expression lets ffmpeg bound the size without knowing it up front.
     """
 
-    # : <= OVERSIZED_IMAGE_PIXELS。
+    # : <= OVERSIZED_IMAGE_PIXELS.
     # `image_max_size`/`image_token_budget`( 30000 / ) edge/area
-    # "" ——  >60MP  omit ,
-    # success。 fallback  60MP 。
+    # "" -- >60MP omit
+    # success. fallback 60MP .
     def _transcode_or_hard_cap() -> str:
         if dimensions is not None:
             hard_target = area_capped_dimensions(dimensions[0], dimensions[1], OVERSIZED_IMAGE_PIXELS)
@@ -598,7 +596,7 @@ def _read_image_file(
     Oversized images (> `OVERSIZED_IMAGE_FILE_SIZE_BYTES` on disk, or probed
     > `OVERSIZED_IMAGE_PIXELS`) must be compressed by ffmpeg in the sandbox
     before anything reaches the model; a file over the byte threshold is never
-    pulled into process memory at all — only the compressed output is read
+    pulled into process memory at all - only the compressed output is read
     back. Within-bound images keep the graceful default downscale.
     """
     ext = Path(file_path).suffix.lower()
@@ -611,7 +609,7 @@ def _read_image_file(
     else:
         if file_size > OVERSIZED_IMAGE_FILE_SIZE_BYTES:
             # Over the byte threshold: never pull the original into process
-            # memory — compress at the sandbox path and read back only the
+            # memory - compress at the sandbox path and read back only the
             # (small) JPEG output. Dimensions stay unprobed (probing needs
             # bytes); the shrink-only ffmpeg expression bounds them anyway.
             compressed = _compress_oversized_image(
@@ -664,7 +662,7 @@ def _read_image_file(
     # are capped to `DEFAULT_IMAGE_MAX_PIXELS`; an explicit `image_max_size`
     # caps the longest edge instead. SVG is exempt: the rasterized PNG exists
     # only in memory, not at `file_path`, so ffmpeg (which reads the file)
-    # can't rescale it — token accounting still charges its true pixel area.
+    # can't rescale it - token accounting still charges its true pixel area.
     if ext != ".svg":
         resized = _downscale_image_content(file_path, content, sandbox, image_max_size, image_token_budget, mime_type)
         if resized is not None:
@@ -699,7 +697,7 @@ def read_visual_file(
     processed by extracting key frames via ffmpeg in the sandbox.
 
     Oversized images (file > 20MB, or > 60 megapixels) are mandatorily
-    compressed via ffmpeg in the sandbox before anything reaches the model —
+    compressed via ffmpeg in the sandbox before anything reaches the model -
     a >20MB file is never pulled into process memory, only its compressed
     output is. When the sandbox has no ffmpeg, reading such an image fails
     with an OVERSIZED_IMAGE_REQUIRES_FFMPEG error instead of falling back to
@@ -717,7 +715,7 @@ def read_visual_file(
         image_token_budget: Per-image token budget in official Anthropic
             formula tokens (28x28-pixel patches, 784 px/token); images are
             downscaled so their area is at most budget x 784 pixels. Default
-            4_784 — the official high-resolution tier's per-image ceiling
+            4_784 - the official high-resolution tier's per-image ceiling
             (≈3.75 megapixels). Intended for deployment configuration via
             binding extra_kwargs; 0 disables downscaling. Ignored when
             `image_max_size` is given.

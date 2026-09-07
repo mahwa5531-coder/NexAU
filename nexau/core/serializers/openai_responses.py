@@ -351,8 +351,8 @@ def prepare_openai_responses_api_input(messages: list[dict[str, Any]]) -> tuple[
         if role == "assistant" and isinstance(phase, str) and phase:
             message_item["phase"] = phase
 
-        # RFC-0014: reasoning  assistant message  function_call ，
-        # Responses API ：reasoning → message → function_call
+        # RFC-0014: reasoning assistant message function_call
+        # Responses API: reasoning → message → function_call
         reasoning_items = message.get("reasoning")
         if reasoning_items:
             if isinstance(reasoning_items, list):
@@ -360,8 +360,8 @@ def prepare_openai_responses_api_input(messages: list[dict[str, Any]]) -> tuple[
         elif role == "assistant":
             prepared.extend(reconstruct_openai_responses_reasoning_items_from_message(message))
 
-        # RFC-0014:  tool_call  assistant  message item，
-        # Responses API  reasoning → function_call（ message）
+        # RFC-0014: tool_call assistant message item
+        # Responses API reasoning → function_call ( message)
         if content_parts or role != "assistant":
             prepared.append(message_item)
 

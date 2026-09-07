@@ -23,7 +23,7 @@ def run_async_function_sync[T](
     """Run an async function from a sync context.
 
     - If no event loop is running: uses ``asyncio.run()`` to create a temporary loop.
-    - If a loop IS running: raises RuntimeError — the caller should use
+    - If a loop IS running: raises RuntimeError - the caller should use
       ``await`` directly, or ``run_coroutine_threadsafe`` for cross-thread dispatch.
 
     The old implementation used ``nest_asyncio`` to monkey-patch a running loop,

@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -193,12 +190,12 @@ class AgentState:
     def get_sandbox(self) -> Optional["BaseSandbox"]:
         """Get the sandbox associated with the agent state.
 
-        1： start_sync()  sandbox
-        2： asyncio 
-        3：E2B SDK  httpx 
-        4： sandbox_manager， sandbox
+        1:  start_sync()  sandbox
+        2:  asyncio 
+        3: E2B SDK  httpx 
+        4:  sandbox_manager,  sandbox
         """
-        # start_sync() / sandbox
+        # start_sync / sandbox
         if self._sandbox_manager is not None:
             return self._sandbox_manager.start_sync()
         return self._sandbox
@@ -210,7 +207,7 @@ class AgentState:
     def add_tool(self, tool: "Tool") -> None:
         """Dynamically add an eager tool into the current execution context.
 
-        RFC-0005:  ToolRegistry， Executor 。
+        RFC-0005:  ToolRegistry,  Executor . 
         Deferred runtime additions are intentionally unsupported for now.
         """
         if tool.defer_loading:

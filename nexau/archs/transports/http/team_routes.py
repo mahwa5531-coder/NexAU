@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -123,7 +120,7 @@ def create_team_router(
 ) -> APIRouter:
     """Create team router with registry dependency.
 
-    RFC-0002:  team （ TeamRegistry）
+    RFC-0002:  team  ( TeamRegistry) 
 
     Args:
         registry: TeamRegistry instance for managing team lifecycle.
@@ -136,7 +133,7 @@ def create_team_router(
     """
     router = APIRouter(prefix="/team", tags=["team"])
 
-    # RFC-0002: Team SSE 
+    # RFC-0002: Team SSE
     # RFC-0014: running enqueue + subscribe
     @router.post("/stream")
     async def team_stream(request: TeamRunRequest) -> StreamingResponse:
@@ -145,12 +142,12 @@ def create_team_router(
         RFC-0002: Team SSE 
         RFC-0014: running
 
-         team ， enqueue  leader  subscribe 
-        SSE ， run()  leader lock 。
+         team,  enqueue  leader  subscribe 
+        SSE,  run()  leader lock . 
         """
         team = registry.get_or_create(request.user_id, request.session_id)
 
-        # RFC-0014:  team ， enqueue + subscribe
+        # RFC-0014: team, enqueue + subscribe
         if team.is_running:
             logger.info(
                 "Team already running for (%s, %s), redirecting to enqueue + subscribe",
@@ -159,7 +156,7 @@ def create_team_router(
             )
             team.enqueue_user_message("leader", request.message)
 
-            # subscribe  SSE ，
+            # subscribe SSE
             current_cursor = 0
             if count_events is not None:
                 current_cursor = count_events(request.user_id, request.session_id)
@@ -214,7 +211,7 @@ def create_team_router(
                 },
             )
 
-        # per-request on_envelope ，
+        # per-request on_envelope
         def _on_envelope(envelope: TeamStreamEnvelope) -> None:
             if on_stream_event is not None:
                 on_stream_event(
@@ -225,7 +222,7 @@ def create_team_router(
 
         envelope_cb = _on_envelope if on_stream_event is not None else None
 
-        # （ on_complete ， SSE ）
+        # ( on_complete, SSE )
         team.set_on_complete(lambda: registry.remove(request.user_id, request.session_id))
 
         async def event_generator() -> AsyncGenerator[str, None]:
@@ -263,7 +260,7 @@ def create_team_router(
             },
         )
 
-    # RFC-0002: Team 
+    # RFC-0002: Team
     @router.post("/query")
     async def team_query(request: TeamRunRequest) -> dict[str, str]:
         """Run team synchronously.
@@ -277,7 +274,7 @@ def create_team_router(
         finally:
             registry.remove(request.user_id, request.session_id)
 
-    # RFC-0002:  Teammates
+    # RFC-0002: Teammates
     @router.get("/teammates")
     async def list_teammates(
         user_id: str = Query(...),
@@ -293,7 +290,7 @@ def create_team_router(
         infos = team.get_teammate_info()
         return [asdict(info) for info in infos]
 
-    # RFC-0002: 
+    # RFC-0002:
     @router.get("/tasks")
     async def list_tasks(
         user_id: str = Query(...),
@@ -313,7 +310,7 @@ def create_team_router(
             return []
         return [asdict(t) for t in tasks]
 
-    # RFC-0002: 
+    # RFC-0002:
     @router.post("/tasks")
     async def create_task(request: CreateTaskRequest) -> dict[str, object]:
         """Create a new task.
@@ -331,7 +328,7 @@ def create_team_router(
         )
         return asdict(task)
 
-    # RFC-0002: 
+    # RFC-0002:
     @router.post("/tasks/claim")
     async def claim_task(request: ClaimTaskRequest) -> dict[str, object]:
         """Claim a task.
@@ -350,7 +347,7 @@ def create_team_router(
             raise HTTPException(status_code=409, detail=str(exc))
         return {"task_id": request.task_id, "status": "claimed", "assignee_agent_id": assignee}
 
-    # RFC-0002: 
+    # RFC-0002:
     @router.patch("/tasks/{task_id}")
     async def update_task(
         task_id: str,
@@ -371,7 +368,7 @@ def create_team_router(
         )
         return {"task_id": task_id, "status": request.status}
 
-    # RFC-0002: 
+    # RFC-0002:
     @router.post("/message")
     async def send_message(request: SendMessageRequest) -> dict[str, str]:
         """Send an intra-team message.
@@ -394,15 +391,15 @@ def create_team_router(
             )
             return {"message_id": msg.message_id, "status": "broadcast"}
 
-    # RFC-0002: （stream  agent ）
+    # RFC-0002: (stream agent )
     @router.post("/user-message")
     async def user_message(request: UserMessageRequest) -> dict[str, str]:
         """Enqueue a user message to an agent during streaming.
 
         RFC-0002: 
 
-         stream ， agent  user ，
-         enqueue_message  agent  team_mode 。
+         stream,  agent  user, 
+         enqueue_message  agent  team_mode . 
         """
         team = registry.get(request.user_id, request.session_id)
         if team is None:
@@ -410,14 +407,14 @@ def create_team_router(
         team.enqueue_user_message(request.to_agent_id, request.content)
         return {"status": "enqueued", "to_agent_id": request.to_agent_id}
 
-    # RFC-0002:  Team
+    # RFC-0002: Team
     @router.post("/stop")
     async def stop_team(request: StopTeamRequest) -> dict[str, str]:
         """Force-stop all agents in a team.
 
         RFC-0002:  Team
 
-         Stop ， leader  teammate 。
+         Stop,  leader  teammate . 
         """
         team = registry.get(request.user_id, request.session_id)
         if team is None:
@@ -425,7 +422,7 @@ def create_team_router(
         await team.stop_all()
         return {"status": "stopped"}
 
-    # RFC-0002:  Team （）
+    # RFC-0002: Team
     @router.get("/status")
     async def team_status(
         user_id: str = Query(...),
@@ -435,7 +432,7 @@ def create_team_router(
 
         RFC-0002:  Team 
 
-        interface SSE 。
+        interface SSE . 
         """
         team = registry.get(user_id, session_id)
         return {
@@ -443,7 +440,7 @@ def create_team_router(
             "session_id": session_id,
         }
 
-    # RFC-0002:  SSE （）
+    # RFC-0002: SSE
     @router.get("/subscribe")
     async def team_subscribe(
         user_id: str = Query(...),
@@ -454,15 +451,15 @@ def create_team_router(
 
         RFC-0002:  SSE 
 
-        interface EventStore ，
-        `after`  N 。
+        interface EventStore, 
+        `after`  N . 
         """
 
         async def event_generator() -> AsyncGenerator[str, None]:
             cursor = after
             try:
                 while True:
-                    # 1. 
+                    # 1.
                     if get_history is not None:
                         new_events = get_history(user_id, session_id, cursor)
                         for event in new_events:
@@ -474,10 +471,9 @@ def create_team_router(
                             yield f"data: {response.model_dump_json()}\n\n"
                             cursor += 1
 
-                    # 2.  team 
+                    # 2. team
                     team = registry.get(user_id, session_id)
                     if team is None or not team.is_running:
-                        # 
                         if get_history is not None:
                             for event in get_history(user_id, session_id, cursor):
                                 response = TeamStreamEnvelopeResponse(

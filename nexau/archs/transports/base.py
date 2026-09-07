@@ -83,7 +83,7 @@ class TransportBase[TTransportConfig](ABC):
             heartbeat_interval=heartbeat_interval,
         )
 
-        # RFC-0001 Phase 4: running Agent ， interrupt 
+        # RFC-0001 Phase 4: running Agent, interrupt
         # key: (user_id, session_id, agent_id)
         self._running_agents: dict[tuple[str, str, str], Agent] = {}
         self._running_agents_lock = asyncio.Lock()
@@ -212,7 +212,7 @@ class TransportBase[TTransportConfig](ABC):
             variables=variables,
         )
 
-        # RFC-0001 Phase 4:  agent 
+        # RFC-0001 Phase 4: agent
         agent_key = (user_id, session_id, agent.agent_id)
         async with self._running_agents_lock:
             self._running_agents[agent_key] = agent
@@ -221,7 +221,7 @@ class TransportBase[TTransportConfig](ABC):
             # Run agent (agent handles locking and persistence internally)
             response = cast(str, await agent.run_async(message=message, context=context, variables=variables))
         finally:
-            # RFC-0001 Phase 4: 
+            # RFC-0001 Phase 4:
             async with self._running_agents_lock:
                 self._running_agents.pop(agent_key, None)
 
@@ -284,7 +284,7 @@ class TransportBase[TTransportConfig](ABC):
             variables=variables,
         )
 
-        # RFC-0001 Phase 4:  agent 
+        # RFC-0001 Phase 4: agent
         agent_key = (user_id, session_id, agent.agent_id)
         async with self._running_agents_lock:
             self._running_agents[agent_key] = agent
@@ -341,13 +341,13 @@ class TransportBase[TTransportConfig](ABC):
 
         RFC-0001 Phase 4: Transport  stop 
 
-         Agent  stop()。
+         Agent  stop(). 
 
         Args:
             user_id: User ID
             session_id: Session ID
             agent_id: Optional agent ID (if None, stops the first matching agent)
-            force: True ，False 
+            force: True, False 
             timeout: Maximum seconds to wait for execution to complete
 
         Returns:
@@ -370,7 +370,7 @@ class TransportBase[TTransportConfig](ABC):
             if agent_id:
                 agent = self._running_agents.get((user_id, session_id, agent_id))
             else:
-                # agent_id ， session running agent
+                # agent_id, session running agent
                 for key, running_agent in self._running_agents.items():
                     if key[0] == user_id and key[1] == session_id:
                         agent = running_agent

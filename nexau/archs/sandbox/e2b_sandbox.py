@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -71,9 +68,9 @@ from .base_sandbox import (
 
 logger = logging.getLogger(__name__)
 
-# get_file_info (1MiB):E2B SDK  read  range
-# ,value(encoding=None), metadata 
-# runtime 。 LocalSandbox  64KB 。
+# get_file_info (1MiB):E2B SDK read range
+# ,value(encoding=None), metadata
+# runtime . LocalSandbox 64KB .
 _ENCODING_PROBE_MAX_BYTES = 1024 * 1024
 
 BASH_TOOL_RESULTS_BASE_PATH = "/tmp/nexau_bash_tool_results"
@@ -108,7 +105,7 @@ E2B_AVAILABLE = _e2b_available
 
 
 # =============================================================================
-# Self-host (force_http) sandbox construction primitives — NAC#1304
+# Self-host (force_http) sandbox construction primitives - NAC#1304
 # =============================================================================
 
 _TRANSPORT_REBUILD_LOCK = threading.Lock()
@@ -130,8 +127,8 @@ def _locked_build_http_sandbox(
 ) -> E2BRawSandbox:
     """Build an HTTP raw Sandbox bound to a private transport (self-host only).
 
-    NAC#1304:  raw sandbox （manager start 
-    wrapper reconnect ）。
+    NAC#1304:  raw sandbox  (manager start 
+    wrapper reconnect ) . 
 
     Ensures all internal SDK components (``_envd_api``, ``_filesystem``,
     ``_commands``, ...) use the HTTP URL plus the ``X-Access-Token`` header,
@@ -161,7 +158,7 @@ def _locked_build_http_sandbox(
         extra_sandbox_headers={"X-Access-Token": envd_access_token},
     )
     with _TRANSPORT_REBUILD_LOCK:
-        # 1. pre-seed： singleton， transport
+        # 1. pre-seed: singleton, transport
         fresh = TransportWithLogger(limits=limits, proxy=connection_config.proxy)
         TransportWithLogger.singleton = fresh
         try:
@@ -174,11 +171,11 @@ def _locked_build_http_sandbox(
                 envd_version=envd_version,
             )
         finally:
-            # 2. detach：singleton，object pool 
+            # 2. detach: singleton, object pool
             TransportWithLogger.singleton = None
         if sandbox._transport is not fresh:
-            # （singleton  None  get_transport ， None ），
-            # SDK 。
+            # (singleton None get_transport, None )
+            # SDK .
             logger.warning(
                 "Transport singleton was contested during locked build; sandbox %s may share its connection pool",
                 sandbox_id[:16],
@@ -192,14 +189,14 @@ def _rebuild_raw_sandbox_for_http(
 ) -> E2BRawSandbox:
     """Extract domain/token from a connect() response and rebuild for HTTP.
 
-    NAC#1304: reconnect （fail-closed）。token  connect 
-    （resume ），object token ；
-    ``SandboxError`` ——  force_http  SDK default HTTPS object。
+    NAC#1304: reconnect  (fail-closed) . token  connect 
+     (resume ), object token ; 
+    ``SandboxError``  --   force_http  SDK default HTTPS object. 
     """
     domain = raw.sandbox_domain
     if fallback is not None and fallback.sandbox_domain and domain != fallback.sandbox_domain:
-        # ：connect  domain  SDK default(property )，
-        # URL。
+        # : connect domain SDK default(property )
+        # URL.
         logger.warning(
             "connect response domain %r differs from previous %r; using response value",
             domain,
@@ -252,7 +249,7 @@ class E2BSandbox(BaseSandbox):
     """Explicit-target marker (NAC#1312 CR): when True, ``_reconnect`` rebuilds
     in place from the current object's own domain/token via
     ``_locked_build_http_sandbox`` and never touches the control-plane
-    ``Sandbox.connect()`` — the binding parameters are static facts supplied
+    ``Sandbox.connect()`` - the binding parameters are static facts supplied
     at construction (A4A DevBox direct binding), and a connect round-trip
     would re-introduce SDK-default-domain fallback and out-of-band NotFound
     failure modes. Implies HTTP rebuild semantics regardless of
@@ -289,7 +286,7 @@ class E2BSandbox(BaseSandbox):
 
     # Commands larger than this threshold (bytes) are written to a script file
     # inside the sandbox and executed via `bash <script>` instead of being
-    # passed inline to `commands.run()`.  This avoids ConnectRPC message-size
+    # passed inline to `commands.run`. This avoids ConnectRPC message-size
     # limits (~4 MB) and Linux MAX_ARG_STRLEN (~128 KB) that cause large
     # heredocs / echo payloads to fail with exit-code 2.
     _LARGE_CMD_THRESHOLD: int = 65_536  # 64 KB
@@ -311,7 +308,7 @@ class E2BSandbox(BaseSandbox):
             raise SandboxError("Sandbox not started. Call start() first.")
 
         output_dir = f"{BASH_TOOL_RESULTS_BASE_PATH}/{uuid.uuid4().hex[:8]}"
-        # NAC#1312: （，retry），
+        # NAC#1312: (, retry)
         # execute_shell retry commands.run failure
         self._retry_on_transient(
             lambda: self._sandbox.commands.run(  # type: ignore[union-attr]
@@ -331,7 +328,7 @@ class E2BSandbox(BaseSandbox):
         Heredoc commands must be scriptified because the compound-command
         wrapper ``{ cmd; } > ... 2> ...`` appends ``; }`` after the heredoc
         delimiter, violating bash's requirement that the delimiter occupy
-        its own line — causing a syntax error (exit_code=2).
+        its own line - causing a syntax error (exit_code=2).
 
         This also lets arbitrarily large commands work without hitting RPC
         or OS limits.
@@ -343,7 +340,7 @@ class E2BSandbox(BaseSandbox):
             return command
 
         script_path = f"{output_dir}/run.sh"
-        # NAC#1312: ，retry
+        # NAC#1312: retry
         self._retry_on_transient(lambda: self._sandbox._filesystem.write(script_path, command))  # type: ignore[union-attr]
         logger.info(
             "[e2b] Command scriptified (%d bytes, heredoc=%s) – wrote to %s",
@@ -361,24 +358,24 @@ class E2BSandbox(BaseSandbox):
     ) -> tuple[str, str, str | None]:
         """Read stdout.txt and stderr.txt from the output directory in the sandbox.
 
-        NAC#1312（CR  x2）：
-        - ****retry，；
-        - （），——"
-          " ≠ "failure"。 strict exceptionsuccess（
-          ） ERROR， agent ；
-          stderr failure stdout。
-          ，success，failure note。
+        NAC#1312 (CR  x2): 
+        - ****retry, ; 
+        -  (),  -- "
+          " ≠ "failure".  strict exceptionsuccess (
+          )  ERROR,  agent ; 
+          stderr failure stdout. 
+, success, failure note. 
 
         Args:
-            budget: retry（）。``None`` = ``self.transient_retry_window``。
-                classvalue——，failure
-                ，。
+            budget: retry () . ``None`` = ``self.transient_retry_window``. 
+                classvalue --, failure
+, . 
 
         Returns:
-            (stdout, stderr, unavailable_note)——note  ``None`` 
-            （NotFound ，）；
-            ， error 
-            ，。
+            (stdout, stderr, unavailable_note) -- note  ``None`` 
+             (NotFound, ) ; 
+,  error 
+, . 
         """
         assert self._sandbox is not None
 
@@ -396,7 +393,6 @@ class E2BSandbox(BaseSandbox):
                             retry_window=remaining,
                         )
                     else:
-                        # ：，
                         raw = self._retry_on_transient(
                             lambda: self._sandbox._filesystem.read(path, format="bytes"),  # type: ignore[union-attr]
                             max_retries=0,
@@ -436,7 +432,7 @@ class E2BSandbox(BaseSandbox):
 
     # Transient error patterns that warrant a reconnect + retry.
     # Aligned with NexQ's _RETRYABLE_E2B_TEXT_PAT for comprehensive coverage.
-    # Matched case-insensitively via _is_transient_error().
+    # Matched case-insensitively via _is_transient_error.
     _TRANSIENT_PATTERNS = (
         "event loop is closed",
         "server disconnected",
@@ -472,17 +468,17 @@ class E2BSandbox(BaseSandbox):
     def _reconnect(self, gen_seen: int | None = None) -> None:
         """Attempt to reconnect to the sandbox by sandbox_id (single-flight).
 
-        NAC#1304: ——force_http  HTTP
-        ConnectionConfig ， ``Sandbox.connect()``  SDK
-        default HTTPS object（ :443 ， run 
-         Connection refused）。
+        NAC#1304:  -- force_http  HTTP
+        ConnectionConfig,  ``Sandbox.connect()``  SDK
+        default HTTPS object (:443,  run 
+         Connection refused) . 
 
-        NAC#1312 CR: ``_static_reconnect=True``（explicit-target ）
-         ``Sandbox.connect()``，object
-        domain/token ——configuration，
-         connect class： domain  SDK default
-        （``e2b.app``） fail-closed； SM 
-        connect  NotFound（ transient）retry。
+        NAC#1312 CR: ``_static_reconnect=True`` (explicit-target ) 
+         ``Sandbox.connect()``, object
+        domain/token  -- configuration, 
+         connect class:  domain  SDK default
+         (``e2b.app``)  fail-closed;  SM 
+        connect  NotFound ( transient) retry. 
 
         Args:
             gen_seen: ``_sandbox_generation`` observed by the caller right
@@ -494,12 +490,12 @@ class E2BSandbox(BaseSandbox):
         if not self.sandbox_id:
             raise SandboxError("Sandbox ID not set; cannot reconnect.")
         with self._reconnect_lock:
-            # 1. double-check：
+            # 1. double-check:
             if gen_seen is not None and self._sandbox_generation != gen_seen:
                 return
-            # 2.  wrapper ：single-flight 。 resume
-            # wrapper ， N 
-            # connect 。
+            # 2. wrapper: single-flight . resume
+            # wrapper, N
+            # connect .
             if self._static_reconnect:
                 old = self._sandbox
                 if old is None:
@@ -518,7 +514,7 @@ class E2BSandbox(BaseSandbox):
                     api_key=self._api_key,
                     api_url=self._api_url,
                 )
-                # 3. ：（fail-closed，failureobject、gen ）
+                # 3.: (fail-closed, failureobject, gen )
                 if self._force_http:
                     raw = _rebuild_raw_sandbox_for_http(raw, fallback=self._sandbox)
             self._sandbox = raw
@@ -532,19 +528,19 @@ class E2BSandbox(BaseSandbox):
     ) -> _T:
         """Execute *fn* with automatic reconnect + retry on transient errors.
 
-        NAC#1312: retry。class（ sandbox-proxy ）
-        retry——failure（connection refused）
-        。， 5s，
-        success，error。
+        NAC#1312: retry. class ( sandbox-proxy ) 
+        retry -- failure (connection refused) 
+        .,  5s, 
+        success, error. 
 
         Args:
             fn: Zero-arg callable that performs the SDK operation.
             max_retries: Optional attempt cap. When passed, retrying stops at
-                whichever budget exhausts first (attempts or window) — for
+                whichever budget exhausts first (attempts or window) - for
                 auxiliary reads that must stay low-latency (e.g. best-effort
                 pid probes). ``None`` = unlimited attempts within the window.
             retry_window: Retry time budget in seconds, measured from the
-                first transient failure (fn() ，
+                first transient failure (fn(), 
                 ""). Defaults to ``self.transient_retry_window``;
                 ``<= 0`` falls back to legacy count-based retries
                 (``max_retries`` or ``self.max_retries``).
@@ -557,16 +553,16 @@ class E2BSandbox(BaseSandbox):
             exhausted.
         """
         window = retry_window if retry_window is not None else self.transient_retry_window
-        # (<=0)， self.max_retries
+        # (<=0), self.max_retries
         count_cap = max_retries if max_retries is not None else (self.max_retries if window <= 0 else None)
         deadline: float | None = None
         attempt = 0
         while True:
-            # fn()  generation："failureobject"。
-            # 2+ retry double-check （）；
-            # except （）。
-            # ： fn() completed swap ，failure
-            # reconnect 、 backoff，。
+            # fn generation: "failureobject".
+            # 2+ retry double-check ;
+            # except .
+            # : fn completed swap, failure
+            # reconnect, backoff, .
             gen_seen = self._sandbox_generation
             try:
                 return fn()
@@ -581,14 +577,14 @@ class E2BSandbox(BaseSandbox):
                         raise
                 if count_cap is not None and attempt >= count_cap:
                     raise
-                # 5s + ； deadline。
-                # attempt  2**n  cap——configuration attempt ，
-                # 2**1024  float  OverflowError（NAC#1312 CR finding）。
+                # 5s + ; deadline.
+                # attempt 2**n cap -- configuration attempt
+                # 2**1024 float OverflowError (NAC#1312 CR finding) .
                 base = min(0.5 * (2 ** min(attempt, 10)), 5.0)
                 delay = base + random.uniform(0, base * 0.25)
                 if deadline is not None:
-                    # clamp （ > 0， raise）：
-                    # ≤ window，
+                    # clamp ( > 0, raise):
+                    # ≤ window
                     delay = min(delay, deadline - now)
                 logger.warning(
                     "Transient error (attempt %d%s), reconnecting and retrying in %.1fs: %s",
@@ -602,12 +598,11 @@ class E2BSandbox(BaseSandbox):
                     self._reconnect(gen_seen)
                 except Exception as reconnect_err:
                     if self._is_transient_error(reconnect_err):
-                        # （SM/sidecar ）：
-                        # ，retry reconnect
+                        # (SM/sidecar ):
+                        # , retry reconnect
                         logger.warning("Reconnect failed with transient error (will retry): %s", reconnect_err)
                     else:
-                        # failure（、、force_http fail-closed）：
-                        # ，
+                        # failure (,, force_http fail-closed):
                         logger.error(f"Reconnect failed: {reconnect_err}")
                         raise e from reconnect_err
                 attempt += 1
@@ -625,8 +620,8 @@ class E2BSandbox(BaseSandbox):
         """
         Execute a shell command in the E2B sandbox.
 
-         shell  stdout/stderr ，
-        。
+         shell  stdout/stderr, 
+        . 
 
         Args:
             command: The shell command to execute
@@ -663,7 +658,7 @@ class E2BSandbox(BaseSandbox):
             command_stripped = command.strip()
 
             if background:
-                # 1. ， shell 
+                # 1., shell
                 output_dir = self._prepare_output_dir(command, user=user)
                 command_stripped = self._maybe_scriptify(command_stripped, output_dir, user=user)
                 wrapped_cmd = f"{{ {command_stripped}; }} > {output_dir}/stdout.txt 2> {output_dir}/stderr.txt"
@@ -683,7 +678,7 @@ class E2BSandbox(BaseSandbox):
                 bg_pid: int = handle.pid  # background=True → CommandHandle
 
                 # E2B CommandHandle requires iterating events to populate _result.
-                # ，consumer  exit code。
+                # , consumer exit code.
                 task_info: dict[str, Any] = {
                     "handle": handle,
                     "command": command,
@@ -697,13 +692,13 @@ class E2BSandbox(BaseSandbox):
                 def _consume_events(h: object, info: dict[str, Any]) -> None:
                     try:
                         for _stdout_chunk, _stderr_chunk, _pty in h:  # type: ignore[attr-defined]
-                            pass  # ，completed
+                            pass  # , completed
                     except StopIteration:
                         pass
                     except Exception as exc:
                         # Streaming connection dropped (e.g. proxy timeout after ~15 min).
-                        # The sandbox process may still be running — do NOT mark as
-                        # finished.  Set a stream_error flag so callers can fall back
+                        # The sandbox process may still be running - do NOT mark as
+                        # finished. Set a stream_error flag so callers can fall back
                         # to file-based status checking.
                         info["stream_error"] = str(exc)
                         logger.warning(
@@ -744,14 +739,13 @@ class E2BSandbox(BaseSandbox):
                     stderr_file=f"{output_dir}/stderr.txt" if output_dir else None,
                 )
 
-            # Foreground mode:  "pid  + "
-            # （NAC#1312 CR ， 600s value/）：
-            # - ，stdout/stderr/exitcode 
-            # ，——，
-            # - pid ：retry
-            # （retry = ，）
-            # -  0.2s  ×1.5  10s：，
-            # ， ~15min 
+            # Foreground mode: "pid + "
+            # (NAC#1312 CR, 600s value/):
+            # -, stdout/stderr/exitcode
+            # - pid: retry
+            # (retry =, )
+            # - 0.2s ×1.5 10s:
+            # , ~15min
             import shlex as _shlex
 
             output_dir = self._prepare_output_dir(command, user=user)
@@ -760,13 +754,13 @@ class E2BSandbox(BaseSandbox):
 
             exitcode_path = f"{output_dir}/exitcode.txt"
             pid_path = f"{output_dir}/pid.txt"
-            # shell（bash -c）：`exit N` class
-            # shell  shell ，`echo $? > exitcode`
-            # →  DONE（ envd ）。
-            # CR ：package GNU timeout——timeout（
-            # envd  timeout ）， TERM 、10s  KILL ，
-            # runtime  best-effort kill launcher  shell 
-            # ；GNU timeout timeout 124  TIMEOUT。
+            # shell (bash -c): `exit N` class
+            # shell shell, `echo $? > exitcode`
+            # → DONE ( envd ) .
+            # CR: package GNU timeout -- timeout (
+            # envd timeout ), TERM, 10s KILL
+            # runtime best-effort kill launcher shell
+            # ; GNU timeout timeout 124 TIMEOUT.
             inner_cmd = f"timeout -k 10 {max(int(timeout_seconds), 1)} bash -c " + _shlex.quote(wrapped_cmd)
             bg_script = (
                 f"cd {_shlex.quote(cwd or str(self.work_dir))} && "
@@ -780,23 +774,23 @@ class E2BSandbox(BaseSandbox):
                 lambda: self._sandbox.commands.run(bg_start_cmd, timeout=0, user=user, envs=self._merge_envs(envs))  # type: ignore[union-attr]
             )
 
-            # completed（pid  cat，runtime 
-            # pid —— RTT  sleep(1) ）：
-            # exitcode  → DONE； → RUNNING； DEAD（exception，
-            # `-s`  `-f`： "、" ）
+            # completed (pid cat, runtime
+            # pid -- RTT sleep(1) ):
+            # exitcode → DONE; → RUNNING; DEAD (exception
+            # `-s` `-f`: ", " )
             status_cmd = (
                 f"if [ -s {exitcode_path} ]; then echo DONE; "
                 f"elif [ -s {pid_path} ] && kill -0 $(cat {pid_path}) 2>/dev/null; then echo RUNNING; "
                 f"else echo DEAD; fi"
             )
 
-            # （CR  x3）：
-            # - ： launch completed，
-            # - deadline  monotonic（ NTP  wall-clock 
-            # timeout/）； GNU timeout timeout， deadline
-            # ， 5s 
-            # - failurevalue _reconnect： refused
-            # ， token /objectclassobject——
+            # (CR x3):
+            # -: launch completed
+            # - deadline monotonic ( NTP wall-clock
+            # timeout/) ; GNU timeout timeout, deadline
+            # , 5s
+            # - failurevalue _reconnect: refused
+            # , token /objectclassobject --
             # except-continue classtimeout
             exit_code = 0
             poll_interval = 0.2
@@ -811,7 +805,6 @@ class E2BSandbox(BaseSandbox):
                     if st in ("DONE", "DEAD"):
                         break
                 except Exception:
-                    # ；
                     poll_fail_streak += 1
                     if poll_fail_streak >= 3:
                         poll_fail_streak = 0
@@ -826,9 +819,8 @@ class E2BSandbox(BaseSandbox):
                 poll_interval = min(poll_interval * 1.5, 10.0)
 
             # Always try to read exit code (process may have finished right as
-            # we timed out or after DEAD detection). ：
-            # GNU timeout  124/，value
-            # ，
+            # we timed out or after DEAD detection).:
+            # GNU timeout 124/, value
             try:
                 raw_ec = self._retry_on_transient(
                     lambda: self._sandbox._filesystem.read(exitcode_path),  # type: ignore[union-attr]
@@ -839,8 +831,8 @@ class E2BSandbox(BaseSandbox):
                 exit_code = -1
 
             if exit_code == 124 or (_bg_timed_out and exit_code == -1):
-                # 124 = GNU timeout （timeout）；
-                # -1 + timeout = ，best-effort timeout
+                # 124 = GNU timeout (timeout) ;
+                # -1 + timeout =, best-effort timeout
                 if exit_code == -1:
                     try:
                         self._sandbox.commands.run(  # type: ignore[union-attr]
@@ -855,12 +847,11 @@ class E2BSandbox(BaseSandbox):
 
             duration_ms = int((time.time() - start_time) * 1000)
 
-            # 。（output_note），
-            # error ——（exit code 
-            # ；success ERROR  agent ）
+            # . (output_note)
+            # error -- (exit code
+            # ; success ERROR agent )
             stdout, stderr, output_note = self._read_output_files(output_dir)
 
-            # 
             t_stdout, t_stderr, was_truncated, orig_stdout_len, orig_stderr_len = smart_truncate_output(
                 stdout,
                 stderr,
@@ -940,7 +931,7 @@ class E2BSandbox(BaseSandbox):
         """
         Get the status and output of a background task.
 
-         output_dir  stdout.txt / stderr.txt （ shell ）。
+         output_dir  stdout.txt / stderr.txt  ( shell ) . 
 
         Args:
             pid: The process ID of the background task
@@ -961,12 +952,12 @@ class E2BSandbox(BaseSandbox):
         output_dir: str | None = task_info.get("std_output_dir")
         finished = bool(task_info["finished"])
 
-        # 。NAC#1312 CR：——
-        # - ：（method，failure
-        # ， 60s ）
-        # - ：，； error
-        # ，（exit code ，
-        # success ERROR  agent ）
+        # . NAC#1312 CR: --
+        # -: (method, failure
+        # , 60s )
+        # -: ; error
+        # , (exit code
+        # success ERROR agent )
         stdout = ""
         stderr = ""
         output_read_error: str | None = None
@@ -978,7 +969,6 @@ class E2BSandbox(BaseSandbox):
             if note and finished:
                 output_read_error = f"command completed but output unavailable: {note}"
 
-        # 
         if output_dir:
             t_stdout, t_stderr, was_truncated, o_out, o_err = smart_truncate_output(
                 stdout,
@@ -1011,17 +1001,17 @@ class E2BSandbox(BaseSandbox):
                 stderr_file=f"{output_dir}/stderr.txt" if output_dir else None,
             )
 
-        # Stream error but process might still be running — use kill -0 to check.
+        # Stream error but process might still be running - use kill -0 to check.
         # NOTE: when the stream drops we lose the authoritative exit code from
-        # envd.  We report exit_code=-1 with a descriptive error as a safe
+        # envd. We report exit_code=-1 with a descriptive error as a safe
         # default; callers should treat this as "indeterminate" rather than a
         # definitive failure.
         if task_info.get("stream_error") and self._sandbox is not None:
             try:
-                # NAC#1312: retry——stream ，
-                # failure indeterminate。
-                # CR ：（max_retries=2）——method API，
-                # failure， 3x 
+                # NAC#1312: retry -- stream
+                # failure indeterminate.
+                # CR: (max_retries=2) -- method API
+                # failure, 3x
                 check = self._retry_on_transient(
                     lambda: self._sandbox.commands.run(  # type: ignore[union-attr]
                         f"kill -0 {pid} 2>/dev/null && echo ALIVE || echo DEAD",
@@ -1372,10 +1362,10 @@ class E2BSandbox(BaseSandbox):
                     error=f"File does not exist: {resolved_path}",
                 )
 
-            # Use E2B filesystem remove（NAC#1312: retry）。
-            # CR ：retry NotFound = success、
-            # （ file_exists ）——，
-            # successsuccess ERROR retry。
+            # Use E2B filesystem remove (NAC#1312: retry) .
+            # CR: retry NotFound = success
+            # ( file_exists ) --
+            # successsuccess ERROR retry.
             try:
                 self._retry_on_transient(lambda: self._sandbox._filesystem.remove(resolved_path))  # type: ignore[union-attr]
             except Exception as e:
@@ -1427,7 +1417,7 @@ class E2BSandbox(BaseSandbox):
             if not self.file_exists(resolved_path):
                 raise SandboxFileError(f"Directory does not exist: {directory_path}")
 
-            # Use E2B filesystem list（NAC#1312: retry）
+            # Use E2B filesystem list (NAC#1312: retry)
             entries = self._retry_on_transient(lambda: self._sandbox._filesystem.list(resolved_path))  # type: ignore[union-attr]
 
             files: list[FileInfo] = []
@@ -1493,14 +1483,14 @@ class E2BSandbox(BaseSandbox):
         if not self._sandbox:
             raise SandboxError("Sandbox not started. Call start() first.")
 
-        # NAC#1304 ："" False； stat failure
-        # （error//timeout）。 Connection refused 
-        # False， "Directory not found: /"，
-        # 。 SDK  exists()  not_found  False，
-        # NotFoundException ；"errortype
-        # "——error（ SSL EOF）。
-        # NAC#1312: retry—— dir check ，
-        # failure。NotFound  transient，retry。
+        # NAC#1304: "" False; stat failure
+        # (error//timeout) . Connection refused
+        # False, "Directory not found: /"
+        # . SDK exists not_found False
+        # NotFoundException ; "errortype
+        # " -- error ( SSL EOF) .
+        # NAC#1312: retry -- dir check
+        # failure. NotFound transient, retry.
         try:
             resolved_path = self._resolve_path(file_path)
             return self._retry_on_transient(lambda: self._sandbox._filesystem.exists(resolved_path))  # type: ignore[union-attr]
@@ -1538,9 +1528,9 @@ class E2BSandbox(BaseSandbox):
                 )
 
             # Use E2B filesystem get_info API
-            # NAC#1312 （ file_exists ）： NotFound 
-            # ""；classerrorretry，，
-            # exists=False 
+            # NAC#1312 ( file_exists ): NotFound
+            # ""; classerrorretry,
+            # exists=False
             try:
                 entry = self._retry_on_transient(lambda: self._sandbox._filesystem.get_info(resolved_path))  # type: ignore[union-attr]
             except Exception as e:
@@ -1560,11 +1550,11 @@ class E2BSandbox(BaseSandbox):
                 # Check owner write permission (bit 7)
                 writable = bool(entry.mode & 0o200)
 
-            # :E2B SDK  read  range ,
+            # :E2B SDK read range
             # metadata ( 21MB )
-            # runtime  —— read_visual_file ""
-            # 。(encoding value,
-            # UTF-8 lossy )。
+            # runtime -- read_visual_file ""
+            # . (encoding value
+            # UTF-8 lossy ).
             if entry.type == FileType.FILE and (entry.size or 0) <= _ENCODING_PROBE_MAX_BYTES:
                 raw_data = self._retry_on_transient(
                     lambda: self._sandbox._filesystem.read(resolved_path, format="bytes")  # type: ignore[union-attr]
@@ -1790,10 +1780,10 @@ class E2BSandbox(BaseSandbox):
                 if "**" in pattern:
                     # Split on the first occurrence of ** to get search_dir and remainder.
                     # e.g. "/home/user/project/**/*.py" → search_dir="/home/user/project", file_pattern="*.py"
-                    # e.g. "src/**/*.ts"               → search_dir="src",                file_pattern="*.ts"
-                    # e.g. "**/*.py"                   → search_dir=".",                  file_pattern="*.py"
-                    # e.g. "/home/user/project/**"     → search_dir="/home/user/project", file_pattern="*"
-                    # e.g. "**"                        → search_dir=".",                  file_pattern="*"
+                    # e.g. "src/**/*.ts" → search_dir="src", file_pattern="*.ts"
+                    # e.g. "**/*.py" → search_dir=".", file_pattern="*.py"
+                    # e.g. "/home/user/project/**" → search_dir="/home/user/project", file_pattern="*"
+                    # e.g. "**" → search_dir=".", file_pattern="*"
                     idx = pattern.index("**")
                     search_dir = pattern[:idx].rstrip("/") or "."
                     remainder = pattern[idx + 2 :].lstrip("/")  # skip "**" and any trailing /
@@ -2029,15 +2019,15 @@ class E2BSandbox(BaseSandbox):
             if not files_to_write:
                 return True
 
-            # 2. Create all parent directories in one shot（NAC#1312: ，retry）
+            # 2. Create all parent directories in one shot (NAC#1312: retry)
             dirs_cmd = " ".join(f'"{d}"' for d in sorted(parent_dirs))
             self._retry_on_transient(lambda: self._sandbox.commands.run(cmd=f"mkdir -p {dirs_cmd}", user="user"))  # type: ignore[union-attr]
 
-            # 3. Batch-write all files（，retry）。
-            # CR （）：request_timeout=300s 
-            # ，failure 600s+； cap=1 
-            # refused classfailure 1 。 cap=3——
-            # failure 4  ~7s ，failure
+            # 3. Batch-write all files (, retry) .
+            # CR: request_timeout=300s
+            # , failure 600s+; cap=1
+            # refused classfailure 1 . cap=3 --
+            # failure 4 ~7s, failure
             self._retry_on_transient(
                 lambda: self._sandbox._filesystem.write_files(files_to_write, request_timeout=300.0),  # type: ignore[union-attr]
                 max_retries=3,
@@ -2133,7 +2123,7 @@ class E2BSandboxManager(BaseSandboxManager[E2BSandbox]):
     # E2B configuration fields
     work_dir: str | Path = field(default=E2B_DEFAULT_WORK_DIR)
     template: str = field(default_factory=lambda: os.getenv("E2B_TEMPLATE", "base"))
-    # crash-safe:  E2B_TRANSIENT_RETRY_WINDOW （/valuedefault）
+    # crash-safe: E2B_TRANSIENT_RETRY_WINDOW (/valuedefault)
     timeout: int = field(default_factory=lambda: int(_env_float("E2B_TIMEOUT", 300.0)))
     api_key: str | None = field(default_factory=lambda: os.getenv("E2B_API_KEY"))
     api_url: str | None = field(default_factory=lambda: os.getenv("E2B_API_URL"))
@@ -2212,9 +2202,9 @@ class E2BSandboxManager(BaseSandboxManager[E2BSandbox]):
         Returns:
             Configured Sandbox instance with HTTP ConnectionConfig
         """
-        # NAC#1304:  wrapper reconnect （pre-seed + detach），
-        # ；method _maybe_rebuild_for_http 
-        # fail-open 。
+        # NAC#1304: wrapper reconnect (pre-seed + detach)
+        # ; method _maybe_rebuild_for_http
+        # fail-open .
         return _locked_build_http_sandbox(
             sandbox_id=sandbox_id,
             domain=domain,
@@ -2256,7 +2246,7 @@ class E2BSandboxManager(BaseSandboxManager[E2BSandbox]):
             try:
                 logger.info(f"Connecting to existing sandbox from config: {config_sandbox_id[:16]}...")
 
-                # Use Sandbox.connect() — domain/token come from API response
+                # Use Sandbox.connect - domain/token come from API response
                 e2b_sandbox_raw = Sandbox.connect(
                     sandbox_id=config_sandbox_id,
                     timeout=sandbox_config.timeout,
@@ -2275,7 +2265,7 @@ class E2BSandboxManager(BaseSandboxManager[E2BSandbox]):
                     truncate_tail_chars=sandbox_config.truncate_tail_chars,
                     max_retries=sandbox_config.max_retries,
                     transient_retry_window=sandbox_config.transient_retry_window,
-                    # NAC#1304: reconnect ， dict() 
+                    # NAC#1304: reconnect, dict
                     _force_http=sandbox_config.force_http,
                 )
                 sandbox.set_api_credentials(self.api_key, self.api_url)
@@ -2360,7 +2350,7 @@ class E2BSandboxManager(BaseSandboxManager[E2BSandbox]):
             truncate_tail_chars=sandbox_config.truncate_tail_chars,
             max_retries=sandbox_config.max_retries,
             transient_retry_window=sandbox_config.transient_retry_window,
-            # NAC#1304: reconnect ， dict() 
+            # NAC#1304: reconnect, dict
             _force_http=sandbox_config.force_http,
         )
         sandbox.set_api_credentials(self.api_key, self.api_url)
@@ -2476,7 +2466,7 @@ class E2BSandboxManager(BaseSandboxManager[E2BSandbox]):
             if instance.sandbox:
                 instance.sandbox.kill(api_key=self.api_key, api_url=self.api_url)
                 logger.info(f"E2B sandbox {instance.sandbox_id} destroyed")
-            # _instance，，
+            # _instance,
             self._instance = None
             return True
         except Exception as e:
@@ -2502,19 +2492,19 @@ class E2BSandboxManager(BaseSandboxManager[E2BSandbox]):
                 return False
             sandbox_id = instance.sandbox_id
 
-            # Pass api_key/api_url explicitly — E2B SDK's beta_pause() does not
+            # Pass api_key/api_url explicitly - E2B SDK's beta_pause does not
             # inherit the key used at creation time, so without this the call
             # fails when E2B_API_KEY env var is not set (e.g. self-hosted).
             instance.sandbox.beta_pause(api_key=self.api_key, api_url=self.api_url)
 
-            # 1.  sandbox_id  session_context， start() 
-            # Priority 1 (config.sandbox_id) 
+            # 1. sandbox_id session_context, start
+            # Priority 1 (config.sandbox_id)
             if sandbox_id and self._session_context:
                 cfg = self._session_context.get("sandbox_config")
                 if isinstance(cfg, E2BSandboxConfig):
                     self._session_context["sandbox_config"] = cfg.model_copy(update={"sandbox_id": sandbox_id})
 
-            # 2.  _instance， start_sync() 
+            # 2. _instance, start_sync
             self._instance = None
             logger.info(f"E2B sandbox {sandbox_id} paused and instance cleared")
             return True

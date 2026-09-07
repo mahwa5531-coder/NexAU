@@ -1,4 +1,4 @@
-"""Agent builtin tool — unified entry point for creating and resuming sub-agents.
+"""Agent builtin tool - unified entry point for creating and resuming sub-agents.
 
 RFC-0015:  Sub-agent  Agent 
 
@@ -21,7 +21,7 @@ def _extract_sub_agent_id(text: str) -> str | None:
     """Extract sub_agent_id from the [sub_agent_id: ...] prefix.
 
     RFC-0015: SubAgentManager string [sub_agent_id: <id>]
-     LLM successfailure sub_agent_id。
+     LLM successfailure sub_agent_id. 
     """
     match = re.match(r"\[sub_agent_id:\s*([^\]]+)\]", text)
     return match.group(1) if match else None
@@ -38,8 +38,8 @@ def call_sub_agent(
 
     RFC-0015: Agent 
 
-     sub_agent_id ，。
-     SubAgentManager.call_sub_agent()。
+     sub_agent_id, . 
+     SubAgentManager.call_sub_agent(). 
 
     Args:
         sub_agent_name: Name of the sub-agent as configured on the parent agent.
@@ -53,15 +53,15 @@ def call_sub_agent(
     Returns:
         Dict with `status` and either `result` or `error`.
     """
-    # 0.  sub_agent_id：LLM stringstring ""， None
+    # 0. sub_agent_id: LLM stringstring "", None
     if not sub_agent_id:
         sub_agent_id = None
 
-    # 1.  agent_state 
+    # 1. agent_state
     if agent_state is None:
         return {"status": "error", "error": "Agent state not available"}
 
-    # 2.  SubAgentManager
+    # 2. SubAgentManager
     subagent_manager: SubAgentManager | None = agent_state.subagent_manager
     if subagent_manager is None:
         return {
@@ -69,8 +69,8 @@ def call_sub_agent(
             "error": "Sub-agent manager not available on agent_state",
         }
 
-    # 3.  SubAgentManager.call_sub_agent()
-    # RFC-0024:  trace_id  AgentState backref。
+    # 3. SubAgentManager.call_sub_agent
+    # RFC-0024: trace_id AgentState backref.
     trace_id = ctx.trace_id if ctx is not None else None
     try:
         result = subagent_manager.call_sub_agent(
@@ -80,7 +80,7 @@ def call_sub_agent(
             parent_agent_state=agent_state,
             trace_id=trace_id,
         )
-        # RFC-0015: string sub_agent_id（ None）
+        # RFC-0015: string sub_agent_id ( None)
         actual_sub_agent_id = _extract_sub_agent_id(result)
         return {
             "status": "success",
@@ -90,7 +90,7 @@ def call_sub_agent(
             "result": result,
         }
     except Exception as exc:
-        # RFC-0015: exceptionpackage [sub_agent_id: ...] 
+        # RFC-0015: exceptionpackage [sub_agent_id: ...]
         actual_sub_agent_id = _extract_sub_agent_id(str(exc))
         return {
             "status": "error",

@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -40,13 +37,12 @@ TokenCounterFn = Callable[[Sequence[Message], Sequence[Mapping[str, object]] | N
 
 # Charged when pixel dimensions can't be determined: a URL-only ImageBlock (no
 # local bytes to inspect), an unrecognized image format (the prober covers
-# PNG/JPEG/GIF/BMP — e.g. a webp read within bound and passed through
+# PNG/JPEG/GIF/BMP - e.g. a webp read within bound and passed through
 # un-re-encoded lands here), or a corrupt/truncated header.
-#
 # Images produced by the read tools are bounded below this by the
 # budget-derived downscale cap (`DEFAULT_IMAGE_TOKEN_BUDGET` in
 # read_visual_file, 4_784 official-formula tokens ≈ 3.75 megapixels), so this
-# fallback exists for *foreign* images that never passed through those tools —
+# fallback exists for *foreign* images that never passed through those tools -
 # user-pasted or URL-sourced blocks of arbitrary resolution. Derived as a
 # 2048x2048 image under the official patch formula (5_476 tokens): a
 # conservative-but-plausible estimate rather than the old flat 85.
@@ -86,7 +82,7 @@ TIKTOKEN_AVAILABLE: Final[bool] = _tiktoken is not None
 def _estimate_image_tokens(image: ImageBlock) -> int:
     """Token cost for one image block.
 
-    Incident fix (Rust counterpart nexau-rs#94):  patch 。
+    Incident fix (Rust counterpart nexau-rs#94):  patch . 
 
     Charges Anthropic's official patch-formula cost
     (`estimate_tokens_from_dimensions`) when dimensions can be recovered from

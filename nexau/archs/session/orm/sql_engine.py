@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -94,7 +91,7 @@ class SQLDatabaseEngine(DatabaseEngine):
         RFC-0022 two-phase bootstrap:
 
         1. ``SQLModel.metadata.create_all`` creates any missing tables
-           (CREATE TABLE IF NOT EXISTS — idempotent). For a fresh DB this
+           (CREATE TABLE IF NOT EXISTS - idempotent). For a fresh DB this
            gives the full schema in one shot; for a legacy DB this is a
            no-op.
         2. ``nexau.db.upgrade_to_head`` applies pending alembic migrations.
@@ -104,7 +101,7 @@ class SQLDatabaseEngine(DatabaseEngine):
            the new ``idempotency_key`` + ``extra`` columns.
 
         Override with ``NEXAU_AUTO_MIGRATE=off`` to skip step 2 and instead
-        fail loud if the DB is not at head — useful for production deploys
+        fail loud if the DB is not at head - useful for production deploys
         that prefer explicit migrations.
         """
         async with self._engine.begin() as conn:

@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -37,7 +34,7 @@ class CompactionConfig(BaseModel):
     emergency_compact_enabled: bool = True
     threshold: float = 0.75
 
-    # Trigger Selection (micro-compact:  time_based )
+    # Trigger Selection (micro-compact: time_based )
     trigger: Literal["token_threshold", "time_based"] = "token_threshold"
     gap_threshold_minutes: float = 5  # micro-compact: time_based trigger 
 
@@ -62,21 +59,21 @@ class CompactionConfig(BaseModel):
     compact_prompt_path: str | None = None
     retry_attempts: int = 3
 
-    # RFC-0021:  sandbox
+    # RFC-0021: sandbox
     save_history: bool = True
-    """（Opt-out: ）。
+    """ (Opt-out: ) . 
 
      ``{sandbox.get_temp_dir()}/.nexau_history_archive/<namespace>/``,
-    ,  config —— 。
+,  config  --  . 
 
     , summary " search_file_content / read_file
-    ",  agent  —— keyvalue,
-     opt-out  (" agent")。
+    ",  agent   --  keyvalue,
+     opt-out  (" agent"). 
 
     :  ``save_history`` (: ), module
      ``archive``  (``HistoryArchiveWriter`` / ``ARCHIVE_SUBDIR`` /
-    ``.nexau_history_archive/`` / ``_boundary``) —— ""
-    (write-once + per-round + grep-friendly), ""。
+    ``.nexau_history_archive/`` / ``_boundary``)  --  ""
+    (write-once + per-round + grep-friendly), "". 
     """
 
     @model_validator(mode="after")

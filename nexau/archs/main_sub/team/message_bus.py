@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -59,7 +56,7 @@ class TeamMessageBus:
         self._session_id = session_id
         self._team_id = team_id
 
-        # Agent delivery callbacks — set via set_agent_delivery() after construction.
+        # Agent delivery callbacks - set via set_agent_delivery after construction.
         # Avoids circular import with AgentTeam.
         self._deliver_message: Callable[[str, str, str], None] | None = None
         self._get_broadcast_recipients: Callable[[], list[str]] | None = None
@@ -121,7 +118,7 @@ class TeamMessageBus:
         await self._engine.create(msg)
         logger.info(f"Message sent: {msg.message_id} from={from_agent_id} to={to_agent_id}")
 
-        # enqueue_message  agent
+        # enqueue_message agent
         if self._deliver_message is not None:
             self._deliver_message(to_agent_id, content, from_agent_id)
 
@@ -154,7 +151,7 @@ class TeamMessageBus:
         await self._engine.create(msg)
         logger.info(f"Broadcast sent: {msg.message_id} from={from_agent_id}")
 
-        # enqueue_message  teammate（）
+        # enqueue_message teammate
         if self._deliver_message is not None and self._get_broadcast_recipients is not None:
             for agent_id in self._get_broadcast_recipients():
                 if agent_id != from_agent_id:
@@ -170,7 +167,7 @@ class TeamMessageBus:
         Returns messages targeted to this agent (direct + broadcast,
         excluding self-sent broadcasts).
         """
-        # 1.  agent 
+        # 1. agent
         direct_msgs = await self._engine.find_many(
             TeamMessageModel,
             filters=AndFilter(
@@ -182,7 +179,7 @@ class TeamMessageBus:
             ),
         )
 
-        # 2. （to_agent_id  None）
+        # 2. (to_agent_id None)
         broadcast_msgs = await self._engine.find_many(
             TeamMessageModel,
             filters=AndFilter(
@@ -193,12 +190,11 @@ class TeamMessageBus:
                 ]
             ),
         )
-        # 
         broadcast_msgs = [m for m in broadcast_msgs if m.from_agent_id != agent_id]
 
         all_msgs = direct_msgs + broadcast_msgs
 
-        # 3. 
+        # 3.
         now = datetime.now()
         for msg in all_msgs:
             msg.delivered = True

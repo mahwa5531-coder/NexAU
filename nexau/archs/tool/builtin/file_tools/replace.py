@@ -338,7 +338,7 @@ def replace(
     Returns:
         Dict with content and returnDisplay matching gemini-cli format
     """
-    # RFC-0019: permission check（）
+    # RFC-0019: permission check
     if ctx is not None:
         check_path_permission(ctx, file_path)
 

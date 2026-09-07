@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -41,15 +38,15 @@ class WatchdogConfig:
 class TeammateWatchdog:
     """Detects all-idle deadlock among teammates.
 
-    RFC-0002: （）
+    RFC-0002:  () 
 
     Runs as a background asyncio.Task, periodically checking
     all agents for idle deadlock (all waiting with no messages).
 
-    「」strategy： leader ，
-     leader  watchdog 。
-    （teammate /、）
-    ，。
+    「」strategy:  leader, 
+     leader  watchdog . 
+     (teammate /, ) 
+, . 
     """
 
     def __init__(
@@ -63,11 +60,11 @@ class TeammateWatchdog:
         self._start_times: dict[str, float] = {}
         self._stopped = False
 
-        # RFC-0002: 
+        # RFC-0002:
         self._check_all_idle = check_all_idle
         self._notify_leader = notify_leader
 
-        # RFC-0002: ， leader
+        # RFC-0002: leader
         self._idle_notified = False
 
     def stop(self) -> None:
@@ -77,7 +74,7 @@ class TeammateWatchdog:
     def register(self, agent_id: str) -> None:
         """Register a teammate for idle monitoring.
 
-        ： teammate 。
+:  teammate . 
         """
         self._start_times[agent_id] = time.monotonic()
         self._idle_notified = False
@@ -85,7 +82,7 @@ class TeammateWatchdog:
     def unregister(self, agent_id: str) -> None:
         """Unregister a teammate from idle monitoring.
 
-        ：teammate 。
+: teammate . 
         """
         self._start_times.pop(agent_id, None)
         self._idle_notified = False
@@ -95,29 +92,29 @@ class TeammateWatchdog:
 
         RFC-0002: 
 
-        ， watchdog 
-         leader。：
-        - teammate （ watchdog ）
+,  watchdog 
+         leader.: 
+        - teammate  ( watchdog ) 
         - 
         """
         self._idle_notified = False
 
     async def run(self) -> None:
-        """Watchdog loop — runs as background asyncio.Task.
+        """Watchdog loop - runs as background asyncio.Task.
 
-        RFC-0002: Watchdog （strategy）
+        RFC-0002: Watchdog  (strategy) 
 
-        。 leader，
-         reset_idle_notification() 。
+        .  leader, 
+         reset_idle_notification() . 
         """
-        # ， run() 
+        # , run
         self._stopped = False
         self._idle_notified = False
 
         while not self._stopped:
             await asyncio.sleep(self._config.idle_check_interval_seconds)
 
-            # —  teammate  leader
+            # - teammate leader
             if self._check_all_idle is not None and self._notify_leader is not None and len(self._start_times) > 0:
                 if self._check_all_idle() and not self._idle_notified:
                     self._idle_notified = True

@@ -1,35 +1,34 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 
-"""HistoryEvent discriminated union — RFC-0026 forward-compat write channel.
+"""HistoryEvent discriminated union - RFC-0026 forward-compat write channel.
 
 Single typed slot on ``HookResult.history_event`` lets middleware emit any
 history-affecting intent (REPLACE today; APPEND / UNDO / future) without
 needing to add a new top-level field per event type. Adding a new event
-type means adding one variant to the union — old SDK readers fall through
+type means adding one variant to the union - old SDK readers fall through
 to ``UnknownEvent`` instead of breaking.
 
 Each variant follows the protobuf-philosophy schema (RFC-0022):
 ``model_config = ConfigDict(extra='allow')`` + all secondary fields
 optional, so a new SDK can add fields without breaking old SDK readers.
 
-## Relationship to ``AgentRunActionModel`` (RFC-0022)
+# # Relationship to ``AgentRunActionModel`` (RFC-0022)
 
 These event classes are the **middleware-facing intent envelope**;
 ``AgentRunActionModel`` (in ``nexau/archs/session/models/agent_run_action_model.py``)
 is the **persisted DB row**. They sit at different layers:
 
   - Event = "I want to emit a REPLACE with these messages and this WHY"
-    — no ownership keys, no action_id, no DB columns
-  - Action = "row inserted into nexau_agent_run_actions" — has
+    - no ownership keys, no action_id, no DB columns
+  - Action = "row inserted into nexau_agent_run_actions" - has
     user_id / session_id / agent_id / run_id / root_run_id / action_id
     / created_at_ns + the JSONB columns
 
 The typed extra payload (``ReplaceVariantBase`` / ``AppendExtra`` /
 ``UndoExtra``) is defined ONCE in ``agent_run_action_model.py`` and
-shared by both layers — these event classes import them, never
+shared by both layers - these event classes import them, never
 re-declare. The discriminator value (``"replace"`` / ``"append"`` /
 ``"undo"``) is tied to ``RunActionType.*`` via ``Literal[RunActionType.X]``
 so refactoring the enum string keeps both layers consistent.
@@ -58,7 +57,7 @@ PROTOBUF_PHILOSOPHY = ConfigDict(extra="allow")
 
 
 class ReplaceEvent(BaseModel):
-    """Typed REPLACE — compaction / ``/clear`` / ``/compact <focus>``.
+    """Typed REPLACE - compaction / ``/clear`` / ``/compact <focus>``.
 
     Carries the new full message state + a typed reason variant
     discriminating WHY (``CompactAutoVariant`` / ``UserClearVariant`` /
@@ -79,13 +78,13 @@ class ReplaceEvent(BaseModel):
 
 
 class AppendEvent(BaseModel):
-    """Typed APPEND — placeholder for future iter-aware writers.
+    """Typed APPEND - placeholder for future iter-aware writers.
 
     Today APPENDs flow through ``HistoryList.append/extend`` (the list-
     interface side) and the executor's normal flush path; no middleware
     has needed to emit a typed APPEND through this channel. Reserved
     for future writers that want to carry ``AppendExtra`` (currently just
-    ``trace_id``) without touching the list interface — e.g. tool-call
+    ``trace_id``) without touching the list interface - e.g. tool-call
     boundary middleware that wants to tag APPENDs with run metadata.
     """
 
@@ -96,10 +95,10 @@ class AppendEvent(BaseModel):
 
 
 class UndoEvent(BaseModel):
-    """Typed UNDO — placeholder for future ``/undo`` handler.
+    """Typed UNDO - placeholder for future ``/undo`` handler.
 
     No producer today. Reserved so when ``/undo`` ships it doesn't need
-    a new ``HookResult`` field — just adds a variant to ``HistoryEvent``.
+    a new ``HookResult`` field - just adds a variant to ``HistoryEvent``.
     """
 
     model_config = PROTOBUF_PHILOSOPHY
@@ -115,7 +114,7 @@ class UnknownEvent(BaseModel):
     unknown ``type`` values. Routing unknowns through this catch-all
     variant via the callable ``Discriminator`` below means a future SDK
     that emits ``HistoryEvent(type="checkpoint", ...)`` decodes cleanly
-    in an older SDK as ``UnknownEvent(type="checkpoint", ...)`` — the
+    in an older SDK as ``UnknownEvent(type="checkpoint", ...)`` - the
     executor sees an event it doesn't understand and skips it (graceful
     no-op) instead of crashing the parser.
 
@@ -134,7 +133,7 @@ def _discriminate_history_event(value: object) -> str:
     """Discriminator that buckets unknown ``type`` values to UnknownEvent.
 
     Without this callable form, a Pydantic discriminated union would
-    raise on any ``type`` outside the declared literal set — locking
+    raise on any ``type`` outside the declared literal set - locking
     the protocol against forward additions. The callable lets us route
     "anything else" to ``UnknownEvent``, preserving forward-compat.
     """
@@ -161,5 +160,5 @@ HistoryEvent = Annotated[
 """Discriminated union covering all typed history-affecting events
 emitted via ``HookResult.history_event``. Add new event types by
 declaring a new ``BaseModel`` with a unique ``type: Literal[...]`` and
-appending it to this union — old SDK readers fall through to
+appending it to this union - old SDK readers fall through to
 ``UnknownEvent`` instead of crashing."""

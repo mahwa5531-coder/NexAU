@@ -1,18 +1,15 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""spawn_teammate tool — instantiate a new teammate from candidates.
+"""spawn_teammate tool - instantiate a new teammate from candidates.
 
 RFC-0002:  candidates  teammate
 """
@@ -40,9 +37,9 @@ async def spawn_teammate(
 
     RFC-0002:  candidates  teammate
 
-    Leader ，configuration candidates 
-     teammate agent。 role  spawn
-    （ coder-1, coder-2）。
+    Leader, configuration candidates 
+     teammate agent.  role  spawn
+     ( coder-1, coder-2) . 
     """
     ts = require_team_state(agent_state)
     if not ts.is_leader:

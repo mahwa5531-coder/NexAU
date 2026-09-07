@@ -1,9 +1,6 @@
 # Permission matching helpers (reference implementations).
-#
-# RFC-0019: 
-#
-# tool  helper function。" + raise exception"
-# 。，。
+# RFC-0019:
+# tool helper function. " + raise exception"
 
 from __future__ import annotations
 
@@ -20,16 +17,16 @@ from .types import AskPermission, PermissionDenied
 if TYPE_CHECKING:
     from nexau.archs.main_sub.framework_context import FrameworkContext
 
-# RFC-0019: "**" 
+# RFC-0019: "**"
 _WILDCARD = "**"
 
-# CC : Bash read-only
-# CC : ls, cat, head, tail, grep, find, wc, diff, stat, du, cd
-# /，，read-only。
-# : sed、awk  -i / ，CC read-only，。
+# CC: Bash read-only
+# CC: ls, cat, head, tail, grep, find, wc, diff, stat, du, cd
+# /,, read-only.
+# : sed, awk -i /, CC read-only, .
 _READONLY_COMMANDS: frozenset[str] = frozenset(
     {
-        # CC : read-only
+        # CC: read-only
         "ls",
         "cat",
         "head",
@@ -41,7 +38,6 @@ _READONLY_COMMANDS: frozenset[str] = frozenset(
         "stat",
         "du",
         "cd",
-        # : 
         "file",
         "which",
         "whereis",
@@ -56,15 +52,13 @@ _READONLY_COMMANDS: frozenset[str] = frozenset(
         "hostname",
         "id",
         "uptime",
-        # : 
         "basename",
         "dirname",
         "realpath",
         "readlink",
-        # : /
         "md5sum",
         "sha256sum",
-        # :  stdout （ sed/awk）
+        # : stdout ( sed/awk)
         "sort",
         "uniq",
         "tr",
@@ -81,12 +75,10 @@ _READONLY_COMMANDS: frozenset[str] = frozenset(
         "seq",
         "strings",
         "xxd",
-        # : /
         "egrep",
         "fgrep",
         "rg",
         "ag",
-        # : /
         "less",
         "more",
         "tree",
@@ -94,7 +86,7 @@ _READONLY_COMMANDS: frozenset[str] = frozenset(
         "type",
         "man",
         "help",
-        # : shell 
+        # : shell
         "test",
         "true",
         "false",
@@ -102,7 +94,7 @@ _READONLY_COMMANDS: frozenset[str] = frozenset(
     }
 )
 
-# CC : git read-only
+# CC: git read-only
 _READONLY_GIT_SUBCOMMANDS: frozenset[str] = frozenset(
     {
         "log",
@@ -134,8 +126,8 @@ _READONLY_GIT_SUBCOMMANDS: frozenset[str] = frozenset(
     }
 )
 
-# CC : package — ，
-# : timeout 30 git push →  "git push" 
+# CC: package -
+# : timeout 30 git push → "git push"
 _PROCESS_WRAPPERS: frozenset[str] = frozenset(
     {
         "timeout",
@@ -146,21 +138,17 @@ _PROCESS_WRAPPERS: frozenset[str] = frozenset(
     }
 )
 
-# CC :  —  allow  ask
-#
-# ：" ask" RFC-0019 " permissions  = 
-# （`"**"` ）"—— permissions  tool 
-# check_path_permission ， `"**"` ， ask。
-# strategy（ tool opt-in 、 workspace root ），
-# setbackward compatibility。
-#
-# ：
+# CC: - allow ask
+# : " ask" RFC-0019 " permissions =
+# (`"**"` ) " -- permissions tool
+# check_path_permission, `"**"`, ask.
+# strategy ( tool opt-in, workspace root )
+# setbackward compatibility.
 # _PROTECTED_DIRS = {".git", ".vscode", ".idea", ".husky", ".claude"}
 # _PROTECTED_FILES = {
-#     ".gitconfig", ".gitmodules",
-#     ".bashrc", ".bash_profile", ".zshrc", ".zprofile", ".profile",
-#     ".ripgreprc", ".mcp.json", ".claude.json",
-# }
+# ".gitconfig", ".gitmodules"
+# ".bashrc", ".bash_profile", ".zshrc", ".zprofile", ".profile"
+# ".ripgreprc", ".mcp.json", ".claude.json"
 _PROTECTED_DIRS: frozenset[str] = frozenset()
 _PROTECTED_FILES: frozenset[str] = frozenset()
 
@@ -170,36 +158,36 @@ def check_permission(
     permission_key: str,
     prompt: str,
 ) -> None:
-    """（）。
+    """ () . 
 
     RFC-0019:  tool  helper
 
-     permission_key  allow/deny rules ：
-     allow → 、 deny → raise PermissionDenied、 → raise AskPermission。
+     permission_key  allow/deny rules: 
+     allow →,  deny → raise PermissionDenied,  → raise AskPermission. 
     """
-    # 1. "**"  = 
+    # 1. "**" =
     if _WILDCARD in ctx.allow_rules:
         return
 
-    # 2. deny 
+    # 2. deny
     if permission_key in ctx.deny_rules:
         raise PermissionDenied(
             reason=f"{permission_key} ",
             permission_key=permission_key,
         )
 
-    # 3. allow 
+    # 3. allow
     if permission_key in ctx.allow_rules:
         return
 
-    # 4.  → ask
+    # 4. → ask
     raise AskPermission(prompt=prompt, permission_key=permission_key)
 
 
 def _path_to_dir_glob(path: str) -> str:
-    """ glob 。
+    """ glob . 
 
-    CC : allow ，。
+    CC: allow, . 
      /Users/pcj/project/foo.py → /Users/pcj/project/**
     """
     from pathlib import PurePosixPath
@@ -211,9 +199,9 @@ def _path_to_dir_glob(path: str) -> str:
 
 
 def _is_protected_path(path: str) -> bool:
-    """ CC 。
+    """ CC . 
 
-    CC :  allow  ask。
+    CC:  allow  ask. 
     """
     from pathlib import PurePosixPath
 
@@ -231,20 +219,20 @@ def _is_protected_path(path: str) -> bool:
 
 
 def check_path_permission(ctx: FrameworkContext, path: str) -> None:
-    """。
+    """. 
 
     RFC-0019:  filesystem helper
 
-     pathspec （gitignore ）。
-    CC : permission_key  glob，allow 。
-    CC : （.git, .bashrc ） allow  ask。
-     write_file / replace / apply_patch / multiedit_tool 。
+     pathspec  (gitignore ) . 
+    CC: permission_key  glob, allow . 
+    CC:  (.git, .bashrc )  allow  ask. 
+     write_file / replace / apply_patch / multiedit_tool . 
     """
-    # 1. "**"  = （ ask）
+    # 1. "**" = ( ask)
     if _WILDCARD in ctx.allow_rules and not _is_protected_path(path):
         return
 
-    # 2. deny （gitignore ）
+    # 2. deny (gitignore )
     if ctx.deny_rules:
         deny_spec = pathspec.PathSpec.from_lines("gitwildmatch", ctx.deny_rules)
         if deny_spec.match_file(path):
@@ -253,11 +241,11 @@ def check_path_permission(ctx: FrameworkContext, path: str) -> None:
                 permission_key=path,
             )
 
-    # 3. allow （gitignore ）
+    # 3. allow (gitignore )
     if ctx.allow_rules:
         allow_spec = pathspec.PathSpec.from_lines("gitwildmatch", ctx.allow_rules)
         if allow_spec.match_file(path):
-            # CC :  allow  ask
+            # CC: allow ask
             if _is_protected_path(path):
                 raise AskPermission(
                     prompt=f" {path} ?",
@@ -265,7 +253,7 @@ def check_path_permission(ctx: FrameworkContext, path: str) -> None:
                 )
             return
 
-    # 4.  → ask（CC : permission_key  glob）
+    # 4. → ask (CC: permission_key glob)
     dir_glob = _path_to_dir_glob(path)
     raise AskPermission(
         prompt=f" {path} ?",
@@ -274,9 +262,9 @@ def check_path_permission(ctx: FrameworkContext, path: str) -> None:
 
 
 def _split_shell_commands(command: str) -> list[str]:
-    """/，。
+    """/, . 
 
-    CC :  ``|``, ``&&``, ``||``, ``;`` 。
+    CC:  ``|``, ``&&``, ``||``, ``;`` . 
     """
     parts: list[str] = []
     current: list[str] = []
@@ -323,10 +311,10 @@ def _split_shell_commands(command: str) -> list[str]:
     return parts
 
 
-# CC :  — read-only，
+# CC: - read-only
 _OUTPUT_REDIRECT_RE = re.compile(r"^[0-9]*>{1,2}")
 
-# CC : shell  —  shell -c 
+# CC: shell - shell -c
 _SHELL_INTERPRETERS: frozenset[str] = frozenset(
     {
         "sh",
@@ -349,10 +337,10 @@ def _is_numeric_arg(s: str) -> bool:
 
 
 def _strip_process_wrappers(tokens: list[str]) -> list[str]:
-    """package， tokens。
+    """package,  tokens. 
 
-    CC : ``timeout 30 git push`` →  ``git push`` 。
-    : timeout, time, nice, nohup, stdbuf,  xargs。
+    CC: ``timeout 30 git push`` →  ``git push`` . 
+: timeout, time, nice, nohup, stdbuf,  xargs. 
     """
     i = 0
     while i < len(tokens):
@@ -361,7 +349,7 @@ def _strip_process_wrappers(tokens: list[str]) -> list[str]:
             while i < len(tokens) and (tokens[i].startswith("-") or _is_numeric_arg(tokens[i])):
                 i += 1
         elif tokens[i] == "env":
-            # CC : env VAR=val command →  env value，
+            # CC: env VAR=val command → env value
             j = i + 1
             while j < len(tokens) and tokens[j].startswith("-"):
                 j += 1
@@ -370,7 +358,7 @@ def _strip_process_wrappers(tokens: list[str]) -> list[str]:
             if j < len(tokens):
                 i = j
             else:
-                break  # standalone env → （read-only）
+                break  # standalone env → (read-only)
         elif tokens[i] == "xargs" and i + 1 < len(tokens) and not tokens[i + 1].startswith("-"):
             i += 1
         else:
@@ -378,9 +366,9 @@ def _strip_process_wrappers(tokens: list[str]) -> list[str]:
     return tokens[i:] if i < len(tokens) else tokens
 
 
-# CC : set
-# permission_key  "command subcommand"（ "npm install"），
-# key （ "python"）。
+# CC: set
+# permission_key "command subcommand" ( "npm install")
+# key ( "python") .
 _COMMANDS_WITH_SUBCOMMANDS: frozenset[str] = frozenset(
     {
         # VCS
@@ -435,10 +423,10 @@ _COMMANDS_WITH_SUBCOMMANDS: frozenset[str] = frozenset(
 
 
 def _command_permission_key(tokens: list[str]) -> str:
-    """ permission_key。
+    """ permission_key. 
 
-    CC :  "command subcommand" （ "npm install"），
-    （ "python"）。
+    CC:  "command subcommand"  ( "npm install"), 
+     ( "python") . 
     """
     head = tokens[0]
     if head in _COMMANDS_WITH_SUBCOMMANDS and len(tokens) > 1 and not tokens[1].startswith("-"):
@@ -447,10 +435,10 @@ def _command_permission_key(tokens: list[str]) -> str:
 
 
 def _has_output_redirect(tokens: list[str]) -> bool:
-    """ tokens package。
+    """ tokens package. 
 
-    CC : read-only，， ask。
-    : ``>``, ``>>``, ``2>``, ``&>``, ``>&`` 。
+    CC: read-only,,  ask. 
+: ``>``, ``>>``, ``2>``, ``&>``, ``>&`` . 
     """
     for token in tokens[1:]:
         if token == "&>" or token.startswith(">&"):
@@ -464,9 +452,9 @@ def _check_shell_c_inner(
     ctx: FrameworkContext,
     inner_cmd: str,
 ) -> tuple[str | None, str]:
-    """ shell -c 。
+    """ shell -c . 
 
-    CC : ``bash -c "git push"`` →  ``git push`` 。
+    CC: ``bash -c "git push"`` →  ``git push`` . 
     """
     sub_commands = _split_shell_commands(inner_cmd)
     first_ask_key = ""
@@ -498,36 +486,36 @@ def _check_single_command(
     if not tokens or not tokens[0]:
         return None, ""
 
-    # CC : package
+    # CC: package
     tokens = _strip_process_wrappers(tokens)
     if not tokens:
         return None, ""
 
     head = tokens[0]
 
-    # CC : shell -c  — bash -c "inner" → 
+    # CC: shell -c - bash -c "inner" →
     if head in _SHELL_INTERPRETERS:
         try:
             c_idx = tokens.index("-c")
             if c_idx + 1 < len(tokens):
                 return _check_shell_c_inner(ctx, tokens[c_idx + 1])
         except ValueError:
-            pass  #  -c，
+            pass  # -c
 
     perm_key = _command_permission_key(tokens)
 
-    # deny （ key）
+    # deny ( key)
     if head in ctx.deny_rules or perm_key in ctx.deny_rules:
         raise PermissionDenied(
             reason=f" {perm_key} ",
             permission_key=perm_key,
         )
-    # read-only（CC : read-only）
+    # read-only (CC: read-only)
     if head in _READONLY_COMMANDS and not _has_output_redirect(tokens):
         return None, perm_key
     if head == "git" and len(tokens) > 1 and tokens[1] in _READONLY_GIT_SUBCOMMANDS and not _has_output_redirect(tokens):
         return None, perm_key
-    # allow （ key）
+    # allow ( key)
     if head in ctx.allow_rules or perm_key in ctx.allow_rules:
         return None, perm_key
     # → ask
@@ -535,20 +523,18 @@ def _check_single_command(
 
 
 def check_shell_permission(ctx: FrameworkContext, command: str) -> None:
-    """。
+    """. 
 
     RFC-0019:  shell helper
 
-    CC :  ``|``, ``&&``, ``||``, ``;`` ，
-     deny → read-only → allow → ask 。
-    deny ， ask  ask。
-     run_shell_command 。
+    CC:  ``|``, ``&&``, ``||``, ``;``, 
+     deny → read-only → allow → ask . 
+    deny,  ask  ask. 
+     run_shell_command . 
     """
-    # "**"  = 
     if _WILDCARD in ctx.allow_rules:
         return
 
-    # /
     sub_commands = _split_shell_commands(command)
 
     need_ask = False
@@ -565,7 +551,7 @@ def check_shell_permission(ctx: FrameworkContext, command: str) -> None:
         if not tokens:
             continue
 
-        # _check_single_command  raise PermissionDenied
+        # _check_single_command raise PermissionDenied
         result, perm_key = _check_single_command(ctx, tokens)
         if result == "ask" and not need_ask:
             need_ask = True
@@ -579,22 +565,22 @@ def check_shell_permission(ctx: FrameworkContext, command: str) -> None:
 
 
 def check_url_permission(ctx: FrameworkContext, url: str) -> None:
-    """。
+    """. 
 
     CC : WebFetch 
 
-     URL  hostname， allow/deny 。
-    deny/allow  fnmatch （ ``*.github.com``）。
-     web_fetch 。
+     URL  hostname,  allow/deny . 
+    deny/allow  fnmatch  ( ``*.github.com``) . 
+     web_fetch . 
     """
-    # 1. "**"  = 
+    # 1. "**" =
     if _WILDCARD in ctx.allow_rules:
         return
 
-    # 2. 
+    # 2.
     hostname = urlparse(url).hostname or url
 
-    # 3. deny （ *.example.com ）
+    # 3. deny ( *.example.com )
     for pattern in ctx.deny_rules:
         if fnmatch.fnmatch(hostname, pattern):
             raise PermissionDenied(
@@ -602,12 +588,12 @@ def check_url_permission(ctx: FrameworkContext, url: str) -> None:
                 permission_key=hostname,
             )
 
-    # 4. allow 
+    # 4. allow
     for pattern in ctx.allow_rules:
         if fnmatch.fnmatch(hostname, pattern):
             return
 
-    # 5.  → ask
+    # 5. → ask
     raise AskPermission(
         prompt=f" {url} ?",
         permission_key=hostname,
@@ -615,34 +601,34 @@ def check_url_permission(ctx: FrameworkContext, url: str) -> None:
 
 
 def check_mcp_permission(ctx: FrameworkContext, server_name: str, tool_name: str) -> None:
-    """MCP permission check。
+    """MCP permission check. 
 
     RFC-0019:  MCP helper
 
-    CC : MCP default always-ask，key ``mcp__{server}__{tool}``。
-     server ——allow/deny ``mcp__{server}``  server 。
-     shell  head/subcommand 。
-     MCPTool 。
+    CC: MCP default always-ask, key ``mcp__{server}__{tool}``. 
+     server  -- allow/deny ``mcp__{server}``  server . 
+     shell  head/subcommand . 
+     MCPTool . 
     """
-    # 1. "**"  = 
+    # 1. "**" =
     if _WILDCARD in ctx.allow_rules:
         return
 
     server_key = f"mcp__{server_name}"
     tool_key = f"mcp__{server_name}__{tool_name}"
 
-    # 2. deny （server  + tool ）
+    # 2. deny (server + tool )
     if server_key in ctx.deny_rules or tool_key in ctx.deny_rules:
         raise PermissionDenied(
             reason=f"MCP  {tool_key} ",
             permission_key=tool_key,
         )
 
-    # 3. allow（server  + tool ）
+    # 3. allow (server + tool )
     if server_key in ctx.allow_rules or tool_key in ctx.allow_rules:
         return
 
-    # 4.  → ask
+    # 4. → ask
     raise AskPermission(
         prompt=f" MCP  {tool_key} ?",
         permission_key=tool_key,

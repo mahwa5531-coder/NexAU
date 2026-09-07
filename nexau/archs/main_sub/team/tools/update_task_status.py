@@ -1,20 +1,17 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""update_task_status tool — update task status on the task board.
+"""update_task_status tool - update task status on the task board.
 
-RFC-0002: （）
+RFC-0002:  () 
 """
 
 from __future__ import annotations
@@ -37,8 +34,8 @@ async def update_task_status(
 
     RFC-0002: 
 
-     completed ：
-    1. （deliverable_path）
+     completed: 
+    1.  (deliverable_path) 
     2.  leader agent 
     """
     ts = require_team_state(agent_state)
@@ -66,7 +63,7 @@ async def update_task_status(
         result_summary=result_summary,
     )
 
-    # RFC-0002: completed leader， forever-run 
+    # RFC-0002: completed leader, forever-run
     if status == "completed" and not ts.is_leader:
         summary_text = f" Summary: {result_summary}" if result_summary else ""
         ts.team.notify_leader(

@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -120,12 +117,12 @@ class CleanupManager:
     def _cleanup_sandbox(self) -> None:
         """Clean up active sandbox on process exit.
 
-        RFC-0140: configuration（env ``NEXAU_SANDBOX_ATEXIT_ACTION``），default ``stop``。
-        - ``stop``（default / value）： sandbox（，）
-        - ``pause``：best-effort （``pause_no_wait`` ，）
-        - ``none``： sandbox， caller （NAC value，#932 ）
+        RFC-0140: configuration (env ``NEXAU_SANDBOX_ATEXIT_ACTION``), default ``stop``. 
+        - ``stop`` (default / value):  sandbox (, ) 
+        - ``pause``: best-effort  (``pause_no_wait``, ) 
+        - ``none``:  sandbox,  caller  (NAC value, #932 ) 
 
-        ``atexit``  ``_signal_handler`` function，。
+        ``atexit``  ``_signal_handler`` function, . 
         """
         try:
             logger.info("🧹 Cleaning up active sandbox...")
@@ -135,10 +132,10 @@ class CleanupManager:
         if self._sandbox_manager is None:
             return
 
-        # RFC-0140:  env （， env ）
+        # RFC-0140: env (, env )
         action = os.environ.get("NEXAU_SANDBOX_ATEXIT_ACTION", "stop").strip().lower()
         if action not in ("pause", "stop", "none"):
-            action = "stop"  # value stop，
+            action = "stop"  # value stop
         if action == "none":
             try:
                 logger.info(
@@ -150,9 +147,9 @@ class CleanupManager:
 
         try:
             if action == "pause":
-                # best-effort：pause_no_wait ，completed
+                # best-effort: pause_no_wait, completed
                 self._sandbox_manager.pause_no_wait()
-            else:  # stop（default）
+            else:  # stop (default)
                 self._sandbox_manager.stop()
         except Exception as e:
             try:

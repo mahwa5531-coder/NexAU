@@ -1,62 +1,57 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""AggregatedWebSearch —  Web 。
+"""AggregatedWebSearch -  Web . 
 
  Nexau  WebSearch(`nexau.archs.tool.builtin.web_tools` 
-`google_web_search` + `web_tool.SerperSearch`)，：
+`google_web_search` + `web_tool.SerperSearch`),: 
 
 - gemini-cli (`content` / `returnDisplay` / `sources` / `error`)
-- retrystrategy(default 3 ，`2 ** attempt` )
-- error(errorstring，package error dict，exception)
+- retrystrategy(default 3, `2 ** attempt` )
+- error(errorstring, package error dict, exception)
 
-：
+: 
 
-1. ** Serper**， Serper / Seed / Baidu / XiaoBei ；
-2. ****(、、、、…)，
-   defaultvalue， WebSearch 。
+1. ** Serper**,  Serper / Seed / Baidu / XiaoBei ; 
+2. ****(,,,, ...), 
+   defaultvalue,  WebSearch . 
 
-# ：Provider vs Engine
+# : Provider vs Engine
 
-，：
+,: 
 
-- **Provider()** ——  API：`Serper` / `Seed` / `Baidu` / `XiaoBei`。
-- **Engine()** —— search results：`google` / `bing` / `baidu`。
-   Provider( `XiaoBei`)； Provider 
-  (Serper=Google、Seed=package、Baidu=)。
+- **Provider()**  --   API: `Serper` / `Seed` / `Baidu` / `XiaoBei`. 
+- **Engine()**  --  search results: `google` / `bing` / `baidu`. 
+   Provider( `XiaoBei`);  Provider 
+  (Serper=Google, Seed=package, Baidu=). 
 
-# 
 
 |  |  | default |  |
 |------|------|------|------|
-| `SEARCH_PROVIDER` |  | `Serper` | ：`Serper` / `Seed` / `Baidu` / `XiaoBei`， |
-| `SEARCH_API_KEY` |  | — |  |
-| `SEARCH_ENGINE` |  | (default) | ， `google`、`google\\|baidu`； |
+| `SEARCH_PROVIDER` |  | `Serper` |: `Serper` / `Seed` / `Baidu` / `XiaoBei`,  |
+| `SEARCH_API_KEY` |  | - |  |
+| `SEARCH_ENGINE` |  | (default) |,  `google`, `google\\|baidu`;  |
 | `SEARCH_BASE_URL` |  |  | ( / ) |
 | `SEARCH_TIMEOUT` |  | `30` | timeout |
-| `SEARCH_MAX_RETRIES` |  | `3` | ****()， 1 |
+| `SEARCH_MAX_RETRIES` |  | `3` | ****(),  1 |
 
-**，**， `SEARCH_API_KEY`，
-。 `SEARCH_PROVIDER` + `SEARCH_API_KEY`。
+**, **,  `SEARCH_API_KEY`, 
+.  `SEARCH_PROVIDER` + `SEARCH_API_KEY`. 
 
-`SEARCH_ENGINE` value，`google`、`google|bing`、`google,bing`、
-`["google","bing"]` ；**defaultvalue**， `search_engine` 。
+`SEARCH_ENGINE` value, `google`, `google|bing`, `google,bing`, 
+`["google","bing"]` ; **defaultvalue**,  `search_engine` . 
 
-`SEARCH_PROVIDER` value，
-``/``/`Orchestrator`→XiaoBei、`package`→Seed /。
+`SEARCH_PROVIDER` value, 
+``/``/`Orchestrator`→XiaoBei, `package`→Seed /. 
 
-# 
 
 | Provider |  |  |
 |------|------|------|
@@ -65,38 +60,36 @@
 | `Baidu` |  AI  `https://qianfan.baidubce.com/v2/ai_search/web_search` | `Authorization: Bearer` |
 | `XiaoBei` |  `https://search.xiaobei.top/tools/web_research`( `http://search.iqjzf.com`) | `X-API-Key`  |
 
-# 
 
-、value、——，
-****：
-- **Serper** ——  <https://serper.dev>；
-   <https://serper.dev/playground>；Key  <https://serper.dev/api-keys>
-- **Seed（package）** —— Custom  <https://docs.volcengine.com/docs/87772/2272953>；
-  Global  <https://docs.volcengine.com/docs/87772/2548026>； <https://console.volcengine.com/>
-- **Baidu（ AI ）** —— 「」API <https://cloud.baidu.com/doc/qianfan-api/s/Wmbq4z7e5>；
-  API Key  <https://cloud.baidu.com/doc/BAIDU_AI_SEARCH/s/5mkmgi38d>；
+, value,  --, 
+****: 
+- **Serper**  --   <https://serper.dev>; 
+   <https://serper.dev/playground>; Key  <https://serper.dev/api-keys>
+- **Seed (package) **  --  Custom  <https://docs.volcengine.com/docs/87772/2272953>; 
+  Global  <https://docs.volcengine.com/docs/87772/2548026>;  <https://console.volcengine.com/>
+- **Baidu ( AI ) **  --  「」API <https://cloud.baidu.com/doc/qianfan-api/s/Wmbq4z7e5>; 
+  API Key  <https://cloud.baidu.com/doc/BAIDU_AI_SEARCH/s/5mkmgi38d>; 
    <https://console.bce.baidu.com/ai-search/home>
-- **XiaoBei（）** ——  <https://search.xiaobei.top/docs>；
+- **XiaoBei () **  --   <https://search.xiaobei.top/docs>; 
   OpenAPI <https://search.xiaobei.top/openapi.json>
 
 Google (`site:` / `-site:` / `tbs` )
-<https://support.google.com/websearch/answer/2466433>。
+<https://support.google.com/websearch/answer/2466433>. 
 
-⚠️ package SPA， Quill delta JSON  HTML ，
-——****。
+⚠️ package SPA,  Quill delta JSON  HTML, 
+ -- ****. 
 
-# 
 
-，****(，)：
+, ****(, ): 
 
 |  | Serper | Seed | Baidu | XiaoBei |
 |------|:------:|:----:|:-----:|:-------:|
-| `num_results` | ✅ `num` | ✅ `Count` | ✅ `top_k` | ⚠️ ， |
+| `num_results` | ✅ `num` | ✅ `Count` | ✅ `top_k` | ⚠️,  |
 | `search_type` | ✅  | ⚠️  web/image | ⚠️  | ⚠️  |
 | `time_range`  | ✅ `tbs=qdr:*` | ✅  | ✅ `search_recency_filter` | ✅ `day/week/month/year` |
 | `time_range`  | ✅ `tbs=cdr:*` | ✅  | ✅ `search_filter.range.page_time` | ❌ |
 | `sites` | ✅  | ✅ `Filter.Sites` | ✅ `match.site` | ✅ + |
-| `block_hosts` | ✅  | ✅ `Filter.BlockHosts` | ⚠️ ， | ✅ + |
+| `block_hosts` | ✅  | ✅ `Filter.BlockHosts` | ⚠️,  | ✅ + |
 | `authority_only` | ❌ | ✅ `AuthInfoLevel` | ❌ | ❌ |
 | `industry` | ❌ | ✅ `Industry` | ❌ | ❌ |
 | `query_rewrite` | ✅ `autocorrect` | ✅ `QueryRewrite` | ❌ | ❌ |
@@ -109,49 +102,46 @@ Google (`site:` / `-site:` / `tbs` )
 | `render_js` | ❌ | ❌ | ❌ | ✅ `fast_mode`  |
 | `max_content_chars` | ✅  | ✅  | ✅  | ✅ + |
 
-# （****）
 
-。：XiaoBei  OpenAPI schema，Seed package Custom 
-，Serper 。****，：
+.: XiaoBei  OpenAPI schema, Seed package Custom 
+, Serper . ****,: 
 
 |  |  |  |
 |------|-----------|------|
-| Seed | `NeedSummary` |  `web_summary` type， 2026-06-23  |
-| Seed | `ImageWidth/Height{Max,Min}`、`ImageShapes` |  `search_type=images` ，； |
-| Baidu | `safe_search`、`config_id`、`search_filter.geo/image` | ；`geo.city`  `location` ， |
+| Seed | `NeedSummary` |  `web_summary` type,  2026-06-23  |
+| Seed | `ImageWidth/Height{Max,Min}`, `ImageShapes` |  `search_type=images`, ;  |
+| Baidu | `safe_search`, `config_id`, `search_filter.geo/image` | ; `geo.city`  `location`,  |
 
-****、：
-`Seed.Filter.NeedUrl`( true，)、
-`XiaoBei.wait_for_result` / `timeout_s`(/timeout)、
-`XiaoBei.scrape_top_n`( `full_content` )。
+****,: 
+`Seed.Filter.NeedUrl`( true, ), 
+`XiaoBei.wait_for_result` / `timeout_s`(/timeout), 
+`XiaoBei.scrape_top_n`( `full_content` ). 
 
-Serper  9  100% 。
+Serper  9  100% . 
 
-# 
 
-**，tool callsuccess**——。
-"" `warning` ( Serper  `search_engine`、
- XiaoBei )，""。
+**, tool callsuccess** -- . 
+"" `warning` ( Serper  `search_engine`, 
+ XiaoBei ), "". 
 
- 0 ，**success `sources: []`**
-(content  "No results found.")， error——""，
-retry。
+ 0, **success `sources: []`**
+(content  "No results found."),  error -- "", 
+retry. 
 
-# 
 
 success::
 
     {
-      "content": 'Web search results for "LLM " (provider: XiaoBei):\\n\\n[1]  (https://…)\\n    ',
+      "content": 'Web search results for "LLM " (provider: XiaoBei):\\n\\n[1]  (https://...)\\n    ',
       "returnDisplay": 'Search results for "LLM " via XiaoBei returned (5 results).',
-      "sources": [{"title": …, "link": …, "snippet": …,
-                   "provider": "XiaoBei", "engine": "baidu"}, …],
+      "sources": [{"title": ..., "link": ..., "snippet": ...,
+                   "provider": "XiaoBei", "engine": "baidu"}, ...],
       "provider": "XiaoBei"
     }
 
 failure::
 
-    {"content": "Error: …", "returnDisplay": "Error performing web search.", "error": {"message": "…", "type": "WEB_SEARCH_FAILED"}}
+    {"content": "Error: ...", "returnDisplay": "Error performing web search.", "error": {"message": "...", "type": "WEB_SEARCH_FAILED"}}
 """
 
 from __future__ import annotations
@@ -185,11 +175,11 @@ def _host_matches(host: str, pattern: str) -> bool:
 
 
 def _apply_site_operators(query: str, sites: list[str], block_hosts: list[str]) -> str:
-    """/ Google 。
+    """/ Google . 
 
-    (Serper、)。
-    ： `arxiv.org`  1/28 ，
-     `site:arxiv.org`  20/20。
+    (Serper, ). 
+:  `arxiv.org`  1/28, 
+     `site:arxiv.org`  20/20. 
     """
     parts = [query]
     if sites:
@@ -199,8 +189,8 @@ def _apply_site_operators(query: str, sites: list[str], block_hosts: list[str]) 
 
 
 # ---------------------------------------------------------------- defaultvalue
-# defaultvalue tools/AggregatedWebSearch.tool.yaml  `default` ，
-# ，「」「defaultvalue」。
+# defaultvalue tools/AggregatedWebSearch.tool.yaml `default`
+# , 「」「defaultvalue」.
 
 DEFAULT_NUM_RESULTS = 10
 DEFAULT_SEARCH_TYPE = "search"
@@ -218,27 +208,24 @@ DEFAULT_COUNTRY = ""  #  = default
 DEFAULT_LANGUAGE = ""  #  = default
 DEFAULT_LOCATION = ""  #  = 
 DEFAULT_PAGE = 1
-DEFAULT_SEARCH_ENGINE = ""  #  =  SEARCH_ENGINE ，default
-DEFAULT_RENDER_JS = False  # default HTTP ，
+DEFAULT_SEARCH_ENGINE = ""  # = SEARCH_ENGINE, default
+DEFAULT_RENDER_JS = False  # default HTTP
 
-# defaultvalue()
+# defaultvalue
 DEFAULT_TIMEOUT = 30.0
 DEFAULT_MAX_RETRIES = 3
 
 # ---------------------------------------------------------------- 
-# **defaultvalue**，：
-#
-# SEARCH_ + ； `search_` 
-#     content_format → SEARCH_CONTENT_FORMAT
-#     num_results    → SEARCH_NUM_RESULTS
-# search_engine  → SEARCH_ENGINE      ( SEARCH_SEARCH_ENGINE)
-# search_type    → SEARCH_TYPE        ()
-#
-# ：** >  > defaultvalue**。
-#
-# """defaultvalue"：defaultvalue
-# ( content_format="text")，"valuedefault"，
-# default。function None ，None ""。
+# **defaultvalue**,:
+# SEARCH_ + ; `search_`
+# content_format → SEARCH_CONTENT_FORMAT
+# num_results → SEARCH_NUM_RESULTS
+# search_engine → SEARCH_ENGINE ( SEARCH_SEARCH_ENGINE)
+# search_type → SEARCH_TYPE
+# : ** > > defaultvalue**.
+# """defaultvalue": defaultvalue
+# ( content_format="text"), "valuedefault"
+# default. function None, None "".
 PARAM_DEFAULTS: dict[str, Any] = {
     "num_results": DEFAULT_NUM_RESULTS,
     "search_type": DEFAULT_SEARCH_TYPE,
@@ -260,7 +247,6 @@ PARAM_DEFAULTS: dict[str, Any] = {
     "render_js": DEFAULT_RENDER_JS,
 }
 
-# ，()
 PROVIDER_ENV_KEYS = frozenset(
     {
         "SEARCH_PROVIDER",
@@ -300,7 +286,7 @@ def _coerce_env_value(raw: str, default: Any, env_name: str) -> Any:
         if low in _FALSE_LITERALS:
             return False
         logger.warning(
-            " %s=%r value( true/false)，default %r",
+            " %s=%r value( true/false), default %r",
             env_name,
             raw,
             default,
@@ -310,13 +296,13 @@ def _coerce_env_value(raw: str, default: Any, env_name: str) -> Any:
         try:
             return int(text)
         except ValueError:
-            logger.warning(" %s=%r integer，default %r", env_name, raw, default)
+            logger.warning(" %s=%r integer, default %r", env_name, raw, default)
             return default
     return text
 
 
 def resolve_param(param: str, value: Any) -> Any:
-    """「 >  > default」value。"""
+    """「 >  > default」value. """
     if value is not None:
         return value
     default = PARAM_DEFAULTS[param]
@@ -327,10 +313,10 @@ def resolve_param(param: str, value: Any) -> Any:
     return _coerce_env_value(raw, default, env_name)
 
 
-# search_type=news  time_range ，default
+# search_type=news time_range, default
 NEWS_FALLBACK_TIME_RANGE = "OneWeek"
 
-# (package)； `YYYY-MM-DD..YYYY-MM-DD` 
+# (package); `YYYY-MM-DD..YYYY-MM-DD`
 TIME_RANGE_PRESETS = ("OneDay", "OneWeek", "OneMonth", "OneYear")
 
 
@@ -361,75 +347,70 @@ class SearchOptions:
     「」)。
     """
 
-    # 。/type(package web≤50、image≤5；≤30)
-    # → Serper `num` / package `Count` /  `top_k` /  `max_results`
+    # . /type(package web≤50, image≤5; ≤30)
+    # → Serper `num` / package `Count` / `top_k` / `max_results`
     num_results: int = DEFAULT_NUM_RESULTS
-    # type：search  / news  / images  / places  / videos / scholar
-    # → Serper ( https://serper.dev/playground)；package web / image  SearchType
+    # type: search / news / images / places / videos / scholar
+    # → Serper ( https://serper.dev/playground); package web / image SearchType
     search_type: str = DEFAULT_SEARCH_TYPE
-    # ：OneDay / OneWeek / OneMonth / OneYear / YYYY-MM-DD..YYYY-MM-DD
-    # → Serper  Google `tbs`(qdr:*  cdr:*，
-    #   https://support.google.com/websearch/answer/2466433)
-    # → package `TimeRange`(，)
-    # →  `search_recency_filter` /  `time_range`(day/week/month/year)
+    # : OneDay / OneWeek / OneMonth / OneYear / YYYY-MM-DD..YYYY-MM-DD
+    # → Serper Google `tbs`(qdr:* cdr:*
+    # https://support.google.com/websearch/answer/2466433)
+    # → package `TimeRange`(, )
+    # → `search_recency_filter` / `time_range`(day/week/month/year)
     time_range: str = DEFAULT_TIME_RANGE
-    # ，'|' ， 20 ， "arxiv.org|nature.com"
-    # → package `Filter.Sites`()；Serper /  `site:` 
+    # , '|', 20, "arxiv.org|nature.com"
+    # → package `Filter.Sites`; Serper / `site:`
     sites: str = DEFAULT_SITES
-    # ，'|' ， 5 
-    # → package `Filter.BlockHosts`()；Serper /  `-site:` 
+    # , '|', 5
+    # → package `Filter.BlockHosts`; Serper / `-site:`
     block_hosts: str = DEFAULT_BLOCK_HOSTS
-    # ""(//)，
-    # → package `Filter.AuthInfoLevel=1`。package「」
+    # → package `Filter.AuthInfoLevel=1`. package「」
     authority_only: bool = DEFAULT_AUTHORITY_ONLY
-    # ：finance  / game  / gov 
+    # : finance / game / gov
     # → package `Filter.Industry`(package Custom )
     industry: str = DEFAULT_INDUSTRY
-    # (，)
     # → Serper `autocorrect`(Google ) / package `QueryControl.QueryRewrite`
     query_rewrite: bool = DEFAULT_QUERY_REWRITE
-    # ""()
     # → package `Filter.NeedContent`
     need_content: bool = DEFAULT_NEED_CONTENT
-    # (，)
-    # → package `WebItem.Content`  `Summary`； `scrape_top_n` 
+    # → package `WebItem.Content` `Summary`; `scrape_top_n`
     full_content: bool = DEFAULT_FULL_CONTENT
-    # ：text / markdown， full_content=True 
+    # : text / markdown, full_content=True
     # → package `ContentFormats`
     content_format: str = DEFAULT_CONTENT_FORMAT
-    # /，(，)
     max_content_chars: int = DEFAULT_MAX_CONTENT_CHARS
-    # (ISO 3166-1 ， cn / us)
-    # → Serper `gl`，value https://serper.dev/playground 
+    # (ISO 3166-1, cn / us)
+    # → Serper `gl`, value https://serper.dev/playground
     country: str = DEFAULT_COUNTRY
-    # (BCP-47， zh-cn / en)
-    # → Serper `hl` /  `language`
+    # (BCP-47, zh-cn / en)
+    # → Serper `hl` / `language`
     language: str = DEFAULT_LANGUAGE
-    # ( "Tokyo, Japan")，/
-    # → Serper `location`；value https://serper.dev/playground 
+    # ( "Tokyo, Japan"), /
+    # → Serper `location`; value https://serper.dev/playground
     location: str = DEFAULT_LOCATION
-    # ， 1 ；
+    # , 1 ;
     # → Serper `page`
     page: int = DEFAULT_PAGE
-    # ，'|' ， "google|baidu"； SEARCH_ENGINE 
-    # →  `options.engines`( https://search.xiaobei.top/docs)
+    # , '|', "google|baidu"; SEARCH_ENGINE
+    # → `options.engines`( https://search.xiaobei.top/docs)
     search_engine: str = DEFAULT_SEARCH_ENGINE
-    # ( JS ，)
-    # →  `fast_mode`(：render_js=True  fast_mode=False)
+    # ( JS, )
+    # → `fast_mode`(: render_js=True fast_mode=False)
     render_js: bool = DEFAULT_RENDER_JS
 
     def __post_init__(self) -> None:
-        # search_type=news ""packagetype，
-        # time_range 
+        # search_type=news ""packagetype
+        # time_range
         if self.search_type == "news" and not self.time_range:
             self.time_range = NEWS_FALLBACK_TIME_RANGE
-        # ， 0 / 
+        # , 0 /
         self.num_results = max(1, int(self.num_results))
         self.max_content_chars = max(100, int(self.max_content_chars))
         self.page = max(1, int(self.page))
 
     def parse_custom_range(self) -> tuple[str, str] | None:
-        """ `YYYY-MM-DD..YYYY-MM-DD`  (, )； None。"""
+        """ `YYYY-MM-DD..YYYY-MM-DD`  (, );  None. """
         if ".." not in self.time_range:
             return None
         start, _, end = self.time_range.partition("..")
@@ -445,11 +426,11 @@ class SearchOptions:
         return asdict(self)
 
     def split_sites(self) -> list[str]:
-        """list()。"""
+        """list(). """
         return [s.strip() for s in self.sites.split("|") if s.strip()]
 
     def split_block_hosts(self) -> list[str]:
-        """list()。"""
+        """list(). """
         return [s.strip() for s in self.block_hosts.split("|") if s.strip()]
 
     def split_engines(self) -> list[str]:
@@ -469,9 +450,9 @@ class SearchProviderBase(ABC):
     retry、、exception、class `search` 。
     """
 
-    # ， `engine` 
+    # , `engine`
     name: str = "base"
-    # configuration SEARCH_BASE_URL 
+    # configuration SEARCH_BASE_URL
     default_base_url: str = ""
 
     def __init__(
@@ -483,14 +464,14 @@ class SearchProviderBase(ABC):
     ) -> None:
         if not api_key:
             raise SearchProviderError(
-                f"{self.name} API key is required.  SEARCH_API_KEY( {_LEGACY_API_KEY_ENV})。"
+                f"{self.name} API key is required.  SEARCH_API_KEY( {_LEGACY_API_KEY_ENV}). "
             )
         self.api_key = api_key
         self.base_url = (base_url or self.default_base_url).rstrip("/")
         self.timeout = timeout
-        # ****( web_tool.SerperSearch ，error
-        # "after N attempts")。 >=1：`range(0)` ，
-        # `_do_search` ， 100% failure。
+        # ****( web_tool.SerperSearch, error
+        # "after N attempts"). >=1: `range(0)`
+        # `_do_search`, 100% failure.
         self.max_retries = max(1, max_retries)
 
     # ---------------------------------------------------------------- class
@@ -510,12 +491,10 @@ class SearchProviderBase(ABC):
 
     # ---------------------------------------------------------------- 
 
-    # ""()
     supports_engine_choice: bool = False
-    # ""
     supports_render_js: bool = False
-    # **、**。defaultvalue——
-    # ""，class
+    # **, **. defaultvalue --
+    # "", class
     IGNORED_PARAMS: frozenset[str] = frozenset()
 
     def search(self, query: str, options: SearchOptions) -> list[dict[str, Any]] | str:
@@ -524,11 +503,10 @@ class SearchProviderBase(ABC):
         successlist；failureerrorstring(exception)——
          `SerperSearch.search` ，success/failure。
         """
-        # ，——
         # " SEARCH_ENGINE=baidu"
         if options.split_engines() and not self.supports_engine_choice:
             logger.warning(
-                "%s ，search_engine=%r ",
+                "%s, search_engine=%r ",
                 self.name,
                 options.search_engine,
             )
@@ -536,14 +514,14 @@ class SearchProviderBase(ABC):
         for param in sorted(self.IGNORED_PARAMS):
             value = supplied.get(param)
             if value != PARAM_DEFAULTS.get(param):
-                logger.warning("%s  %s， %r ", self.name, param, value)
+                logger.warning("%s  %s,  %r ", self.name, param, value)
         if options.render_js and not self.supports_render_js:
-            logger.warning("%s ，render_js=True ", self.name)
+            logger.warning("%s, render_js=True ", self.name)
         elif options.render_js and not options.full_content:
-            # ； full_content ，
-            # render_js ——""
+            # ; full_content
+            # render_js -- ""
             logger.warning(
-                "%s: render_js=True  full_content=False，，",
+                "%s: render_js=True  full_content=False,, ",
                 self.name,
             )
 
@@ -558,7 +536,7 @@ class SearchProviderBase(ABC):
             try:
                 with httpx.Client(timeout=timeout) as client:
                     results = self._do_search(client, query, options)
-                # max_content_chars 
+                # max_content_chars
                 for item in results:
                     item["provider"] = self.name
                     snippet = item.get("snippet")
@@ -567,11 +545,11 @@ class SearchProviderBase(ABC):
                 return results[: options.num_results]
 
             except SearchProviderError:
-                # configuration / classerrorretry，
+                # configuration / classerrorretry
                 raise
 
             except RetryableUpstreamError as e:
-                # ，retry
+                # , retry
                 if attempt == self.max_retries - 1:
                     return f"Upstream error after {self.max_retries} attempts: {str(e)}"
                 time.sleep(2**attempt)
@@ -587,7 +565,7 @@ class SearchProviderBase(ABC):
                 time.sleep(2**attempt)
 
             except httpx.HTTPStatusError as e:
-                # 4xx  429 error，retry
+                # 4xx 429 error, retry
                 status = e.response.status_code
                 detail = e.response.text[:300]
                 if 400 <= status < 500 and status != 429:
@@ -596,7 +574,7 @@ class SearchProviderBase(ABC):
                     return f"HTTP error {status}: {detail}"
                 time.sleep(2**attempt)
 
-            except Exception as e:  # noqa: BLE001 — errorstring，
+            except Exception as e:  # noqa: BLE001 - errorstring, 
                 if attempt == self.max_retries - 1:
                     return f"Unexpected error: {type(e).__name__}: {str(e)}"
                 time.sleep(2**attempt)
@@ -621,8 +599,8 @@ class SerperProvider(SearchProviderBase):
     default_base_url = "https://google.serper.dev"
     IGNORED_PARAMS = frozenset({"authority_only", "industry", "need_content", "full_content", "content_format"})
 
-    # search_type -> (URL , )
-    # ， scholar  `organic`，
+    # search_type -> (URL, )
+    # , scholar `organic`
     ENDPOINT_FOR_TYPE = {
         "search": ("search", "organic"),
         "news": ("news", "news"),
@@ -631,7 +609,7 @@ class SerperProvider(SearchProviderBase):
         "videos": ("videos", "videos"),
         "scholar": ("scholar", "organic"),
     }
-    # time_range  -> Google `tbs` 
+    # time_range -> Google `tbs`
     TBS_FOR_TIME_RANGE = {
         "OneDay": "qdr:d",
         "OneWeek": "qdr:w",
@@ -641,7 +619,7 @@ class SerperProvider(SearchProviderBase):
 
     @staticmethod
     def _to_google_date(iso_date: str) -> str:
-        """`YYYY-MM-DD` -> Google `tbs`  `M/D/YYYY`()。"""
+        """`YYYY-MM-DD` -> Google `tbs`  `M/D/YYYY`(). """
         y, m, d = iso_date.split("-")
         return f"{int(m)}/{int(d)}/{int(y)}"
 
@@ -660,8 +638,7 @@ class SerperProvider(SearchProviderBase):
         try:
             start, end = (self._to_google_date(d) for d in custom)
         except ValueError:
-            # ，
-            logger.warning(" time_range=%r，", options.time_range)
+            logger.warning(" time_range=%r, ", options.time_range)
             return None
         return f"cdr:1,cd_min:{start},cd_max:{end}"
 
@@ -671,7 +648,7 @@ class SerperProvider(SearchProviderBase):
         query: str,
         options: SearchOptions,
     ) -> list[dict[str, Any]]:
-        # 1. 
+        # 1.
         endpoint_conf = self.ENDPOINT_FOR_TYPE.get(options.search_type)
         if endpoint_conf is None:
             raise SearchProviderError(
@@ -679,14 +656,14 @@ class SerperProvider(SearchProviderBase):
             )
         path, result_key = endpoint_conf
 
-        # 2. Serper ， Google 
+        # 2. Serper, Google
         payload: dict[str, Any] = {
             "q": _apply_site_operators(query, options.split_sites(), options.split_block_hosts()),
             "num": options.num_results,
-            # query_rewrite  Serper  Google 
+            # query_rewrite Serper Google
             "autocorrect": options.query_rewrite,
         }
-        # 3. ，value，default
+        # 3., value, default
         tbs = self._build_tbs(options)
         if tbs:
             payload["tbs"] = tbs
@@ -699,7 +676,7 @@ class SerperProvider(SearchProviderBase):
         if options.page > 1:
             payload["page"] = options.page
 
-        # 4. 
+        # 4.
         response = client.post(
             f"{self.base_url}/{path}",
             headers={"X-API-KEY": self.api_key, "Content-Type": "application/json"},
@@ -709,11 +686,11 @@ class SerperProvider(SearchProviderBase):
         parsed: dict[str, Any] = response.json()
         raw: list[dict[str, Any]] = parsed.get(result_key) or []
 
-        # 5. places ( link/snippet，)，
+        # 5. places ( link/snippet, )
         if options.search_type == "places":
             return [self._normalize_place(item) for item in raw[: options.num_results]]
 
-        # 6. ， base64 ()
+        # 6., base64
         results: list[dict[str, Any]] = []
         for item in raw[: options.num_results]:
             if str(item.get("imageUrl", "")).startswith("data:"):
@@ -788,30 +765,30 @@ class SeedProvider(SearchProviderBase):
     default_base_url = "https://open.feedcoopapi.com"
     IGNORED_PARAMS = frozenset({"country", "language", "location", "page"})
 
-    # Query (：1~100 ，)
+    # Query (: 1~100, )
     MAX_QUERY_CHARS = 100
-    # Count (：web  50 ；image  5 )
+    # Count (: web 50 ; image 5 )
     MAX_COUNT_WEB = 50
     MAX_COUNT_IMAGE = 5
-    # (：Sites  20 ，BlockHosts  5 )
+    # (: Sites 20, BlockHosts 5 )
     MAX_SITES = 20
     MAX_BLOCK_HOSTS = 5
 
-    # search_type -> package SearchType。
-    # package web / image type， + TimeRange 。
+    # search_type -> package SearchType.
+    # package web / image type, + TimeRange .
     SEARCH_TYPE_MAP = {
         "search": "web",
-        "news": "web",  # ， TimeRange 
+        "news": "web",  #,  TimeRange 
         "places": "web",
         "images": "image",
         "videos": "web",
         "scholar": "web",
     }
 
-    # "retry"error：
-    # 10500 InnerError(defaulterror)、700429  QPS 。
-    # (10400  / 10402 type / 10403  / 10406  /
-    # 10409·10410·10412 )，retry。
+    # "retry"error:
+    # 10500 InnerError(defaulterror), 700429 QPS .
+    # (10400 / 10402 type / 10403 / 10406 /
+    # 10409·10410·10412 ), retry.
     RETRYABLE_ERROR_CODES = {"10500", "700429"}
 
     def _do_search(
@@ -820,15 +797,14 @@ class SeedProvider(SearchProviderBase):
         query: str,
         options: SearchOptions,
     ) -> list[dict[str, Any]]:
-        # 1. type，type Count 
+        # 1. type, type Count
         doubao_type = self.SEARCH_TYPE_MAP.get(options.search_type, "web")
         max_count = self.MAX_COUNT_IMAGE if doubao_type == "image" else self.MAX_COUNT_WEB
         count = max(1, min(options.num_results, max_count))
 
-        # 2.  Filter：/， 10400
+        # 2. Filter: /, 10400
         filters: dict[str, Any] = {
-            # True：，
-            # ""()
+            # True:
             "NeedUrl": True,
             "NeedContent": options.need_content,
         }
@@ -843,7 +819,7 @@ class SeedProvider(SearchProviderBase):
         if options.industry:
             filters["Industry"] = options.industry
 
-        # 3. ；Query ，
+        # 3. ; Query
         payload: dict[str, Any] = {
             "Query": query[: self.MAX_QUERY_CHARS],
             "SearchType": doubao_type,
@@ -857,7 +833,7 @@ class SeedProvider(SearchProviderBase):
         if options.full_content:
             payload["ContentFormats"] = options.content_format
 
-        # 4. 
+        # 4.
         response = client.post(
             f"{self.base_url}/search_api/web_search",
             headers={
@@ -869,7 +845,7 @@ class SeedProvider(SearchProviderBase):
         response.raise_for_status()
         data: dict[str, Any] = response.json()
 
-        # 5. key：error HTTP 200  ResponseMetadata.Error ，
+        # 5. key: error HTTP 200 ResponseMetadata.Error
         # HTTP failuresuccess
         metadata: dict[str, Any] = data.get("ResponseMetadata") or {}
         error: dict[str, Any] | None = metadata.get("Error")
@@ -884,7 +860,7 @@ class SeedProvider(SearchProviderBase):
 
         result: dict[str, Any] = data.get("Result") or {}
 
-        # 6.  ImageResults， WebResults
+        # 6. ImageResults, WebResults
         if doubao_type == "image":
             return [
                 {
@@ -897,9 +873,9 @@ class SeedProvider(SearchProviderBase):
                 for item in (cast(list[dict[str, Any]], result.get("ImageResults") or []))[:count]
             ]
 
-        # 7.  WebResults：
-        # full_content=True  Content()， Summary()，
-        # Snippet( 200 ，)
+        # 7. WebResults:
+        # full_content=True Content, Summary
+        # Snippet( 200, )
         results: list[dict[str, Any]] = []
         web_results: list[dict[str, Any]] = result.get("WebResults") or []
         for item in web_results[:count]:
@@ -937,7 +913,7 @@ class BaiduProvider(SearchProviderBase):
 
     name = "Baidu"
     default_base_url = "https://qianfan.baidubce.com"
-    # full_content  no-op(snippet  content )，
+    # full_content no-op(snippet content )
     IGNORED_PARAMS = frozenset(
         {
             "authority_only",
@@ -953,12 +929,12 @@ class BaiduProvider(SearchProviderBase):
         }
     )
 
-    # ：messages[].content  72 
+    # : messages.content 72
     MAX_QUERY_CHARS = 72
 
-    # time_range  -> `search_recency_filter`。
-    # value week / month / semiyear / year，** day**——
-    # OneDay ， `search_filter.range.page_time` 。
+    # time_range -> `search_recency_filter`.
+    # value week / month / semiyear / year, ** day** --
+    # OneDay, `search_filter.range.page_time` .
     RECENCY_FOR_TIME_RANGE = {
         "OneWeek": "week",
         "OneMonth": "month",
@@ -980,12 +956,9 @@ class BaiduProvider(SearchProviderBase):
             search_filter["match"] = {"site": sites}
         blocked = options.split_block_hosts()
         if blocked:
-            # ：****(，)，
-            # ，；
             search_filter["block_websites"] = blocked
 
-        # page_time；OneDay  day ，
-        # ""
+        # page_time; OneDay day
         page_time: dict[str, str] = {}
         custom = options.parse_custom_range()
         if custom:
@@ -1004,8 +977,7 @@ class BaiduProvider(SearchProviderBase):
         query: str,
         options: SearchOptions,
     ) -> list[dict[str, Any]]:
-        # 1. ；query ，
-        # ，
+        # 1. ; query
         blocked = options.split_block_hosts()
         top_k = min(options.num_results * 2, 50) if blocked else options.num_results
         payload: dict[str, Any] = {
@@ -1014,18 +986,18 @@ class BaiduProvider(SearchProviderBase):
             "resource_type_filter": [{"type": "web", "top_k": top_k}],
         }
 
-        # 2. ： search_recency_filter，
-        # OneDay  search_filter.range.page_time
+        # 2.: search_recency_filter
+        # OneDay search_filter.range.page_time
         recency = self.RECENCY_FOR_TIME_RANGE.get(options.time_range)
         if recency:
             payload["search_recency_filter"] = recency
 
-        # 3. 
+        # 3.
         search_filter = self._build_search_filter(options)
         if search_filter:
             payload["search_filter"] = search_filter
 
-        # 4. 
+        # 4.
         response = client.post(
             f"{self.base_url}/v2/ai_search/web_search",
             headers={
@@ -1037,13 +1009,13 @@ class BaiduProvider(SearchProviderBase):
         response.raise_for_status()
         data: dict[str, Any] = response.json()
 
-        # 5. error：failure code / message
+        # 5. error: failure code / message
         if data.get("code") and not data.get("references"):
             raise SearchProviderError(f" AI error [{data.get('code')}] {data.get('message', '')}")
 
-        # 6.  references。
-        # `snippet`  `content` ****()，
-        # `full_content`  no-op；。
+        # 6. references.
+        # `snippet` `content` ****
+        # `full_content` no-op; .
         lowered = [b.lower() for b in blocked]
         results: list[dict[str, Any]] = []
         references: list[dict[str, Any]] = data.get("references") or []
@@ -1063,8 +1035,8 @@ class BaiduProvider(SearchProviderBase):
                     "link": ref.get("url", ""),
                     "snippet": snippet,
                     "date": _clean_date(ref.get("date")),
-                    # `web_anchor` 、`website`  ""，
-                    # ， source="" 
+                    # `web_anchor`, `website` ""
+                    # , source=""
                     "source": _clean_source(ref.get("web_anchor"), ref.get("website")),
                 }
             )
@@ -1116,27 +1088,23 @@ class XiaoBeiProvider(SearchProviderBase):
     supports_engine_choice = True
     supports_render_js = True
 
-    # ：max_results 1~30、scrape_top_n 0~10、max_content_chars 100~50000
+    # : max_results 1~30, scrape_top_n 0~10, max_content_chars 100~50000
     MAX_RESULTS_CAP = 30
     MAX_SCRAPE_TOP_N = 10
     MAX_CONTENT_CHARS_CAP = 50000
-    # 
     SUPPORTED_ENGINES = ("google", "bing", "baidu")
 
-    # HTTP 。，** 180s  504**，
-    # ——。
-    # 15~40s，100s 。
+    # HTTP ., ** 180s 504**
+    # 15~40s, 100s .
     HTTP_TIMEOUT_CEILING = 100
-    # timeout_s  HTTP timeout，
+    # timeout_s HTTP timeout
     BUDGET_MARGIN = 25
-    # ()。，。
-    # Firecrawl  2~30s ； 60s ，
-    # ，tool call。
+    # Firecrawl 2~30s ; 60s
+    # , tool call.
     SCRAPE_POLL_BUDGET = 60
-    # 
     POLL_INTERVAL = 8
 
-    # time_range  -> 
+    # time_range ->
     TIME_RANGE_MAP = {
         "OneDay": "day",
         "OneWeek": "week",
@@ -1144,9 +1112,8 @@ class XiaoBeiProvider(SearchProviderBase):
         "OneYear": "year",
     }
 
-    # / classerror，retry
+    # / classerror, retry
     NON_RETRYABLE_STATUS = {401, 403, 422}
-    # 、
     TERMINAL_STATUSES = {"complete", "partial", "failed", "search_failed"}
 
     def _headers(self) -> dict[str, str]:
@@ -1154,14 +1121,14 @@ class XiaoBeiProvider(SearchProviderBase):
 
     @staticmethod
     def _parse_json(response: httpx.Response) -> dict[str, Any]:
-        """/ JSON，error JSONDecodeError。"""
+        """/ JSON, error JSONDecodeError. """
         try:
             return response.json()
         except ValueError as exc:
             raise RetryableUpstreamError(f" JSON (HTTP {response.status_code}): {response.text[:120]!r}") from exc
 
     def _check_status(self, response: httpx.Response) -> None:
-        """ 401/403/422 retryconfigurationerror，class。"""
+        """ 401/403/422 retryconfigurationerror, class. """
         if response.status_code in self.NON_RETRYABLE_STATUS:
             detail = response.text[:200]
             raise SearchProviderError(f" HTTP {response.status_code}: {detail}")
@@ -1173,22 +1140,20 @@ class XiaoBeiProvider(SearchProviderBase):
         query: str,
         options: SearchOptions,
     ) -> list[dict[str, Any]]:
-        # 1. 。
-        # -> ，；
-        # -> ****：completed(~15~40s)，
-        # 。 180s 。
+        # 1. .
+        # -> ****: completed(~15~40s)
+        # . 180s .
         scrape_top_n = min(options.num_results, self.MAX_SCRAPE_TOP_N) if options.full_content else 0
         http_timeout = float(min(max(self.timeout, 60.0), self.HTTP_TIMEOUT_CEILING))
         upstream_timeout = max(5, min(600, int(http_timeout) - self.BUDGET_MARGIN))
 
-        # 2. ， query  google/bing/baidu，
-        # `site:` / `-site:` ( 1/28 → 20/20)，
-        # host ——。
+        # 2., query google/bing/baidu
+        # `site:` / `-site:` ( 1/28 → 20/20)
+        # host -- .
         sites = options.split_sites()
         block_hosts = options.split_block_hosts()
         effective_query = _apply_site_operators(query, sites, block_hosts)
 
-        # ，
         want_filter = bool(sites or block_hosts)
         max_results = self.MAX_RESULTS_CAP if want_filter else options.num_results
         max_results = max(1, min(self.MAX_RESULTS_CAP, max_results))
@@ -1199,14 +1164,14 @@ class XiaoBeiProvider(SearchProviderBase):
             "max_content_chars": min(options.max_content_chars, self.MAX_CONTENT_CHARS_CAP),
             "wait_for_result": not scrape_top_n,
             "timeout_s": upstream_timeout,
-            # ：fast_mode=False 
+            # : fast_mode=False
             "fast_mode": not options.render_js,
         }
-        # 3. 
+        # 3.
         requested = options.split_engines()
         engines = [e for e in requested if e in self.SUPPORTED_ENGINES]
         for unknown in set(requested) - set(engines):
-            logger.warning(" %r，( %s)", unknown, self.SUPPORTED_ENGINES)
+            logger.warning(" %r, ( %s)", unknown, self.SUPPORTED_ENGINES)
         if engines:
             upstream_options["engines"] = engines
         if options.language:
@@ -1215,8 +1180,8 @@ class XiaoBeiProvider(SearchProviderBase):
         if mapped_range:
             upstream_options["time_range"] = mapped_range
         elif options.time_range:
-            # day/week/month/year，，
-            logger.warning(" time_range=%r，", options.time_range)
+            # day/week/month/year,
+            logger.warning(" time_range=%r, ", options.time_range)
 
         # 4. ( client timeout)
         response = client.post(
@@ -1228,7 +1193,7 @@ class XiaoBeiProvider(SearchProviderBase):
         self._check_status(response)
         data = self._parse_json(response)
 
-        # 5. ，
+        # 5.
         if scrape_top_n and not self._scrape_settled(data):
             data = self._poll_task(client, data, self.SCRAPE_POLL_BUDGET)
 
@@ -1236,7 +1201,7 @@ class XiaoBeiProvider(SearchProviderBase):
 
     @staticmethod
     def _scrape_settled(data: dict[str, Any]) -> bool:
-        """(， scrape )。"""
+        """(,  scrape ). """
         if data.get("status") in XiaoBeiProvider.TERMINAL_STATUSES:
             return True
         pending = {"queued", "scraping", "pending"}
@@ -1275,7 +1240,7 @@ class XiaoBeiProvider(SearchProviderBase):
                 latest = self._parse_json(resp)
             except SearchProviderError:
                 raise
-            except Exception as exc:  # noqa: BLE001 — failure
+            except Exception as exc:  # noqa: BLE001 - failure
                 logger.warning(" %s failure: %s", task_id, exc)
                 return latest
             if self._scrape_settled(latest):
@@ -1292,17 +1257,17 @@ class XiaoBeiProvider(SearchProviderBase):
         failure_reason = data.get("failure_reason")
         status = data.get("status")
 
-        # 6. failure → ( status="failed" failure，)
+        # 6. failure → ( status="failed" failure, )
         if status == "search_failed" or failure_reason == "all_engines_error":
             raise RetryableUpstreamError(f"failure status={status} failure_reason={failure_reason} engine_errors={engine_errors}")
 
-        # 7. ：( engine_errors，valueretry) vs ()
+        # 7.: ( engine_errors, valueretry) vs
         if not results:
             if engine_errors:
-                raise RetryableUpstreamError(f"， {engine_errors}，retry")
+                raise RetryableUpstreamError(f",  {engine_errors}, retry")
             return []
 
-        # 8. /：， host 
+        # 8. /: host
         sites = [s.lower() for s in options.split_sites()]
         blocked = [b.lower() for b in options.split_block_hosts()]
         normalized: list[dict[str, Any]] = []
@@ -1314,7 +1279,6 @@ class XiaoBeiProvider(SearchProviderBase):
             if blocked and any(_host_matches(host, b) for b in blocked):
                 continue
 
-            # ，
             scrape: dict[str, Any] = item.get("scrape") or {}
             markdown: str = scrape.get("markdown") or ""
             snippet: str = markdown if (options.full_content and markdown) else (item.get("snippet") or "")
@@ -1325,7 +1289,6 @@ class XiaoBeiProvider(SearchProviderBase):
                     "link": url,
                     "snippet": snippet,
                     "date": _clean_date(item.get("published_date")),
-                    # ：，
                     "engine": item.get("engine"),
                     "position": item.get("rank"),
                 }
@@ -1333,7 +1296,7 @@ class XiaoBeiProvider(SearchProviderBase):
         return normalized
 
 
-# ：value()-> adapterclass
+# : value-> adapterclass
 _PROVIDER_REGISTRY: dict[str, type[SearchProviderBase]] = {
     "serper": SerperProvider,
     "seed": SeedProvider,
@@ -1341,7 +1304,6 @@ _PROVIDER_REGISTRY: dict[str, type[SearchProviderBase]] = {
     "xiaobei": XiaoBeiProvider,
 }
 
-# ，
 _PROVIDER_ALIASES = {
     "": "xiaobei",
     "orchestrator": "xiaobei",
@@ -1351,22 +1313,22 @@ _PROVIDER_ALIASES = {
     "": "baidu",
 }
 
-# ，key configuration——configuration，
+# , key configuration -- configuration
 _provider_cache: dict[tuple[str, ...], SearchProviderBase] = {}
 
 
 def _resolve_provider_name() -> str:
-    """ `SEARCH_PROVIDER`——****， Serper。"""
+    """ `SEARCH_PROVIDER` -- ****,  Serper. """
     return (os.getenv("SEARCH_PROVIDER") or "").strip() or "Serper"
 
 
-# backward compatibility： RFC  SERPER_API_KEY。
-# configuration， SEARCH_API_KEY 。
+# backward compatibility: RFC SERPER_API_KEY.
+# configuration, SEARCH_API_KEY .
 _LEGACY_API_KEY_ENV = "SERPER_API_KEY"
 
 
 def _resolve_api_key() -> str:
-    """ `SEARCH_API_KEY`； `SERPER_API_KEY`(backward compatibility)。"""
+    """ `SEARCH_API_KEY`;  `SERPER_API_KEY`(backward compatibility). """
     value = (os.getenv("SEARCH_API_KEY") or "").strip()
     if value:
         return value
@@ -1374,8 +1336,8 @@ def _resolve_api_key() -> str:
 
 
 def _get_provider() -> SearchProviderBase:
-    """()。"""
-    # 1. 
+    """(). """
+    # 1.
     raw_name = _resolve_provider_name()
     provider_key = raw_name.strip().lower()
     provider_key = _PROVIDER_ALIASES.get(provider_key, provider_key)
@@ -1383,7 +1345,7 @@ def _get_provider() -> SearchProviderBase:
     if provider_cls is None:
         raise SearchProviderError(f"Unsupported SEARCH_PROVIDER: {raw_name!r}. Supported providers: Serper / Seed / Baidu / XiaoBei.")
 
-    # 2. 
+    # 2.
     api_key = _resolve_api_key()
     base_url = (os.getenv("SEARCH_BASE_URL") or "").strip() or None
     timeout = float(os.getenv("SEARCH_TIMEOUT") or DEFAULT_TIMEOUT)
@@ -1395,7 +1357,7 @@ def _get_provider() -> SearchProviderBase:
     if cached is not None:
         return cached
 
-    # 4. 
+    # 4.
     engine = provider_cls(
         api_key=api_key,
         base_url=base_url,
@@ -1420,14 +1382,14 @@ def _clean_source(*candidates: Any) -> str | None:
 
 
 def _clean_date(value: Any) -> str | None:
-    """：() 1970 epoch，。"""
+    """: () 1970 epoch, . """
     if not value or not isinstance(value, str):
         return None
     return None if value.startswith("1970") else value
 
 
 def _results_to_llm_content(results: list[dict[str, Any]]) -> str:
-    """list gemini-cli ( WebSearch )。"""
+    """list gemini-cli ( WebSearch ). """
     lines: list[str] = []
     for idx, item in enumerate(results, 1):
         title = item.get("title", "Untitled")
@@ -1446,7 +1408,7 @@ def _results_to_llm_content(results: list[dict[str, Any]]) -> str:
 
 
 def _error_result(message: str, error_type: str = "WEB_SEARCH_FAILED") -> dict[str, Any]:
-    """error， `google_web_search` 。"""
+    """error,  `google_web_search` . """
     return {
         "content": f"Error: {message}",
         "returnDisplay": "Error performing web search.",
@@ -1502,7 +1464,7 @@ def web_search(
         Dictionary containing search results, sources, and metadata.
     """
     try:
-        # 1. (， query )
+        # 1. (, query )
         if not query or not query.strip():
             return {
                 "content": "The 'query' parameter cannot be empty.",
@@ -1513,8 +1475,8 @@ def web_search(
                 },
             }
 
-        # 2. 「 >  > default」， options
-        # （__post_init__  news→ ）
+        # 2. 「 > > default」, options
+        # (__post_init__ news→ )
         supplied = {
             "num_results": num_results,
             "search_type": search_type,
@@ -1537,7 +1499,7 @@ def web_search(
         }
         options = SearchOptions(**{name: resolve_param(name, value) for name, value in supplied.items()})
 
-        # 3. (retry；failureerrorstring)
+        # 3. (retry; failureerrorstring)
         provider = _get_provider()
         results = provider.search(query=query, options=options)
         if isinstance(results, str):
@@ -1551,7 +1513,7 @@ def web_search(
                 "provider": provider.name,
             }
 
-        # 4.  gemini-cli 
+        # 4. gemini-cli
         formatted = _results_to_llm_content(results)
         return {
             "content": f'Web search results for "{query}" (provider: {provider.name}):\n\n{formatted}',
@@ -1561,9 +1523,9 @@ def web_search(
         }
 
     except SearchProviderError as e:
-        # configurationclasserror( key /  / )，type
+        # configurationclasserror( key / / ), type
         return _error_result(str(e), error_type="WEB_SEARCH_CONFIG_ERROR")
 
-    except Exception as e:  # noqa: BLE001 — ，exception Runtime
+    except Exception as e:  # noqa: BLE001 -, exception Runtime
         logger.exception("web_search failed")
         return _error_result(f"{type(e).__name__}: {str(e)}")

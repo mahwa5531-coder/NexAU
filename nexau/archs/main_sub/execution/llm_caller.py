@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -16,8 +13,8 @@
 
 RFC-0006: structured tool calling  provider 
 
-module， ``llm_config.api_type``  neutral structured
-tool definitions  OpenAI / Anthropic / Gemini  provider schema。
+module,  ``llm_config.api_type``  neutral structured
+tool definitions  OpenAI / Anthropic / Gemini  provider schema. 
 """
 
 import asyncio
@@ -94,7 +91,7 @@ def _chat_completion_to_model_response(completion: ChatCompletion) -> ModelRespo
     """Bridge Set A's ``ChatCompletion`` ``build()`` output to ``ModelResponse``.
 
     ``ModelResponse.from_openai_message`` expects a single message
-    (``ChatCompletionMessage``) plus an optional usage dict — that was the
+    (``ChatCompletionMessage``) plus an optional usage dict - that was the
     natural shape Set B's ``finalize()`` produced. Set A's ``build()``
     returns the full ``ChatCompletion`` (with ``.choices`` and
     ``.usage``); extract the first choice's message and pass usage
@@ -108,7 +105,7 @@ def _chat_completion_to_model_response(completion: ChatCompletion) -> ModelRespo
 def _resolve_run_id(model_call_params: ModelCallParams | None) -> str:
     """Best-effort run_id for stream aggregator instances.
 
-    RFC-0023 § ③ — Set A aggregators tag emitted events with ``run_id``.
+    RFC-0023 § ③ - Set A aggregators tag emitted events with ``run_id``.
     Production calls always have an ``agent_state`` carrying the live id;
     test scaffolding sometimes calls ``llm_caller`` without one, so fall
     back to a literal placeholder rather than crashing.
@@ -121,7 +118,7 @@ def _resolve_run_id(model_call_params: ModelCallParams | None) -> str:
 def _get_event_emitter(manager: MiddlewareManager | None) -> Callable[[Event], None]:
     """Resolve the unified event emitter from the middleware chain.
 
-    RFC-0023 § ③ — Set A aggregators now live inside ``llm_caller`` (one
+    RFC-0023 § ③ - Set A aggregators now live inside ``llm_caller`` (one
     instance per stream call). They need an ``on_event`` sink so the AG-UI
     events they emit reach the user's streaming callback. The sink is owned
     by ``AgentEventsMiddleware`` (via its ``on_event`` instance attribute);
@@ -143,7 +140,7 @@ logger = logging.getLogger(__name__)
 _MISSING_TOOL_RESULT_CONTENT = "no tool result (canceled, compacted or failed)"
 _OPENAI_PROMPT_CACHE_KEY_MAX_LENGTH = 64
 
-# idle timeoutexception，/API error，retry
+# idle timeoutexception, /API error, retry
 OnRetryCallback = Callable[[int, int, float, str], None]
 """(attempt, max_attempts, backoff_seconds, error_message) → None"""
 
@@ -168,7 +165,7 @@ def _log_llm_debug_response(model_response: ModelResponse) -> None:
 
 
 # Layer 4: catch `400 Invalid signature in thinking block` (legacy rows
-# whose signature is non-empty but invalid — corrupted / model-version
+# whose signature is non-empty but invalid - corrupted / model-version
 # stale / cross-gateway), strip all ReasoningBlock signatures, retry once.
 # Layer 3's default unsigned-thinking-drop branch then handles the
 # stripped messages naturally. See commit f8e6faa5 / PR #554 for the
@@ -254,7 +251,7 @@ def _strip_thinking_signatures(messages: list[Message]) -> list[Message]:
     "Invalid signature in thinking block", we don't know which block has
     the bad signature, so we clear them all. The existing serializer
     (Layer 3) then drops the now-unsigned reasoning blocks via its default
-    branch — no new parameter through the adapter/serializer chain.
+    branch - no new parameter through the adapter/serializer chain.
     """
     from nexau.core.messages import ReasoningBlock
 
@@ -273,9 +270,9 @@ def _strip_thinking_signatures(messages: list[Message]) -> list[Message]:
 class StreamIdleTimeoutError(Exception):
     """Raised when no stream chunk is received within the configured idle timeout.
 
-     Codex  "idle timeout waiting for SSE/websocket" 。
-    （per-chunk）timeout，timeout， LLM 
-    timeout，""。
+     Codex  "idle timeout waiting for SSE/websocket" . 
+     (per-chunk) timeout, timeout,  LLM 
+    timeout, "". 
     """
 
 
@@ -404,7 +401,7 @@ def _ensure_tool_results(messages: list[Message]) -> list[Message]:
     This function detects orphaned tool calls and injects synthetic tool result
     messages so the conversation remains valid.
     """
-    # 1.  tool_use id、、
+    # 1. tool_use id,
     tool_use_ids: dict[str, int] = {}
     tool_use_names: dict[str, str] = {}
     for idx, msg in enumerate(messages):
@@ -417,25 +414,24 @@ def _ensure_tool_results(messages: list[Message]) -> list[Message]:
     if not tool_use_ids:
         return messages
 
-    # 2.  tool_result tool_use_id，
-    # （ tool_call_id  UUID， "tool_call" -> "tool_call_a45a..."）
+    # 2. tool_result tool_use_id
+    # ( tool_call_id UUID, "tool_call" -> "tool_call_a45a...")
     matched_tool_use_ids: set[str] = set()
     for msg in messages:
         if msg.role == Role.TOOL:
             for block in msg.content:
                 if isinstance(block, ToolResultBlock):
                     result_id = block.tool_use_id
-                    # 
                     if result_id in tool_use_ids:
                         matched_tool_use_ids.add(result_id)
                     else:
-                        # ：tool_use_id  ToolUseBlock.id 
+                        # : tool_use_id ToolUseBlock.id
                         for use_id in tool_use_ids:
                             if result_id.startswith(use_id):
                                 matched_tool_use_ids.add(use_id)
                                 break
 
-    # 3.  tool_use_id
+    # 3. tool_use_id
     missing_ids = set(tool_use_ids.keys()) - matched_tool_use_ids
     if not missing_ids:
         return messages
@@ -446,13 +442,13 @@ def _ensure_tool_results(messages: list[Message]) -> list[Message]:
         missing_ids,
     )
 
-    # 4.  assistant ，
+    # 4. assistant
     missing_by_index: dict[int, list[str]] = {}
     for tid in missing_ids:
         assistant_idx = tool_use_ids[tid]
         missing_by_index.setdefault(assistant_idx, []).append(tid)
 
-    # 5. list， assistant 
+    # 5. list, assistant
     result: list[Message] = []
     for idx, msg in enumerate(messages):
         result.append(msg)
@@ -468,7 +464,7 @@ def _ensure_tool_results(messages: list[Message]) -> list[Message]:
                                 is_error=True,
                             )
                         ],
-                        # ， Gemini REST （functionResponse  name）
+                        # , Gemini REST (functionResponse name)
                         metadata={"tool_name": tool_use_names.get(tid, "")},
                     )
                 )
@@ -498,10 +494,10 @@ class LLMCaller:
             openai_client: OpenAI/Anthropic sync client instance
             llm_config: LLM configuration
             retry_attempts: Number of retry attempts for API calls
-            retry_backoff_max_seconds: （），default 30s。
-                 slot 。
-            on_retry: retry， ``OnRetryCallback``。
-                 UI 「retry N …」。
+            retry_backoff_max_seconds:  (), default 30s. 
+                 slot . 
+            on_retry: retry,  ``OnRetryCallback``. 
+                 UI 「retry N ...」. 
             middleware_manager: Optional middleware manager for wrapping calls
             global_storage: Optional global storage to retrieve tracer at call time
             session_id: Optional session ID injected into provider payloads
@@ -520,8 +516,8 @@ class LLMCaller:
         self.global_storage = global_storage
         self.session_id = session_id
 
-        # RFC-0001:  sync LLM SDK ， event loop  default executor
-        # force stop  shutdown(wait=False) ， event loop 
+        # RFC-0001: sync LLM SDK, event loop default executor
+        # force stop shutdown(wait=False), event loop
         self._llm_thread_pool: ThreadPoolExecutor = ThreadPoolExecutor(
             max_workers=4,
             thread_name_prefix="llm-call",
@@ -574,7 +570,7 @@ class LLMCaller:
         structured_provider_target: StructuredProviderTarget | None = None
         adapted_tools: list[Mapping[str, object]] | None = None
         if use_structured_tools:
-            # 1. RFC-0006: structured provider  api_type 。
+            # 1. RFC-0006: structured provider api_type .
             structured_provider_target = resolve_structured_provider_target(self.llm_config.api_type)
 
             strict_tools = bool((self.llm_config.extra_params or {}).get("strict_tools", False))
@@ -681,11 +677,11 @@ class LLMCaller:
 
         P2 async/sync : _call_with_retry_async 
 
-         _call_with_retry ，retry。
-         _call_with_retry_async  asyncio.to_thread ，
-         async retry retry。
+         _call_with_retry, retry. 
+         _call_with_retry_async  asyncio.to_thread, 
+         async retry retry. 
 
-        package: 、session_id 、message 、tracer 。
+        package: session_id, message, tracer . 
         """
         from .executor import AgentStopReason
 
@@ -760,10 +756,10 @@ class LLMCaller:
     ) -> ModelResponse | None:
         """Execute a single async LLM call attempt (no retry loop).
 
-        async/sync :  AsyncOpenAI / AsyncAnthropic  await，
-         to_thread 。force stop  asyncio cancellation 。
+        async/sync:  AsyncOpenAI / AsyncAnthropic  await, 
+         to_thread . force stop  asyncio cancellation . 
 
-        package: 、session_id 、message 、tracer 。
+        package: session_id, message, tracer . 
         """
         from .executor import AgentStopReason
 
@@ -920,8 +916,8 @@ class LLMCaller:
                     raise RuntimeError(f"No response content or tool calls{error_detail}")
 
             except Exception as e:
-                # RFC-0001: shutdown_event retry， None
-                # execute()  stop_signal
+                # RFC-0001: shutdown_event retry, None
+                # execute stop_signal
                 if params.shutdown_event and params.shutdown_event.is_set():
                     logger.info("🛑 LLM call interrupted by shutdown_event, skipping retry")
                     return None
@@ -956,11 +952,11 @@ class LLMCaller:
 
         P2 async/sync :  LLM 
 
-         asyncio.sleep  time.sleep retry，
-        Gemini REST  httpx.AsyncClient  HTTP ，
-         provider (OpenAI/Anthropic)  asyncio.to_thread  sync SDK。
+         asyncio.sleep  time.sleep retry, 
+        Gemini REST  httpx.AsyncClient  HTTP, 
+         provider (OpenAI/Anthropic)  asyncio.to_thread  sync SDK. 
         """
-        # call_llm 
+        # call_llm
         runtime_client = openai_client if openai_client is not None else self.openai_client
 
         if not runtime_client and not self.middleware_manager and self.llm_config.api_type not in ("gemini_rest", "google_genai"):
@@ -1031,8 +1027,8 @@ class LLMCaller:
         # async retry wrapper
         response_payload: ModelResponse | None
         if self.middleware_manager:
-            # Middleware wrapping  sync ( to_thread )
-            # _call_once_sync  _call_with_retry，retry
+            # Middleware wrapping sync ( to_thread )
+            # _call_once_sync _call_with_retry, retry
             def _wrapped(params: ModelCallParams) -> ModelResponse | None:
                 return self.middleware_manager.wrap_model_call(params, lambda p: self._call_once_sync(p))  # type: ignore[union-attr]
 
@@ -1064,13 +1060,13 @@ class LLMCaller:
 
         - Gemini REST: httpx.AsyncClient 
         - OpenAI / Anthropic ( middleware): AsyncOpenAI / AsyncAnthropic
-           await，asyncio cancellation 
-        - Middleware-wrapped: sync hook  _llm_thread_pool ，
+           await, asyncio cancellation 
+        - Middleware-wrapped: sync hook  _llm_thread_pool, 
           cleanup()  shutdown(wait=False) 
 
-        :  Gemini provider， _call_once_sync() ()，
-         _call_with_retry() (retry)， retry_attempts² 
-        retry tracing span。
+:  Gemini provider,  _call_once_sync() (), 
+         _call_with_retry() (retry),  retry_attempts² 
+        retry tracing span. 
         """
         from .executor import AgentStopReason
 
@@ -1086,9 +1082,9 @@ class LLMCaller:
                     return None
 
                 if sync_call_fn is not None:
-                    # Middleware-wrapped path: sync hook 
-                    # _llm_thread_pool  default executor，
-                    # force stop  event loop shutdown
+                    # Middleware-wrapped path: sync hook
+                    # _llm_thread_pool default executor
+                    # force stop event loop shutdown
                     return await self._run_sync_in_llm_pool(sync_call_fn, params)
 
                 # Gemini / Google GenAI: native async path
@@ -1102,13 +1098,13 @@ class LLMCaller:
                         tracer=self._get_tracer(),
                     )
 
-                # OpenAI / Anthropic:  async SDK， await
-                # shutdown_event cancel：stop()  event 
-                # cancel  await  LLM 
+                # OpenAI / Anthropic: async SDK, await
+                # shutdown_event cancel: stop event
+                # cancel await LLM
                 if self.async_openai_client is not None:
                     return await self._call_once_async_cancellable(params)
 
-                # Fallback:  async client 
+                # Fallback: async client
                 return await self._run_sync_in_llm_pool(self._call_once_sync, params)
 
             except Exception as e:
@@ -1141,9 +1137,9 @@ class LLMCaller:
 
         RFC-0001:  asyncio.to_thread 
 
-         asyncio.to_thread （ contextvars ），
-         _llm_thread_pool  event loop  default executor，
-         force stop  cleanup()  shutdown(wait=False) 。
+         asyncio.to_thread  ( contextvars ), 
+         _llm_thread_pool  event loop  default executor, 
+         force stop  cleanup()  shutdown(wait=False) . 
         """
         loop = asyncio.get_running_loop()
         ctx = contextvars.copy_context()
@@ -1164,9 +1160,9 @@ class LLMCaller:
     ) -> ModelResponse | None:
         """Run _call_once_async but cancel if shutdown_event is set.
 
-        async/sync :  async LLM  graceful stop cancel。
-        stop()  shutdown_event ，method cancel  await  HTTP ，
-         execute_async ，asyncio.gather 。
+        async/sync:  async LLM  graceful stop cancel. 
+        stop()  shutdown_event, method cancel  await  HTTP, 
+         execute_async, asyncio.gather . 
         """
         shutdown_ev = params.shutdown_event
         if shutdown_ev is not None and shutdown_ev.is_set():
@@ -1177,7 +1173,7 @@ class LLMCaller:
         if shutdown_ev is None:
             return await llm_task
 
-        # shutdown_event（ to_thread  default executor ）
+        # shutdown_event ( to_thread default executor )
         async def _poll_shutdown() -> None:
             while not shutdown_ev.is_set():
                 await asyncio.sleep(0.1)
@@ -1524,8 +1520,8 @@ def _adapt_structured_tools_for_provider(
 
     RFC-0006: Provider 
 
-     neutral / compatibility definition，
-    provider  schema；Gemini  neutral definition  adapter。
+     neutral / compatibility definition, 
+    provider  schema; Gemini  neutral definition  adapter. 
 
     Parameters
     ----------
@@ -1604,7 +1600,7 @@ def _apply_anthropic_cache_control(
     if remaining > 0 and user_messages and user_messages[-1].get("content"):
         content = cast(list[dict[str, Any]] | str | None, user_messages[-1].get("content"))
         if isinstance(content, list) and content:
-            # RFC-0014: thinking/redacted_thinking blocks  cache_control
+            # RFC-0014: thinking/redacted_thinking blocks cache_control
             no_cache_types = {"thinking", "redacted_thinking"}
             for block in content:
                 if block.get("type") not in no_cache_types:
@@ -1651,7 +1647,7 @@ def call_llm_with_anthropic_chat_completion(
         ).to_vendor_format(model_call_params.messages)
 
     def llm_call() -> Any:
-        # Anthropic 
+        # Anthropic
         system_messages, user_messages = _build_anthropic_messages()
         _apply_cache_control(system_messages, user_messages)
 
@@ -1691,9 +1687,9 @@ def call_llm_with_anthropic_chat_completion(
         # Build the exact kwargs for tracing
         api_kwargs: dict[str, Any] = {"system": system_messages, "messages": user_messages, **new_kwargs}
 
-        # RFC-0023 § ③ — Set A is the single canonical aggregator. It
+        # RFC-0023 § ③ - Set A is the single canonical aggregator. It
         # emits AG-UI events through ``emitter`` (the middleware's on_event
-        # sink) and yields a typed ``AnthropicMessage`` via ``build()``.
+        # sink) and yields a typed ``AnthropicMessage`` via ``build``.
         run_id = _resolve_run_id(model_call_params)
         emitter = _get_event_emitter(middleware_manager)
         aggregator = AnthropicEventAggregator(on_event=emitter, run_id=run_id)
@@ -1704,7 +1700,7 @@ def call_llm_with_anthropic_chat_completion(
                 with trace_ctx:
                     start_time = time.time()
                     first_token_time = None
-                    # RFC-0001: shutdown_event 
+                    # RFC-0001: shutdown_event
                     _shutdown_ev = model_call_params.shutdown_event if model_call_params else None
                     with client.messages.create(**api_kwargs, stream=True) as stream:
                         for event in stream:
@@ -1727,7 +1723,7 @@ def call_llm_with_anthropic_chat_completion(
                         )
                     return ModelResponse.from_anthropic_message(message)
 
-            # RFC-0001: shutdown_event 
+            # RFC-0001: shutdown_event
             _shutdown_ev = model_call_params.shutdown_event if model_call_params else None
             with client.messages.create(**api_kwargs, stream=True) as stream:
                 for event in stream:
@@ -1802,7 +1798,7 @@ def call_llm_with_openai_chat_completion(
                             stream=True,
                             **payload,
                         )
-                        # RFC-0001: shutdown_event ，
+                        # RFC-0001: shutdown_event
                         _shutdown_ev = model_call_params.shutdown_event if model_call_params else None
                         with stream_ctx:
                             for chunk in stream_ctx:
@@ -1829,7 +1825,7 @@ def call_llm_with_openai_chat_completion(
                     stream=True,
                     **payload,
                 )
-                # RFC-0001: shutdown_event 
+                # RFC-0001: shutdown_event
                 _shutdown_ev = model_call_params.shutdown_event if model_call_params else None
                 with stream_ctx:
                     for chunk in stream_ctx:
@@ -1927,11 +1923,11 @@ def call_llm_with_openai_responses(
 
     request_payload.pop("store", None)
 
-    # default parallel_tool_calls； LLMConfig.extra_kwargs ，configuration。
+    # default parallel_tool_calls; LLMConfig.extra_kwargs, configuration.
     request_payload.setdefault("parallel_tool_calls", _default_openai_responses_parallel_tool_calls(llm_config))
 
-    # default detailed reasoning summary， reasoning item package。
-    # summary， "detailed"。
+    # default detailed reasoning summary, reasoning item package.
+    # summary, "detailed".
     reasoning_param = request_payload.get("reasoning")
     if isinstance(reasoning_param, dict) and "summary" not in reasoning_param:
         reasoning_param["summary"] = "detailed"
@@ -1947,8 +1943,8 @@ def call_llm_with_openai_responses(
     if "reasoning.encrypted_content" not in include_list:
         include_list.append("reasoning.encrypted_content")
 
-    # （ prompt_cache_key） extra_body，
-    # OpenAI SDK v2+  kwargs。
+    # ( prompt_cache_key) extra_body
+    # OpenAI SDK v2+ kwargs.
     extra_body: dict[str, Any] = request_payload.pop("extra_body", None) or {}
     prompt_cache_key = request_payload.pop("prompt_cache_key", None)
     if prompt_cache_key is not None:
@@ -1980,7 +1976,7 @@ def call_llm_with_openai_responses(
         run_id = _resolve_run_id(model_call_params)
         emitter = _get_event_emitter(middleware_manager)
         aggregator = OpenAIResponsesAggregator(on_event=emitter, run_id=run_id)
-        # RFC-0001: shutdown_event 
+        # RFC-0001: shutdown_event
         _shutdown_ev = model_call_params.shutdown_event if model_call_params else None
 
         try:
@@ -2034,10 +2030,9 @@ def call_llm_with_openai_responses(
 
 
 # ── Async LLM call functions ────────────────────────────────────────
-#
-# async/sync :  AsyncOpenAI / AsyncAnthropic / httpx.AsyncClient
-# async ， to_thread 。
-# force stop  asyncio cancellation ，。
+# async/sync: AsyncOpenAI / AsyncAnthropic / httpx.AsyncClient
+# async, to_thread .
+# force stop asyncio cancellation, .
 
 
 async def call_llm_with_different_client_async(
@@ -2118,7 +2113,7 @@ async def call_llm_with_openai_chat_completion_async(
     should_trace = tracer is not None and get_current_span() is not None
 
     if stream_requested:
-        # 1. 
+        # 1.
         payload = kwargs.copy()
         payload.pop("stream", None)
         stream_options = {"include_usage": True}
@@ -2178,7 +2173,7 @@ async def call_llm_with_openai_chat_completion_async(
 
         return _chat_completion_to_model_response(completion)
 
-    # 2. 
+    # 2.
     async def _invoke(api_kwargs: dict[str, Any]) -> ChatCompletion:
         return cast(ChatCompletion, await client.chat.completions.create(**api_kwargs))
 
@@ -2234,7 +2229,7 @@ async def call_llm_with_anthropic_chat_completion_async(
         ).to_vendor_format(model_call_params.messages)
 
     def _build_api_kwargs() -> dict[str, Any]:
-        # 1. （ sync ）
+        # 1. ( sync )
         system_messages, user_messages = _build_anthropic_messages()
         _apply_cache_control(system_messages, user_messages)
 
@@ -2244,7 +2239,7 @@ async def call_llm_with_anthropic_chat_completion_async(
         return {"system": system_messages, "messages": user_messages, **new_kwargs}
 
     if not stream_requested:
-        # 2. 
+        # 2.
         async def _invoke_non_stream() -> Any:
             api_kwargs_local = _build_api_kwargs()
             if should_trace and tracer is not None:
@@ -2262,7 +2257,7 @@ async def call_llm_with_anthropic_chat_completion_async(
             resp = await _invoke_non_stream()
         return ModelResponse.from_anthropic_message(resp)
 
-    # 3. 
+    # 3.
     async def _invoke_stream() -> Any:
         api_kwargs_local = _build_api_kwargs()
         run_id = _resolve_run_id(model_call_params)
@@ -2360,10 +2355,10 @@ async def call_llm_with_openai_responses_async(
 
     request_payload.pop("store", None)
 
-    # default parallel_tool_calls； LLMConfig.extra_kwargs ，configuration。
+    # default parallel_tool_calls; LLMConfig.extra_kwargs, configuration.
     request_payload.setdefault("parallel_tool_calls", _default_openai_responses_parallel_tool_calls(llm_config))
 
-    # default detailed reasoning summary， reasoning item package。
+    # default detailed reasoning summary, reasoning item package.
     reasoning_param = request_payload.get("reasoning")
     if isinstance(reasoning_param, dict) and "summary" not in reasoning_param:
         reasoning_param["summary"] = "detailed"
@@ -2390,7 +2385,6 @@ async def call_llm_with_openai_responses_async(
     should_trace = tracer is not None and get_current_span() is not None
 
     if not stream_requested:
-        # 
         if should_trace and tracer is not None:
             trace_ctx = TraceContext(tracer, "OpenAI responses.create (async)", SpanType.LLM, inputs=request_payload)
             with trace_ctx:
@@ -2400,7 +2394,6 @@ async def call_llm_with_openai_responses_async(
             response = await client.responses.create(**request_payload)
         return ModelResponse.from_openai_response(response)
 
-    # 
     run_id = _resolve_run_id(model_call_params)
     emitter = _get_event_emitter(middleware_manager)
     aggregator = OpenAIResponsesAggregator(on_event=emitter, run_id=run_id)
@@ -2525,15 +2518,15 @@ def _enrich_gemini_trace_outputs(
 ) -> dict[str, Any]:
     """Enrich Gemini REST trace output with model and usage for Langfuse.
 
-    Gemini REST  modelVersion / usageMetadata， Langfuse tracer
+    Gemini REST  modelVersion / usageMetadata,  Langfuse tracer
      end_span  output dict  model / usage  generation 
-    model  token 。function。
+    model  token . function. 
     """
     enriched = dict(output)
-    # 1.  model（Langfuse  generation ）
+    # 1. model (Langfuse generation )
     enriched["model"] = model_name
-    # 2.  usageMetadata  Langfuse  usage 
-    # Langfuse _sanitize_usage  int value， int。
+    # 2. usageMetadata Langfuse usage
+    # Langfuse _sanitize_usage int value, int.
     usage_meta = output.get("usageMetadata")
     if isinstance(usage_meta, dict):
         meta: dict[str, object] = cast(dict[str, object], usage_meta)
@@ -2547,7 +2540,7 @@ def _enrich_gemini_trace_outputs(
             "output_tokens": _int_field("candidatesTokenCount"),
             "total_tokens": _int_field("totalTokenCount"),
         }
-        # token — ， Langfuse 
+        # token -, Langfuse
         cached = _int_field("cachedContentTokenCount")
         if cached > 0:
             usage["cached_tokens"] = cached
@@ -2586,7 +2579,7 @@ def convert_tools_to_gemini(
     RFC-0006: Gemini  structured tool adapter
 
     Gemini  neutral structured definition 
-    ``functionDeclarations``， OpenAI schema 。
+    ``functionDeclarations``,  OpenAI schema . 
     """
 
     gemini_tools: list[dict[str, Any]] = []

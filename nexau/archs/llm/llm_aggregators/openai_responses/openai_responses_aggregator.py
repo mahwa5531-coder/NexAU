@@ -16,9 +16,9 @@ or emission logic requires:
    reasoning behavior / refusal shape / built-in tool result), record
    a fixture via ``tests/aggregator_parity/scripts/record_fixture.py``.
 3. If parity surfaces a divergence, fix the buggy side rather than xfail
-   — real Set A↔Set B drift = real production bug. The harness has
+   - real Set A↔Set B drift = real production bug. The harness has
    already caught a 'silent reasoning' bug here (gpt-5.x produces
-   reasoning tokens with no summary text — Set A used to emit no
+   reasoning tokens with no summary text - Set A used to emit no
    thinking events; fixed in d723b002).
 
 See ``tests/aggregator_parity/README.md`` for the full protocol.
@@ -83,7 +83,7 @@ class OpenAIResponsesAggregator(Aggregator[ResponseStreamEvent, Response]):
         self._on_event = on_event
         self._run_id = run_id
         self._output_aggregators: dict[str, _ReasoningItemAggregator | _FunctionCallItemAggregator | _MessageItemAggregator] = {}
-        # Initialize _value with empty Response (output will be built/merged in build())
+        # Initialize _value with empty Response (output will be built/merged in build)
         self._value = Response(
             id="",
             created_at=0,
@@ -232,11 +232,11 @@ class OpenAIResponsesAggregator(Aggregator[ResponseStreamEvent, Response]):
         if item.type == "response.completed":
             # Preserve the locally aggregated output placeholders/items because
             # OpenAI's completed event may carry an empty output array in
-            # streaming mode. build() relies on this list to merge built items
+            # streaming mode. build relies on this list to merge built items
             # back by output_index.
             preserved_output = self._value.output if self._value.output else item.response.output
             self._value = item.response.model_copy(update={"output": preserved_output}, deep=True)
-            # RFC-0023 § ② — emit per-call metadata once at completion.
+            # RFC-0023 § ② - emit per-call metadata once at completion.
             # Token usage is owned by ``UsageUpdateEvent``; not included here.
             status = getattr(self._value, "status", None)
             self._on_event(
@@ -359,7 +359,7 @@ class _ReasoningItemAggregator(Aggregator[ReasoningItemAggregatorEvent, Response
         Called from BOTH the initial ``output_item.added`` reasoning dispatch
         AND ``response.reasoning_summary_part.added`` (idempotent). Emitting
         early on output_item.added ensures the silent-reasoning case
-        (model produces ``reasoning_tokens`` but no summary text — observed
+        (model produces ``reasoning_tokens`` but no summary text - observed
         in gpt-5.x at all effort levels) still surfaces a thinking signal
         to the UI / event consumer, keeping Set A's stream symmetric with
         Set B's persisted ReasoningBlock marker.
@@ -414,7 +414,7 @@ class _ReasoningItemAggregator(Aggregator[ReasoningItemAggregatorEvent, Response
             self._value = item.model_copy(deep=True)
             # Emit Start on the initial output_item.added dispatch. If
             # summary text arrives later, summary_part.added's call is a
-            # no-op (idempotent). If reasoning is silent, finish() emits
+            # no-op (idempotent). If reasoning is silent, finish emits
             # the matching End on output_item.done.
             self._emit_start_if_needed()
             return

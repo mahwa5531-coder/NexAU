@@ -32,14 +32,12 @@ def _validate_questions(
         }
 
     # if len(questions) > 4:
-    #     return {
-    #         "content": "Maximum 4 questions allowed.",
-    #         "returnDisplay": "Error: Too many questions.",
-    #         "error": {
-    #             "message": "Maximum 4 questions allowed.",
-    #             "type": "INVALID_PARAMETER",
-    #         },
-    #     }
+    # return {
+    # "content": "Maximum 4 questions allowed."
+    # "returnDisplay": "Error: Too many questions."
+    # "error": {
+    # "message": "Maximum 4 questions allowed."
+    # "type": "INVALID_PARAMETER"
 
     for i, q in enumerate(questions):
         question_type = q.get("type", QUESTION_TYPE_CHOICE)
@@ -140,7 +138,7 @@ def ask_user(
 
     Validates the questions and returns them as structured output for the
     frontend/app to render. The user's answer comes back as a regular
-    user message in the conversation — no middleware required.
+    user message in the conversation - no middleware required.
 
     Args:
         questions: List of question objects, each containing:
@@ -154,7 +152,7 @@ def ask_user(
     Returns:
         Dict with structured questions for frontend rendering, or error.
     """
-    # 1. 
+    # 1.
     error = _validate_questions(questions)
     if error is not None:
         return error

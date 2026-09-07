@@ -124,7 +124,7 @@ class ThinkingTextMessageStartEvent(AgUiThinkingTextMessageStartEvent):
         thinking_message_id: Unique identifier for the thinking message (for correlating Start/Content/End)
         run_id: ID of the agent run that produced this event
         is_redacted: True when this thinking block carries an opaque
-            ``redacted_thinking`` payload (Anthropic) instead of plaintext —
+            ``redacted_thinking`` payload (Anthropic) instead of plaintext -
             consumers should not expect content events.
             RFC-0023 § ② extension.
     """
@@ -154,7 +154,7 @@ class ThinkingTextMessageEndEvent(AgUiThinkingTextMessageEndEvent):
             Gemini ``thoughtSignature``) emitted by the provider for replay
             authentication. RFC-0023 § ② extension.
         redacted_data: Opaque payload for ``redacted_thinking`` blocks
-            (Anthropic) — present only when ``is_redacted=True`` was set on
+            (Anthropic) - present only when ``is_redacted=True`` was set on
             the matching Start event. RFC-0023 § ② extension.
     """
 
@@ -236,7 +236,7 @@ class RunStartedEvent(AgUiRunStartedEvent):
         agent_id: ID of the agent
         root_run_id: ID of the root run
         trace_id: W3C trace id (32-hex) from the OTel span context that
-            wrapped agent.run(). Optional — None when no OTel span is
+            wrapped agent.run(). Optional - None when no OTel span is
             active. RFC-0024: surfaced here so consumers (UI, tooling)
             can wire trace links live without an out-of-band side channel
             (NAC playground used to stamp this in the gateway tap).
@@ -292,9 +292,9 @@ class CompactionFinishedEvent(BaseEvent):
 class ContentBlockedEvent(BaseEvent):
     """Event emitted when a safety middleware blocks content.
 
-    RFC-0027: （sensitive words）。 ``RunErrorEvent``
-    ——（ / class / ），middleware
-    ；run  ``ERROR_OCCURRED`` 。
+    RFC-0027:  (sensitive words) .  ``RunErrorEvent``
+     --  ( / class / ), middleware
+    ; run  ``ERROR_OCCURRED`` . 
     """
 
     type: Literal["CONTENT_BLOCKED"] = "CONTENT_BLOCKED"  # type: ignore[assignment]
@@ -365,7 +365,7 @@ class ModelCallFinishedEvent(BaseEvent):
     """Sidecar event emitted once per LLM call carrying per-call metadata
     that doesn't belong on any single message-level event.
 
-    RFC-0023 § ② — closes the Set A weak gaps for ``model_name`` /
+    RFC-0023 § ② - closes the Set A weak gaps for ``model_name`` /
     ``stop_reason`` / ``model_call_id``. Set A previously had no event
     carrying these, so consumers (parity tests, agent_events_middleware)
     had to read ``ModelResponse`` from Set B. With this event Set A is
@@ -376,7 +376,7 @@ class ModelCallFinishedEvent(BaseEvent):
     ``stop_reason`` may be None if the provider doesn't surface them on
     a given response (e.g. truncated stream).
 
-    **Token usage is NOT on this event** — ``UsageUpdateEvent`` (already a
+    **Token usage is NOT on this event** - ``UsageUpdateEvent`` (already a
     deployed contract carrying the normalized ``TokenUsage``) is the
     canonical token-counts source. Two events for the same data was an
     earlier RFC draft anti-pattern; resolved by removing usage here.
@@ -391,7 +391,7 @@ class ModelCallFinishedEvent(BaseEvent):
 
     Attributes:
         run_id: Agent run that issued the LLM call (correlation key).
-        message_id: Assistant message id this call produced — same id used
+        message_id: Assistant message id this call produced - same id used
             on the matching ``TextMessageStartEvent``.
         model_name: Vendor-side model identifier (e.g. ``claude-sonnet-4-5``,
             ``gpt-5``, ``gemini-3-flash-preview``).

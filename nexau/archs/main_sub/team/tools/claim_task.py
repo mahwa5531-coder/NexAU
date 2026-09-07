@@ -1,18 +1,15 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""claim_task tool — claim or assign a task from the task board.
+"""claim_task tool - claim or assign a task from the task board.
 
 RFC-0002: /
 """
@@ -42,25 +39,25 @@ async def claim_task(
 
     RFC-0002: /
 
-    - task_id （ claim-next）
+    - task_id  ( claim-next) 
     - assignee_agent_id  self-claim
-    - assignee_agent_id  leader assignment（ caller  leader）
+    - assignee_agent_id  leader assignment ( caller  leader) 
 
     Teammate : list_tasks() →  task_id → claim_task(task_id)
-     claim retry。
+     claim retry. 
     """
     ts = require_team_state(agent_state)
     caller_id = agent_state.agent_id
     actual_assignee = assignee_agent_id or caller_id
 
-    # leader assignment 
+    # leader assignment
     if assignee_agent_id is not None and not ts.is_leader:
         return ToolError(
             error="Only leader can assign tasks to others",
             code="permission_denied",
         )
 
-    # ：teammate  in_progress 
+    # : teammate in_progress
     active_tasks = await ts.task_board.list_tasks(status="in_progress")
     existing = [t for t in active_tasks if t.assignee_agent_id == actual_assignee]
     if existing:
@@ -80,7 +77,7 @@ async def claim_task(
             assignee_agent_id=actual_assignee,
         )
 
-        # leader assignment  enqueue_message  teammate
+        # leader assignment enqueue_message teammate
         if assignee_agent_id is not None:
             ts.team.send_message_to_agent(
                 actual_assignee,

@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -50,7 +47,7 @@ class BeforeAgentHookInput:
     messages: list[Message]
     # RFC-0024 / RFC-0006: typed framework context. Read by hooks that need
     # caller-supplied trace_id (e.g. ``AgentEventsMiddleware`` for
-    # ``RunStartedEvent.trace_id``) without reaching into ``AgentState``,
+    # ``RunStartedEvent.trace_id``) without reaching into ``AgentState``
     # which is on the deprecation path. Optional for back-compat with
     # tests that build the hook input directly without an executor.
     framework_context: FrameworkContext | None = None
@@ -81,18 +78,17 @@ class BeforeModelHookInput:
     max_iterations: int
     current_iteration: int
     messages: list[Message]
-    # RFC-0026: outparam — MiddlewareManager publishes the typed history
+    # RFC-0026: outparam - MiddlewareManager publishes the typed history
     # event set by any middleware here so executor can apply it after the
     # iteration. None when no middleware emitted a typed event.
-    #
     # Generic ``HistoryEvent`` slot (discriminated union over event type)
     # rather than a per-event-type field so adding new event types
     # (``UndoEvent`` / ``AppendEvent`` / future) doesn't churn this schema.
     history_event: HistoryEvent | None = None
-    # RFC-0027: outparam —  history_event 。 before_model /
-    # after_model middleware run（sensitive words），
-    # MiddlewareManager  HookResult.force_stop_reason ，
-    # executor  hook  BREAK。None middleware。
+    # RFC-0027: outparam - history_event . before_model /
+    # after_model middleware run (sensitive words)
+    # MiddlewareManager HookResult.force_stop_reason
+    # executor hook BREAK. None middleware.
     force_stop_reason: AgentStopReason | None = None
 
 
@@ -128,29 +124,26 @@ class HookResult:
     tool_input: dict[str, Any] | None = None
     agent_response: str | None = None
     # RFC-0026: opt-in typed history-event channel.
-    #
     # When a middleware mutates state in a way that represents a *real
     # history event* (compaction / ``/clear`` / future ``/compact`` /
     # ``/undo``), it should set ``history_event`` to the typed event so
     # the persisted action stream carries that event with full WHY
     # metadata, not an opaque untyped REPLACE inferred from a fingerprint
     # diff at flush time.
-    #
     # Generic ``HistoryEvent`` discriminated union slot (today's variants:
     # ``ReplaceEvent`` / ``AppendEvent`` / ``UndoEvent``; old SDK reading
     # a future variant decodes to ``UnknownEvent`` → executor skips).
-    # Adding new event types means appending one variant to the union,
-    # not adding a new top-level field — schema stays stable.
-    #
+    # Adding new event types means appending one variant to the union
+    # not adding a new top-level field - schema stays stable.
     # Backward-compatible: existing middleware that just returns
     # ``messages`` (transient prompt mutation OR untyped replace) keeps
-    # working — the executor falls back to the existing fingerprint-diff
+    # working - the executor falls back to the existing fingerprint-diff
     # path when this is None.
     history_event: HistoryEvent | None = None
 
-    # RFC-0027: middleware。before_model / after_model middlewarevalue，
-    # MiddlewareManager  surface  hook_input.force_stop_reason（outparam），
-    # executor  hook  run， reason 。
+    # RFC-0027: middleware. before_model / after_model middlewarevalue
+    # MiddlewareManager surface hook_input.force_stop_reason (outparam)
+    # executor hook run, reason .
     force_stop_reason: AgentStopReason | None = None
 
     def has_messages(self) -> bool:
@@ -392,13 +385,13 @@ class Middleware:
         - Instance attribute pattern: self.on_event = some_callable (AgentEventsMiddleware)
         - Method override pattern: subclass defines def on_event(...)
         """
-        on_event_attr = getattr(self, "on_event", None)  # noqa: B009 — intentional duck-typing for on_event
+        on_event_attr = getattr(self, "on_event", None)  # noqa: B009 - intentional duck-typing for on_event
         return callable(on_event_attr)
 
     def get_event_handler(self) -> Callable[[Any], None] | None:
         """Return the on_event callback if this middleware provides one, else None.
 
-        Typed accessor for the executor — avoids direct attribute access on a
+        Typed accessor for the executor - avoids direct attribute access on a
         field that only some subclasses define.
         """
         on_event_attr = getattr(self, "on_event", None)  # noqa: B009
@@ -866,11 +859,10 @@ class MiddlewareManager:
         if result is None:
             return HookResult.no_changes()
 
-        # middleware hook  async def 。
-        # result  await  coroutine  HookResult，
-        # （）。
+        # middleware hook async def .
+        # result await coroutine HookResult
         if inspect.iscoroutine(result):
-            # await  coroutine  RuntimeWarning
+            # await coroutine RuntimeWarning
             result.close()
             raise TypeError(
                 "Middleware hook returned a coroutine — middleware hooks must be "

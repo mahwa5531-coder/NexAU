@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -97,7 +94,7 @@ _DEFAULT_BYPASS_TOOL_NAMES: frozenset[str] = frozenset({"LoadSkill"})
 sandbox (see ``ToolExecutor._SANDBOX_OPTIONAL_TOOL_NAMES``).  The sandbox
 reference is therefore ``None`` when the after-tool hook runs, making it
 impossible to persist the full output via the Sandbox API.  Bypassing it
-avoids the error and is semantically correct — skill content loaded into
+avoids the error and is semantically correct - skill content loaded into
 context should not be truncated.
 """
 
@@ -220,7 +217,7 @@ class LongToolOutputMiddleware(Middleware):
     def after_tool(self, hook_input: AfterToolHookInput) -> HookResult:
         """Inspect tool output; truncate and persist if too long."""
 
-        # Bypass — tools that already handle their own truncation
+        # Bypass - tools that already handle their own truncation
         if hook_input.tool_name in self._bypass_tool_names:
             return HookResult.no_changes()
 
@@ -238,7 +235,7 @@ class LongToolOutputMiddleware(Middleware):
         # than the JSON serialization of the whole dict.
         content_key, content_text = self._extract_content_text(output)
 
-        # Exclude returnDisplay from length measurement — it is a display-only
+        # Exclude returnDisplay from length measurement - it is a display-only
         # field stripped by the tool executor before being sent to the LLM, so
         # it should not inflate the size check or trigger unnecessary truncation.
         output_for_measurement: object = output
@@ -249,7 +246,7 @@ class LongToolOutputMiddleware(Middleware):
         if len(output_text) <= self.max_output_chars:
             return HookResult.no_changes()
 
-        # Decide what text to truncate: the inner content field if available,
+        # Decide what text to truncate: the inner content field if available
         # otherwise the full serialized representation.
         text_to_truncate = content_text if content_text is not None else output_text
         text_for_stats = content_text if content_text is not None else output_text

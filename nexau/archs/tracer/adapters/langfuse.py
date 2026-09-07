@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -34,46 +31,46 @@ logger = logging.getLogger(__name__)
 _TTFT_ATTRIBUTE_KEY = "time_to_first_token_ms"
 
 
-# → Langfuse （ TokenUsage  +  provider ）
+# → Langfuse ( TokenUsage + provider )
 _TO_LANGFUSE_FIELD: dict[str, str | None] = {
     # Provider aliases
     "prompt_tokens": "input_tokens",
     "output_tokens": "completion_tokens",
     "cached_tokens": "cache_read_input_tokens",
-    # TokenUsage 
+    # TokenUsage
     "cache_read_tokens": "cache_read_input_tokens",
     "cache_creation_tokens": "cache_creation_input_tokens",
     "input_tokens_uncached": None,
-    # Anthropic  details 。_flatten_usage_dict  `cache_creation` /
-    # `output_tokens_details`  dict ，****：
-    # ephemeral_5m/1h  == cache_creation_input_tokens，thinking_tokens ⊆
-    # output_tokens。Anthropic usage  total，Langfuse ingestion 
-    # usage_details value total，、total 
-    # （ cache_creation_input_tokens=37112  ephemeral_5m=37112 ，
-    # total  37112， 2×）。 None ——value，
-    # `input_tokens_uncached` 。
+    # Anthropic details . _flatten_usage_dict `cache_creation` /
+    # `output_tokens_details` dict, ****:
+    # ephemeral_5m/1h == cache_creation_input_tokens, thinking_tokens ⊆
+    # output_tokens. Anthropic usage total, Langfuse ingestion
+    # usage_details value total,, total
+    # ( cache_creation_input_tokens=37112 ephemeral_5m=37112
+    # total 37112, 2×) . None -- value
+    # `input_tokens_uncached` .
     "ephemeral_5m_input_tokens": None,
     "ephemeral_1h_input_tokens": None,
     "thinking_tokens": None,
-    # provider/ Langfuse  `total` key 。
-    # Langfuse ingestion（worker IngestionService）：usage_details 
-    # `total` key， map **value** total。`total_tokens`（）
-    # total， input/completion/reasoning ，
-    # UI  total ≈ 2×（ + total_tokens）。 `total`  Langfuse
-    # value，。
+    # provider/ Langfuse `total` key .
+    # Langfuse ingestion (worker IngestionService): usage_details
+    # `total` key, map **value** total. `total_tokens`
+    # total, input/completion/reasoning
+    # UI total ≈ 2× ( + total_tokens) . `total` Langfuse
+    # value, .
     "total_tokens": "total",
-    # Gemini REST  camelCase（ TokenUsage._resolve_total_tokens ）。
-    # nexau  pipeline  _enrich_gemini_trace_outputs  total_tokens，
-    # SDK tracer、 usageMetadata 。
+    # Gemini REST camelCase ( TokenUsage._resolve_total_tokens ) .
+    # nexau pipeline _enrich_gemini_trace_outputs total_tokens
+    # SDK tracer, usageMetadata .
     "totalTokenCount": "total",
 }
 
 
 def _flatten_usage_dict(usage: Mapping[str, object]) -> dict[str, int]:
-    """ provider usage dict  details 。
+    """ provider usage dict  details . 
 
-    OpenAI  cache/reasoning  prompt_tokens_details  dict 。
-    function int ，。
+    OpenAI  cache/reasoning  prompt_tokens_details  dict . 
+    function int, . 
     """
     flat: dict[str, int] = {}
     for k, v in usage.items():
@@ -90,12 +87,12 @@ def _flatten_usage_dict(usage: Mapping[str, object]) -> dict[str, int]:
 def _sanitize_usage(usage: Mapping[str, object] | TokenUsage) -> dict[str, int]:
     """Sanitize and map usage data for Langfuse SDK compatibility.
 
-    1.  int value， pydantic failure。
+    1.  int value,  pydantic failure. 
        : https://github.com/langfuse/langfuse/issues/4961
-    2.  provider  details （OpenAI prompt_tokens_details ）。
-    3.  Langfuse ， provider 
-       cache  Langfuse UI ； `total_tokens`
-        `total`， Langfuse 。
+    2.  provider  details  (OpenAI prompt_tokens_details ) . 
+    3.  Langfuse,  provider 
+       cache  Langfuse UI ;  `total_tokens`
+        `total`,  Langfuse . 
     """
     if isinstance(usage, TokenUsage):
         raw: dict[str, int] = usage.to_dict()
@@ -107,13 +104,13 @@ def _sanitize_usage(usage: Mapping[str, object] | TokenUsage) -> dict[str, int]:
         mapped_key = _TO_LANGFUSE_FIELD.get(key, key)
         if mapped_key is None or mapped_key in result:
             continue
-        # int （ bool class）：raw-dict  _flatten_usage_dict ，
-        # TokenUsage  to_dict()—— None/str，
-        # ， docstring 「 int」。
+        # int ( bool class): raw-dict _flatten_usage_dict
+        # TokenUsage to_dict -- None/str
+        # , docstring 「 int」.
         if type(value) is not int:
             continue
-        # total<=0（、 TokenUsage） `total`，
-        # Langfuse ， total  0 。
+        # total<=0 (, TokenUsage) `total`
+        # Langfuse, total 0 .
         if mapped_key == "total" and value <= 0:
             continue
         result[mapped_key] = value
@@ -174,7 +171,7 @@ class LangfuseTracer(BaseTracer):
             tags: Langfuse tags
             metadata: Langfuse metadata
             version: Langfuse trace version (native trace field, shows as the
-                Langfuse "version" column — not a tag). Note: Langfuse v3 has no
+                Langfuse "version" column - not a tag). Note: Langfuse v3 has no
                 per-trace ``release`` field on ``update_trace``; ``release`` is a
                 client-level setting (``LANGFUSE_RELEASE`` / ``Langfuse(release=...)``).
             debug: Enable debug logging
@@ -186,7 +183,7 @@ class LangfuseTracer(BaseTracer):
         # IMPORTANT:
         # - This tracer is created during server warmup, before per-run configs/envs may be ready.
         # - We must not "lock in" a Langfuse client too early, otherwise different projects/keys
-        #   in the same process can leak across runs.
+        # in the same process can leak across runs.
         # Therefore we ALWAYS initialize attributes and lazily create (or rotate) the client
         # on first real span when keys are available.
         self.enabled = enabled
@@ -240,7 +237,7 @@ class LangfuseTracer(BaseTracer):
         if self.client is not None and self._client_identity == identity:
             return self.client
 
-        # #495: Credential rotation — async cleanup of old client.
+        # #495: Credential rotation - async cleanup of old client.
         # Detach old client immediately so new spans use the new client.
         # Offload flush+shutdown to background thread with timeout to avoid
         # blocking the event loop. Falls back to sync cleanup when no event
@@ -253,7 +250,7 @@ class LangfuseTracer(BaseTracer):
                 loop = asyncio.get_running_loop()
                 loop.create_task(self._async_cleanup_old_client(old_client))
             except RuntimeError:
-                # No running event loop — sync context, best-effort
+                # No running event loop - sync context, best-effort
                 self._sync_cleanup_old_client(old_client)
 
         client_kwargs: dict[str, Any] = {
@@ -501,10 +498,10 @@ class LangfuseTracer(BaseTracer):
                 langfuse_span.update(**update_params)
 
             # Trace-level fields are optional depending on the Langfuse SDK object type.
-            # Keep this best-effort so missing methods (e.g., in tests/mocks) don't prevent `.end()`/flush.
+            # Keep this best-effort so missing methods (e.g., in tests/mocks) don't prevent `.end`/flush.
             if hasattr(langfuse_span, "update_trace"):
                 # For root spans (no parent), update trace name, input, and output.
-                # This is defensive programming: when using trace_context.trace_id,
+                # This is defensive programming: when using trace_context.trace_id
                 # Langfuse SDK creates a trace with empty name. We must explicitly
                 # call update_trace to ensure the trace has meaningful data.
                 # Without this, users who enable auto-instrumentation (FastAPI, httpx)
@@ -524,7 +521,7 @@ class LangfuseTracer(BaseTracer):
                     langfuse_span.update_trace(session_id=self.session_id)
                 if self.tags:
                     langfuse_span.update_trace(tags=self.tags)
-                # Native trace field — shows up as the Langfuse "version" column,
+                # Native trace field - shows up as the Langfuse "version" column
                 # not in the free-form tag list.
                 if self.version:
                     langfuse_span.update_trace(version=self.version)
@@ -549,7 +546,7 @@ class LangfuseTracer(BaseTracer):
                         name="langfuse-root-span-flush",
                     )
                 except RuntimeError:
-                    pass  # No event loop — SDK batch worker handles delivery
+                    pass  # No event loop - SDK batch worker handles delivery
 
         except Exception as e:
             logger.warning(f"Failed to end Langfuse span '{span.name}': {e}")
@@ -666,9 +663,9 @@ class LangfuseTracer(BaseTracer):
         Langfuse accepts strings, dicts, and lists. Complex objects
         need to be converted to JSON strings.
 
-        base64  — Langfuse SDK  MediaManager 
-        Anthropic/OpenAI/Vertex  base64 ，object
-         media reference， trace 。
+        base64  - Langfuse SDK  MediaManager 
+        Anthropic/OpenAI/Vertex  base64, object
+         media reference,  trace . 
 
         Args:
             data: Data to serialize

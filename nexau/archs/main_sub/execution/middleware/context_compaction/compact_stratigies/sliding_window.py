@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -101,8 +98,8 @@ class SlidingWindowCompaction:
     # Reserved tokens for compact_prompt + LLM output overhead
     _SUMMARY_RESERVED_TOKENS = 4096
 
-    # Hard truncation fallback  token ， fallback ""
-    # context window ，→failure→→。
+    # Hard truncation fallback token, fallback ""
+    # context window, →failure→→.
     _HARD_TRUNCATION_MAX_TOKENS = 10240
 
     def __init__(
@@ -316,7 +313,7 @@ class SlidingWindowCompaction:
             keep_count = self.keep_iterations
             group_name = "iterations"
         if len(groups) <= keep_count:
-            # ponytail: if user rounds <= keep_count (e.g. 1 user task prompt) but has many internal tool iterations,
+            # ponytail: if user rounds <= keep_count (e.g. 1 user task prompt) but has many internal tool iterations
             # fall back to compacting iterations so long autonomous tasks don't explode the context window
             if self.keep_user_rounds > 0:
                 iter_groups = self._group_into_iterations(messages[start_idx:])
@@ -364,9 +361,9 @@ class SlidingWindowCompaction:
 
         P2 async/sync :  compact 
 
-         LLMCaller.call_llm_async()  sync call_llm，
-         LLM ， event loop。
-         sync 。
+         LLMCaller.call_llm_async()  sync call_llm, 
+         LLM,  event loop. 
+         sync . 
         """
         self._last_compact_used_fallback = False
         logger.info(f"[SlidingWindowCompaction] Starting async compaction on {len(messages)} messages")
@@ -388,7 +385,7 @@ class SlidingWindowCompaction:
             group_name = "iterations"
 
         if len(groups) <= keep_count:
-            # ponytail: if user rounds <= keep_count (e.g. 1 user task prompt) but has many internal tool iterations,
+            # ponytail: if user rounds <= keep_count (e.g. 1 user task prompt) but has many internal tool iterations
             # fall back to compacting iterations so long autonomous tasks don't explode the context window
             if self.keep_user_rounds > 0:
                 iter_groups = self._group_into_iterations(messages[start_idx:])
@@ -487,8 +484,8 @@ class SlidingWindowCompaction:
 
         P2 async/sync :  LLM 
 
-         LLMCaller.call_llm_async()  LLM ，
-        ， event loop。
+         LLMCaller.call_llm_async()  LLM, 
+,  event loop. 
         """
         llm_caller = self._ensure_llm_caller()
         summary_model_name = self.summary_llm_config.model if self.summary_llm_config is not None else self.summary_model
@@ -680,7 +677,7 @@ class SlidingWindowCompaction:
         summary is merged into it (preserving the original user content).
         Otherwise a standalone summary USER message is inserted before the
         kept groups so that the LLM always sees the context summary early in
-        the conversation — not buried at the end after a long tool-call chain.
+        the conversation - not buried at the end after a long tool-call chain.
 
         Args:
             result: Result message list to append to (modified in place).
@@ -689,13 +686,13 @@ class SlidingWindowCompaction:
         """
         summary_prefix = with_handoff_prefix(summary)
 
-        # 1.  USER 
+        # 1. USER
         first_kept_msg: Message | None = None
         if groups_to_keep and groups_to_keep[0]:
             first_kept_msg = groups_to_keep[0][0]
 
         if first_kept_msg is not None and first_kept_msg.role == Role.USER:
-            # 2a.  USER → （）
+            # 2a. USER →
             merged = False
             for group_msgs in groups_to_keep:
                 for msg in group_msgs:
@@ -711,8 +708,8 @@ class SlidingWindowCompaction:
                     else:
                         result.append(msg)
         else:
-            # 2b.  ASSISTANT/TOOL （tool call）
-            # →  USER 
+            # 2b. ASSISTANT/TOOL (tool call)
+            # → USER
             summary_msg = Message(role=Role.USER, content=[TextBlock(text=summary_prefix)])
             summary_msg.metadata["isSummary"] = True
             if self._session_id is not None:

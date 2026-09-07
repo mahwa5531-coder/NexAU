@@ -1,18 +1,15 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Agent run action model — event-sourcing protocol (RFC-0022).
+"""Agent run action model - event-sourcing protocol (RFC-0022).
 
 Event sourcing framing: each ``AgentRunActionModel`` row is a mutation on the
 session's messages state; the messages list is the fold-derived state. See
@@ -21,12 +18,12 @@ full protocol design (RunActionType algebra, *Extra Pydantic typing,
 fold algorithm, protobuf-philosophy compatibility).
 
 action_type value:
-- APPEND      — incremental messages
-- UNDO        — revert to before a specific run_id
-- REPLACE     — full state replacement (user reset / debug / context compaction;
+- APPEND      - incremental messages
+- UNDO        - revert to before a specific run_id
+- REPLACE     - full state replacement (user reset / debug / context compaction;
                 see ReplaceExtra.reason canonical values)
-- RUN_START   — run lifecycle begin marker (carries RunStartExtra)
-- RUN_END     — run lifecycle end marker (carries RunEndExtra)
+- RUN_START   - run lifecycle begin marker (carries RunStartExtra)
+- RUN_END     - run lifecycle end marker (carries RunEndExtra)
 """
 
 from __future__ import annotations
@@ -52,14 +49,14 @@ class RunActionType(StrEnum):
     **Forward-compat classification (RFC-0022 § §6)**:
     - APPEND / REPLACE / UNDO: existing types from pre-Phase-1 era (handled
       by all SDK versions)
-    - RUN_START / RUN_END: **Class A** (Reader-NOOP) — pre-Phase-1 SDKs
+    - RUN_START / RUN_END: **Class A** (Reader-NOOP) - pre-Phase-1 SDKs
       silently skip them; correct because they don't change messages state
     - **No Class C types** added in Phase 1. Compaction was originally
       drafted as ``COMPACT`` but reclassified as **Class B**: REPLACE +
       ``ReplaceExtra(reason="compact_auto" / "compact_manual" / "compact_focused", ...)``
       so pre-Phase-1 SDKs reading compacted history apply the correct
       reduction (state = payload). This is critical for NAC where agent
-      runtime images aren't redeployed every PR — mixed-version SDKs
+      runtime images aren't redeployed every PR - mixed-version SDKs
       coexist during upgrade windows, and a Class C compaction would
       cause silent context-overflow OOMs in old readers.
     """
@@ -73,14 +70,13 @@ class RunActionType(StrEnum):
 
 # ============================================================================
 # Typed *Extra Pydantic classes (RFC-0022 §6.3)
-#
 # Protobuf evolution philosophy:
 # - All fields ``T | None = None`` (no required fields at protocol level)
-# - ``model_config = ConfigDict(extra='allow')`` — old reader ignores
-#   future-added fields, new reader sees missing fields as None
+# - ``model_config = ConfigDict(extra='allow')`` - old reader ignores
+# future-added fields, new reader sees missing fields as None
 # - Body uses ``str`` instead of ``Literal[...]`` so unknown enum values
-#   don't break old SDKs reading new data; factory method sigs use
-# Literal for write-side strict validation ()
+# don't break old SDKs reading new data; factory method sigs use
+# Literal for write-side strict validation
 # - Business "required" enforced at factory layer, not protocol layer
 # ============================================================================
 
@@ -97,7 +93,7 @@ class AppendExtra(BaseModel):
 
     ``iter_kind`` (was: tool_round / final_response / subagent_call) and
     ``llm_call_id`` were removed in the same cleanup that introduced this
-    docstring — the IterKind taxonomy had unsettled boundaries (subagent
+    docstring - the IterKind taxonomy had unsettled boundaries (subagent
     overlap, missing errored/paused/ask_input, mixed dimensions) and
     ``llm_call_id`` clashed with RFC-0023 ``ModelCallFinishedEvent.model_call_id``.
     Re-add when there's a concrete consumer + a settled design (see RFC-0022
@@ -125,31 +121,28 @@ class CompactStats(BaseModel):
 
 
 # ============================================================================
-# ReplaceExtra — discriminated union over ``reason`` (protobuf oneof equivalent)
+# ReplaceExtra - discriminated union over ``reason`` (protobuf oneof equivalent)
 # ============================================================================
-#
 # Why discriminated union (vs flat all-optional)
 # ----------------------------------------------
 # A flat ``ReplaceExtra(reason, strategy, focus_instructions, stats, ...)`` lets
 # any caller write ``ReplaceExtra(reason="user_clear", focus_instructions="...")``
-# — semantically nonsense but type-checks. Each variant below carries ONLY the
+# - semantically nonsense but type-checks. Each variant below carries ONLY the
 # fields meaningful for its reason, so:
-#
-# - Compile-time: ``UserClearVariant`` doesn't have ``focus_instructions`` —
-#   typo'd code fails mypy, IDE autocomplete only shows valid fields per branch.
+# - Compile-time: ``UserClearVariant`` doesn't have ``focus_instructions`` -
+# typo'd code fails mypy, IDE autocomplete only shows valid fields per branch.
 # - Pattern matching with type narrowing: ``case CompactFocusedVariant(focus_
-#   instructions=fi):`` — ``fi`` is guaranteed non-None at use site.
+# instructions=fi):`` - ``fi`` is guaranteed non-None at use site.
 # - Mutual exclusion: a row can't be both user_clear and compact_focused.
-#
 # protobuf oneof correspondence
 # -----------------------------
 # - ``oneof variant { ... }`` → ``Annotated[Union[...], Discriminator(callable)]``
 # - per-variant message → per-variant ``BaseModel`` subclass
 # - unknown variant preserved as opaque field → ``UnknownReplaceVariant`` +
-#   ``ConfigDict(extra='allow')``
+# ``ConfigDict(extra='allow')``
 # - mutually exclusive setter semantics → Pydantic discriminator dispatch
 # - forward-compat (new variant, old reader) → callable Discriminator falls
-#   back to ``UnknownReplaceVariant`` instead of raising ValidationError
+# back to ``UnknownReplaceVariant`` instead of raising ValidationError
 
 
 class _ReplaceVariantBase(BaseModel):
@@ -157,7 +150,7 @@ class _ReplaceVariantBase(BaseModel):
     trace_id: str | None = None
 
 
-# Public alias — write-side callers (services, middlewares) accept this base
+# Public alias - write-side callers (services, middlewares) accept this base
 # class as the parameter type of typed REPLACE writes. The leading-underscore
 # original stays for back-compat with internal references.
 ReplaceVariantBase = _ReplaceVariantBase
@@ -172,7 +165,7 @@ class UserClearVariant(_ReplaceVariantBase):
 class CompactAutoVariant(_ReplaceVariantBase):
     """Automatic context compaction triggered by token threshold.
 
-    No ``focus_instructions`` field — auto compaction has no user intent
+    No ``focus_instructions`` field - auto compaction has no user intent
     to preserve. Compile-time guarantee that nobody accidentally fills it.
     """
 
@@ -199,7 +192,7 @@ class CompactManualVariant(_ReplaceVariantBase):
 class CompactFocusedVariant(_ReplaceVariantBase):
     """User invoked ``/compact <focus_instructions>``.
 
-    The intent — what the user told the LLM to focus on while compacting —
+    The intent - what the user told the LLM to focus on while compacting -
     is preserved as machine-readable typed data. Codex CLI / Claude Code /
     Cursor all lose this at the storage layer (it lives only in the prompt
     sent to the LLM); we keep it for follow-up compactions, audit, and
@@ -209,7 +202,7 @@ class CompactFocusedVariant(_ReplaceVariantBase):
     reason: Literal["compact_focused"] = "compact_focused"
     strategy: str | None = None
     focus_instructions: str
-    """REQUIRED — the whole point of this variant is preserving user intent.
+    """REQUIRED - the whole point of this variant is preserving user intent.
     Empty / None should not produce a CompactFocusedVariant; use Manual instead."""
     stats: CompactStats | None = None
 
@@ -233,7 +226,7 @@ class UnknownReplaceVariant(_ReplaceVariantBase):
 
 
 def _discriminate_replace(v: object) -> str:
-    """Callable Discriminator with fallback — protobuf oneof unknown-field rule.
+    """Callable Discriminator with fallback - protobuf oneof unknown-field rule.
 
     Maps the ``reason`` value to a variant tag. Unknown / missing reason →
     ``__unknown__`` tag → ``UnknownReplaceVariant``.
@@ -281,7 +274,7 @@ class UndoExtra(BaseModel):
 class RunStartExtra(BaseModel):
     """Extra metadata for RUN_START lifecycle marker.
 
-    **Class A (Reader-NOOP)** — RUN_START rows do NOT change messages state
+    **Class A (Reader-NOOP)** - RUN_START rows do NOT change messages state
     and carry NO messages payload (``append_messages`` / ``replace_messages``
     columns are NULL). Total DB cost is one row + this small metadata blob.
 
@@ -291,7 +284,7 @@ class RunStartExtra(BaseModel):
 
     **Not a snapshot anchor**: an earlier draft of the fold algorithm cached
     ``state`` here for an O(1) UNDO fast path, but bench showed that scheme
-    paid O(N²) snapshot-copy cost across all RUN_STARTs on every fold pass —
+    paid O(N²) snapshot-copy cost across all RUN_STARTs on every fold pass -
     far worse than the O(N) filter-and-re-fold fallback that's only paid when
     UNDO actually fires. Snapshot caching was removed; UNDO is always
     filter-and-re-fold (RFC-0022 §Reduction ).
@@ -302,7 +295,7 @@ class RunStartExtra(BaseModel):
     message is recoverable from the next APPEND row, and no consumer for
     ``fresh_context`` materialised. Reserving unused schema slots misleads
     future maintainers (and AI assistants reading the code) into thinking
-    they're load-bearing — removed in cleanup; YAGNI applies.
+    they're load-bearing - removed in cleanup; YAGNI applies.
     """
 
     model_config = PROTOBUF_PHILOSOPHY
@@ -333,7 +326,7 @@ RunActionExtra = AppendExtra | ReplaceExtra | UndoExtra | RunStartExtra | RunEnd
 
 
 # Convenience Literal aliases for factory method signatures (write-side strict).
-# ``ReplaceReason`` is no longer a Literal — replaced by per-variant types.
+# ``ReplaceReason`` is no longer a Literal - replaced by per-variant types.
 # ``UndoReason`` stays free-form (no per-variant fields differentiate, so
 # variant union doesn't pay off; document canonical values via field doc).
 RunStatus = Literal["ok", "error", "cancelled"]
@@ -385,37 +378,36 @@ class AgentRunActionModel(SQLModel, table=True):
     created_at_ns: int = Field(default_factory=time.time_ns, index=True)
 
     # === Action type (string column, NOT enum-typed at SQL layer) ===
-    # CRITICAL forward-compat: column type is plain string (not SQL ENUM),
+    # CRITICAL forward-compat: column type is plain string (not SQL ENUM)
     # so older SDK readers without a future ``RunActionType`` member don't
     # crash on ``LookupError`` when reading rows written by newer SDK.
     # Production scenario: NAC agent runtime images aren't redeployed every
     # PR; mixed-version SDKs coexist during the upgrade window. An older SDK
     # reading a row with action_type='future_v3' MUST not crash.
-    #
     # Same protobuf evolution philosophy as *Extra body fields:
     # - Storage: str (forward-compat, unknown values pass through)
     # - Write-side strict: factories construct via ``RunActionType.X``
-    #   (StrEnum subclass of str → assignment auto-converts to str value)
+    # (StrEnum subclass of str → assignment auto-converts to str value)
     # - Read-side: consumers use string comparison or ``match`` (StrEnum
-    #   equality with str works because ``RunActionType.APPEND == "append"``)
+    # equality with str works because ``RunActionType.APPEND == "append"``)
     action_type: str = Field(index=True)
 
-    # === APPEND payload — incremental messages produced in this run ===
+    # === APPEND payload - incremental messages produced in this run ===
     append_messages: list[Message] | None = Field(default=None, sa_column=Column(PydanticJson(list[Message])))
 
-    # === REPLACE payload — full self-contained messages ===
+    # === REPLACE payload - full self-contained messages ===
     # Used for user resets, debug imports, and context compaction
-    # (compaction is Class B aliasing — see RunActionType / ReplaceExtra docstrings).
+    # (compaction is Class B aliasing - see RunActionType / ReplaceExtra docstrings).
     replace_messages: list[Message] | None = Field(default=None, sa_column=Column(PydanticJson(list[Message])))
 
-    # === UNDO payload — target run_id to undo before ===
+    # === UNDO payload - target run_id to undo before ===
     undo_before_run_id: str | None = None
 
     # === Streaming idempotency key ===
     # Convention: streaming consumers use "{run_id}:{iter_index}". Legacy batch APPEND keeps NULL.
     # SQL UNIQUE so retries (e.g. Redis Consumer Group redeliveries) collapse to one row.
     # NOTE: keep this as a plain ``Field`` (no ``sa_column=Column(...)``) so SQLModel infers
-    # the column type from the ``str | None`` annotation. An explicit ``Column(name, unique=True,
+    # the column type from the ``str | None`` annotation. An explicit ``Column(name, unique=True
     # nullable=True)`` without a ``String`` type would yield ``NullType`` in the DDL compiler.
     idempotency_key: str | None = Field(default=None, unique=True, nullable=True)
 
@@ -423,7 +415,7 @@ class AgentRunActionModel(SQLModel, table=True):
     # Storage layer: loose ``dict[str, Any] | None`` so old readers ignore
     # unknown future fields gracefully (protobuf evolution philosophy).
     # Write-side: factories construct typed *Extra and serialize via model_dump.
-    # Read-side: ``parse_extra()`` returns the typed *Extra instance.
+    # Read-side: ``parse_extra`` returns the typed *Extra instance.
     extra: dict[str, Any] | None = Field(default=None, sa_column=Column(PydanticJson(dict[str, Any])))
 
     def parse_extra(self) -> RunActionExtra | None:
@@ -437,7 +429,7 @@ class AgentRunActionModel(SQLModel, table=True):
 
         Returns ``None`` if ``self.extra`` is None OR ``self.action_type``
         is unknown to this SDK version (forward-compat: row was written
-        by a newer SDK with an action_type not yet in our dispatch map —
+        by a newer SDK with an action_type not yet in our dispatch map -
         callers should treat this as "skip" or "raw dict").
         """
         if self.extra is None:
@@ -455,12 +447,12 @@ class AgentRunActionModel(SQLModel, table=True):
             return RunStartExtra.model_validate(self.extra)
         if self.action_type == RunActionType.RUN_END:
             return RunEndExtra.model_validate(self.extra)
-        # Unknown action_type — forward-compat: row written by newer SDK with
+        # Unknown action_type - forward-compat: row written by newer SDK with
         # an action_type not yet known here. Caller must handle None.
         return None
 
     # ========================================================================
-    # Factory methods (write-side strict — Literal types validate at IDE/mypy)
+    # Factory methods (write-side strict - Literal types validate at IDE/mypy)
     # ========================================================================
 
     @classmethod
@@ -479,11 +471,11 @@ class AgentRunActionModel(SQLModel, table=True):
         trace_id: str | None = None,
         idempotency_key: str | None = None,
     ) -> AgentRunActionModel:
-        """Create an APPEND action — incremental messages in this run.
+        """Create an APPEND action - incremental messages in this run.
 
         Phase 2 iter-stream writers pass ``iter_index`` (monotonic within run);
         Phase 1 batch APPEND leaves it None. ``idempotency_key`` is the caller's
-        choice — convention is ``f"{run_id}:{iter_index}"`` for iter-stream
+        choice - convention is ``f"{run_id}:{iter_index}"`` for iter-stream
         writers, ``None`` for batch.
         """
         extra = AppendExtra(iter_index=iter_index, trace_id=trace_id)
@@ -516,7 +508,7 @@ class AgentRunActionModel(SQLModel, table=True):
         agent_name: str = "",
         trace_id: str | None = None,
     ) -> AgentRunActionModel:
-        """Create an UNDO action — fold returns state from before ``undo_before_run_id``'s first action.
+        """Create an UNDO action - fold returns state from before ``undo_before_run_id``'s first action.
 
         ``reason`` is free-form; canonical values include ``"user_rewind"`` /
         ``"user_edit"`` / ``"system_recover"`` but UNDO doesn't need a
@@ -666,9 +658,9 @@ class AgentRunActionModel(SQLModel, table=True):
         agent_name: str = "",
         trace_id: str | None = None,
     ) -> AgentRunActionModel:
-        """REPLACE for ``/compact <focus_instructions>`` — preserves user intent.
+        """REPLACE for ``/compact <focus_instructions>`` - preserves user intent.
 
-        ``focus_instructions`` is REQUIRED — that's the whole point of this
+        ``focus_instructions`` is REQUIRED - that's the whole point of this
         variant (vs ``compact_manual``). Codex / Claude Code lose this at the
         storage layer; we keep it for follow-up compactions, audit, "show user
         what they asked for" UX.
@@ -710,7 +702,7 @@ class AgentRunActionModel(SQLModel, table=True):
         """Generic REPLACE factory. Prefer the typed ``create_replace_*`` siblings.
 
         Used for two cases:
-        1. Plain REPLACE without any reason annotation (``reason=None``) —
+        1. Plain REPLACE without any reason annotation (``reason=None``) -
            writes ``extra=None``. This is the most common production path
            (``persist_replace`` from history_list calls here without reason).
         2. Forward-compat: caller knows a future reason value not yet wired
@@ -724,8 +716,8 @@ class AgentRunActionModel(SQLModel, table=True):
         if reason is None:
             variant: _ReplaceVariantBase | None = None
         else:
-            # Build via discriminator dispatch — known reason → typed variant,
-            # unknown → UnknownReplaceVariant. Same path parse_extra() takes.
+            # Build via discriminator dispatch - known reason → typed variant
+            # unknown → UnknownReplaceVariant. Same path parse_extra takes.
             variant = _REPLACE_EXTRA_ADAPTER.validate_python({"reason": reason, "trace_id": trace_id})
         return cls.create_replace_with_variant(
             user_id=user_id,
@@ -755,7 +747,7 @@ class AgentRunActionModel(SQLModel, table=True):
     ) -> AgentRunActionModel:
         """Create a RUN_START lifecycle marker.
 
-        reducer  messages ( UNDO )。
+        reducer  messages ( UNDO ). 
         """
         extra = RunStartExtra(
             trace_id=trace_id,
@@ -794,7 +786,7 @@ class AgentRunActionModel(SQLModel, table=True):
         ``status`` is business-required (Literal enforced at factory). Defaults
         ``finished_at_ns`` to ``time.time_ns()`` if not provided.
 
-        RFC-0024: trace_id is RUN_START only — not accepted here. The
+        RFC-0024: trace_id is RUN_START only - not accepted here. The
         ``RunEndExtra.trace_id`` schema slot stays for forward-compat reads
         but no writer populates it.
         """

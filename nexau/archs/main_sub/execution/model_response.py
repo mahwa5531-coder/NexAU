@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -245,7 +242,7 @@ class ModelResponse:
     reasoning_details: list[JsonDict] | None = None
     """Structured reasoning details (OpenRouter wire format).
 
-    Distinct from ``reasoning_content`` — OpenRouter requires the exact list of blocks
+    Distinct from ``reasoning_content`` - OpenRouter requires the exact list of blocks
     (``reasoning.text`` / ``reasoning.summary`` / ``reasoning.encrypted`` ...) to be echoed
     back unmodified on subsequent turns, so we preserve it verbatim.
     """
@@ -336,8 +333,8 @@ class ModelResponse:
         elif message_dict is not None and "reasoning" in message_dict:
             reasoning_content = message_dict["reasoning"]
 
-        # Extract reasoning_details verbatim (OpenRouter style: a list of structured blocks —
-        # reasoning.text / reasoning.summary / reasoning.encrypted — that must be echoed back
+        # Extract reasoning_details verbatim (OpenRouter style: a list of structured blocks -
+        # reasoning.text / reasoning.summary / reasoning.encrypted - that must be echoed back
         # unmodified on subsequent turns for multi-turn reasoning context). Keep the raw shape.
         reasoning_details_raw: Any = None
         if hasattr(message_obj, "reasoning_details"):
@@ -439,14 +436,14 @@ class ModelResponse:
                 # `serialize_ump_to_anthropic_messages_payload` then runs
                 # `if block.signature:` (falsy), falls past the proper
                 # thinking-block branch, and demotes the reasoning content
-                # to a plain `text` block — user-visible "thinking content
+                # to a plain `text` block - user-visible "thinking content
                 # leaked into the assistant reply" symptom. Coerce empty
                 # string to None at this UMP boundary so persistence carries
                 # the canonical "unsigned" signal.
                 if isinstance(signature_val, str) and signature_val:
                     thinking_signature = signature_val
                 elif isinstance(signature_val, str):
-                    # Empty-string signature observed — record for forensics.
+                    # Empty-string signature observed - record for forensics.
                     # Tier-1+2 observability (PR #554): log + trace-attribute
                     # so we can later answer "how often does this fire, on
                     # which model / agent / gateway".
@@ -754,8 +751,8 @@ class ModelResponse:
         # Gemini can return ``{"parts": null}`` explicitly (e.g. when a
         # thinking-enabled call burns its full output budget on the
         # reasoning channel and emits no visible content). ``.get(default)``
-        # returns the explicit None in that case, NOT the default — guard
-        # with ``cast(...) or []`` so the iteration below doesn't
+        # returns the explicit None in that case, NOT the default - guard
+        # with ``cast(...) or `` so the iteration below doesn't
         # ``TypeError`` and pyright keeps the static type narrow.
         parts: list[dict[str, Any]] = cast(list[dict[str, Any]], content_obj.get("parts") or [])
 
@@ -780,7 +777,7 @@ class ModelResponse:
             # Handle function calls
             if "functionCall" in part:
                 fc = part["functionCall"]
-                # Gemini REST  call ID， ID  tool result
+                # Gemini REST call ID, ID tool result
                 gemini_call_id = f"gemini_tc_{len(tool_calls)}"
                 # Convert to ModelToolCall format
                 tool_calls.append(
@@ -863,7 +860,7 @@ class ModelResponse:
                 ),
             )
 
-        # micro-compact:  created_at ， TimeBasedTrigger 
+        # micro-compact: created_at, TimeBasedTrigger
         from datetime import UTC, datetime
 
         msg = Message(role=role, content=blocks, created_at=datetime.now(UTC))

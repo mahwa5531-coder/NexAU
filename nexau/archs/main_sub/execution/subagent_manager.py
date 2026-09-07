@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -63,11 +60,11 @@ class SubAgentManager:
         self.session_id = session_id
         self.xml_parser = XMLParser()
         self._shutdown_event = threading.Event()
-        # Thread-safety:  (call_sub_agent / call_sub_agent_async  register
-        # + finally pop)  sub-agent lifecycle methods ,  event loop
-        # worker thread;  (Executor.force_stop ) 
-        # list(running_sub_agents.values())  GIL-, 
-        # iteration-during-mutation 。。
+        # Thread-safety: (call_sub_agent / call_sub_agent_async register
+        # + finally pop) sub-agent lifecycle methods, event loop
+        # worker thread; (Executor.force_stop )
+        # list(running_sub_agents.values) GIL-
+        # iteration-during-mutation . .
         self.running_sub_agents: dict[str, Agent] = {}
 
     def call_sub_agent(
@@ -120,13 +117,13 @@ class SubAgentManager:
             parent_agent_state.record_source_id(sub_agent_config.source_id)
 
         # Recall existing sub-agent by ID (will restore history from agent_repo)
-        # ：string None（）
+        # : string None
         if sub_agent_id:
             logger.info(
                 f"🔄🤖 Recall sub-agent '{sub_agent_name}' with id '{sub_agent_id}' - history will be restored from storage",
             )
             # Create new Agent instance with the same agent_id
-            # Agent.run() will restore history from agent_repo automatically
+            # Agent.run will restore history from agent_repo automatically
             if caller_sandbox_manager is not None:
                 sub_agent = Agent(
                     agent_id=sub_agent_id,
@@ -209,7 +206,7 @@ class SubAgentManager:
 
         except Exception as e:
             logger.error(f"❌ Sub-agent '{sub_agent_name}' failed: {e}")
-            # RFC-0015: successfailure，package sub_agent_id
+            # RFC-0015: successfailure, package sub_agent_id
             raise RuntimeError(
                 f"[sub_agent_id: {actual_sub_agent_id}] Sub-agent '{sub_agent_name}' (id: {actual_sub_agent_id}) failed: {e}"
             ) from e
@@ -238,15 +235,15 @@ class SubAgentManager:
         parallel_execution_id: str | None = None,
         trace_id: str | None = None,
     ) -> str:
-        """Async version of call_sub_agent — runs on the main event loop.
+        """Async version of call_sub_agent - runs on the main event loop.
 
         P1 async/sync :  sub-agent  event loop
 
-         Agent.create()（async factory）+ run_async() 
-        Agent()（sync __init__ → asyncio.run()）+ run()（sync → asyncio.run()），
-         loop。
+         Agent.create() (async factory) + run_async() 
+        Agent() (sync __init__ → asyncio.run()) + run() (sync → asyncio.run()), 
+         loop. 
 
-         call_sub_agent() backward compatibility sync 。
+         call_sub_agent() backward compatibility sync . 
         """
         from ...main_sub.agent import Agent
         from ..agent_context import get_context
@@ -271,11 +268,11 @@ class SubAgentManager:
         if parent_agent_state is not None:
             parent_agent_state.record_source_id(sub_agent_config.source_id)
 
-        # ：string None（， ID）
+        # : string None (, ID)
         if not sub_agent_id:
             sub_agent_id = None
 
-        # Agent.create() async factory  sub-agent，
+        # Agent.create async factory sub-agent
         if caller_sandbox_manager is not None:
             sub_agent = await Agent.create(
                 config=sub_agent_config,
@@ -333,7 +330,7 @@ class SubAgentManager:
 
         except Exception as e:
             logger.error(f"❌ Sub-agent '{sub_agent_name}' failed (async): {e}")
-            # RFC-0015: successfailure，package sub_agent_id
+            # RFC-0015: successfailure, package sub_agent_id
             raise RuntimeError(
                 f"[sub_agent_id: {actual_sub_agent_id}] Sub-agent '{sub_agent_name}' (id: {actual_sub_agent_id}) failed: {e}"
             ) from e

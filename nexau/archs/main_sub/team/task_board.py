@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -45,11 +42,11 @@ def _slugify(text: str, max_length: int = 60) -> str:
 
     RFC-0002:  slug 
     """
-    # 1. ，
+    # 1.
     slug = re.sub(r"[^a-z0-9]+", "-", text.lower())
-    # 2. 
+    # 2.
     slug = slug.strip("-")
-    # 3. 
+    # 3.
     if len(slug) > max_length:
         slug = slug[:max_length].rstrip("-")
     return slug or "task"
@@ -150,7 +147,7 @@ class TaskBoard:
     async def get_task_info(self, task_id: str) -> TaskInfo:
         """Get a single task as TaskInfo.
 
-        RFC-0002: （）
+        RFC-0002:  () 
         """
         task = await self._get_task(task_id)
         blocked = await self._is_blocked(task)
@@ -168,11 +165,10 @@ class TaskBoard:
     ) -> TaskInfo:
         """Create a new task on the board.
 
-        RFC-0002: （）
+        RFC-0002:  () 
         """
         if task_id is None:
             task_id = await self._next_task_id()
-        # 
         slug = _slugify(title)
         deliverable_path = f".nexau/tasks/{task_id}-{slug}.md"
 
@@ -196,7 +192,7 @@ class TaskBoard:
     async def list_tasks(self, *, status: str | None = None) -> list[TaskInfo]:
         """List tasks, optionally filtered by status.
 
-        RFC-0002: （）
+        RFC-0002:  () 
         """
         filters_list = self._team_filters()
         if status is not None:
@@ -207,10 +203,10 @@ class TaskBoard:
             filters=AndFilter(filters=filters_list),
         )
 
-        # 1. completed ID set，
+        # 1. completed ID set
         completed_ids = {t.task_id for t in tasks if t.status == "completed"}
 
-        # 2.  is_blocked
+        # 2. is_blocked
         results: list[TaskInfo] = []
         for t in tasks:
             blocked = bool(t.dependencies and not all(d in completed_ids for d in t.dependencies))
@@ -238,13 +234,13 @@ class TaskBoard:
             task_id=task_id,
         ):
             task = await self._get_task(task_id)
-            # 1. 
+            # 1.
             if await self._is_blocked(task):
                 raise TaskBlockedError(f"Task {task_id} has unfinished dependencies")
-            # 2. 
+            # 2.
             if task.assignee_agent_id is not None:
                 raise LockConflictError(f"Task {task_id} already assigned to {task.assignee_agent_id}")
-            # 3. 
+            # 3.
             task.assignee_agent_id = assignee_agent_id
             task.status = "in_progress"
             task.updated_at = datetime.now()

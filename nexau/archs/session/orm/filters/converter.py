@@ -1,6 +1,6 @@
 """Filter Converter 
 
- Filter DSL  SQLAlchemy ColumnElement、Python  HTTP string。
+ Filter DSL  SQLAlchemy ColumnElement, Python  HTTP string. 
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ def to_sqlalchemy(
 
     Args:
         filter_: Filter DSL 
-        model_class: SQLModel class，
+        model_class: SQLModel class, 
 
     Returns:
         SQLAlchemy ColumnElement[bool] 
@@ -79,7 +79,6 @@ def _get_column(
     Raises:
         ValueError:  model_class 
     """
-    # 
     if not hasattr(model_class, field_name):
         raise ValueError(f"Field '{field_name}' not found in model {model_class.__name__}")
 
@@ -197,7 +196,7 @@ def _convert_not_filter(
 
 
 # ============================================================================
-# Python  (Requirement 3.x)
+# Python (Requirement 3.x)
 # ============================================================================
 
 
@@ -209,10 +208,10 @@ def evaluate(
 
     Args:
         filter_: Filter DSL 
-        record: ，dictionary Pydantic/SQLModel 
+        record: dictionary Pydantic/SQLModel 
 
     Returns:
-        value，
+        value, 
 
     Examples:
         >>> filter_ = ComparisonFilter.eq("name", "alice")
@@ -228,7 +227,7 @@ def evaluate(
         >>> evaluate(filter_, User(name="alice", age=25))
         True
     """
-    # Pydantic model，dictionary
+    # Pydantic model, dictionary
     record_dict: Mapping[str, Any]
     if isinstance(record, BaseModel):
         record_dict = record.model_dump()
@@ -251,14 +250,14 @@ def _get_field_value(
 ) -> Any:
     """value.
 
-    ， None（ 3.12）。
+,  None ( 3.12) . 
 
     Args:
         record: dictionary
         field_name: 
 
     Returns:
-        value， None
+        value,  None
     """
     return record.get(field_name, None)
 
@@ -272,7 +271,7 @@ def _safe_compare(a: object, b: object, op: str) -> bool:
         op:  ('gt', 'gte', 'lt', 'lte')
 
     Returns:
-        ，type False
+, type False
     """
     try:
         if op == "gt":
@@ -292,7 +291,7 @@ def _convert_like_pattern_to_regex(pattern: str) -> str:
     """ SQL LIKE .
 
     SQL LIKE :
-    - % （package）
+    - %  (package) 
     - _ 
 
     Args:
@@ -301,8 +300,6 @@ def _convert_like_pattern_to_regex(pattern: str) -> str:
     Returns:
         string
     """
-    # 
-    # %  _ 
     result = ""
     i = 0
     while i < len(pattern):
@@ -312,13 +309,11 @@ def _convert_like_pattern_to_regex(pattern: str) -> str:
         elif char == "_":
             result += "."
         elif char in r"\^$.|?*+()[]{}":
-            # 
             result += "\\" + char
         else:
             result += char
         i += 1
 
-    # 
     return "^" + result + "$"
 
 
@@ -333,46 +328,46 @@ def _evaluate_comparison_filter(
         record: dictionary
 
     Returns:
-        value，
+        value, 
     """
     field_value = _get_field_value(record, filter_.field)
     op = filter_.op
     filter_value = filter_.value
 
     if op == FilterOperator.EQ:
-        # 3.2: eq  record[field] == value
+        # 3.2: eq record[field] == value
         return field_value == filter_value
 
     elif op == FilterOperator.NEQ:
-        # 3.3: neq  record[field] != value
+        # 3.3: neq record[field] != value
         return field_value != filter_value
 
     elif op == FilterOperator.GT:
-        # 3.4: gt  record[field] > value
+        # 3.4: gt record[field] > value
         if field_value is None or filter_value is None:
             return False
         return _safe_compare(field_value, filter_value, "gt")
 
     elif op == FilterOperator.GTE:
-        # 3.4: gte  record[field] >= value
+        # 3.4: gte record[field] >= value
         if field_value is None or filter_value is None:
             return False
         return _safe_compare(field_value, filter_value, "gte")
 
     elif op == FilterOperator.LT:
-        # 3.4: lt  record[field] < value
+        # 3.4: lt record[field] < value
         if field_value is None or filter_value is None:
             return False
         return _safe_compare(field_value, filter_value, "lt")
 
     elif op == FilterOperator.LTE:
-        # 3.4: lte  record[field] <= value
+        # 3.4: lte record[field] <= value
         if field_value is None or filter_value is None:
             return False
         return _safe_compare(field_value, filter_value, "lte")
 
     elif op == FilterOperator.LIKE:
-        # 3.5: like （% ）
+        # 3.5: like (% )
         if field_value is None or filter_value is None:
             return False
         if not isinstance(field_value, str) or not isinstance(filter_value, str):
@@ -381,7 +376,7 @@ def _evaluate_comparison_filter(
         return bool(re.match(regex_pattern, field_value))
 
     elif op == FilterOperator.ILIKE:
-        # 3.6: ilike 
+        # 3.6: ilike
         if field_value is None or filter_value is None:
             return False
         if not isinstance(field_value, str) or not isinstance(filter_value, str):
@@ -390,13 +385,13 @@ def _evaluate_comparison_filter(
         return bool(re.match(regex_pattern, field_value, re.IGNORECASE))
 
     elif op == FilterOperator.IN:
-        # 3.7: in  record[field] in value
+        # 3.7: in record[field] in value
         if not isinstance(filter_value, list):
             raise ValueError(f"Invalid value type for operator {op}: expected list, got {type(filter_value).__name__}")
         return field_value in filter_value
 
     elif op == FilterOperator.IS:
-        # 3.8: is value null  record[field] is None
+        # 3.8: is value null record[field] is None
         # IS operator is used for NULL checks
         if filter_value is None:
             return field_value is None
@@ -414,17 +409,17 @@ def _evaluate_and_filter(
 ) -> bool:
     """ AndFilter.
 
-     3.9: and 。
+     3.9: and . 
 
     Args:
         filter_: AndFilter 
         record: dictionary
 
     Returns:
-        value，
+        value, 
     """
     if not filter_.filters:
-        # AND  True（AND ）
+        # AND True (AND )
         return True
 
     return all(evaluate(sub_filter, record) for sub_filter in filter_.filters)
@@ -436,17 +431,17 @@ def _evaluate_or_filter(
 ) -> bool:
     """ OrFilter.
 
-     3.10: or 。
+     3.10: or . 
 
     Args:
         filter_: OrFilter 
         record: dictionary
 
     Returns:
-        value，
+        value, 
     """
     if not filter_.filters:
-        # OR  False（OR ）
+        # OR False (OR )
         return False
 
     return any(evaluate(sub_filter, record) for sub_filter in filter_.filters)
@@ -458,14 +453,14 @@ def _evaluate_not_filter(
 ) -> bool:
     """ NotFilter.
 
-     3.11: not 。
+     3.11: not . 
 
     Args:
         filter_: NotFilter 
         record: dictionary
 
     Returns:
-        value，
+        value, 
     """
     return not evaluate(filter_.filter, record)
 
@@ -476,7 +471,7 @@ def _evaluate_not_filter(
 
 
 def _url_encode_single_value(value: str | int | float | bool | list[str | int | float] | None) -> str:
-    """URL value（list）.
+    """URL value (list) .
 
     Args:
         value: value
@@ -491,16 +486,16 @@ def _url_encode_single_value(value: str | int | float | bool | list[str | int | 
     if isinstance(value, (int, float)):
         return str(value)
     if isinstance(value, list):
-        # listvalue， IN 
+        # listvalue, IN
         raise ValueError("List values should be encoded using IN operator format")
-    # stringvalue URL 
+    # stringvalue URL
     return quote(str(value), safe="")
 
 
 def _format_filter_for_nested(filter_: Filter) -> str:
-    """ Filter （ and/or ）.
+    """ Filter  ( and/or ) .
 
-    : field.op.value（）
+: field.op.value () 
 
     Args:
         filter_: Filter DSL 
@@ -534,13 +529,13 @@ def _format_comparison_filter_nested(filter_: ComparisonFilter) -> str:
     value = filter_.value
 
     if filter_.op == FilterOperator.IN:
-        # 4.3: in  field.in.(v1,v2,...)
+        # 4.3: in field.in.(v1,v2,...)
         if not isinstance(value, list):
             raise ValueError(f"Invalid value type for operator {op}: expected list, got {type(value).__name__}")
         encoded_values = [_url_encode_single_value(v) for v in value]
         return f"{field}.{op}.({','.join(encoded_values)})"
     else:
-        # 4.2:  field.op.value
+        # 4.2: field.op.value
         encoded_value = _url_encode_single_value(value)
         return f"{field}.{op}.{encoded_value}"
 
@@ -595,7 +590,7 @@ def _format_not_filter_nested(filter_: NotFilter) -> str:
     inner = filter_.filter
 
     if isinstance(inner, ComparisonFilter):
-        # ComparisonFilter， field.not.op.value
+        # ComparisonFilter, field.not.op.value
         field = inner.field
         op = inner.op.value
         value = inner.value
@@ -609,7 +604,7 @@ def _format_not_filter_nested(filter_: NotFilter) -> str:
             encoded_value = _url_encode_single_value(value)
             return f"{field}.not.{op}.{encoded_value}"
     else:
-        # ， not.filter
+        # , not.filter
         inner_str = _format_filter_for_nested(inner)
         return f"not.{inner_str}"
 
@@ -669,13 +664,13 @@ def _to_query_string_comparison(filter_: ComparisonFilter) -> str:
     value = filter_.value
 
     if filter_.op == FilterOperator.IN:
-        # 4.3: in  field=in.(v1,v2,...)
+        # 4.3: in field=in.(v1,v2,...)
         if not isinstance(value, list):
             raise ValueError(f"Invalid value type for operator {op}: expected list, got {type(value).__name__}")
         encoded_values = [_url_encode_single_value(v) for v in value]
         return f"{field}={op}.({','.join(encoded_values)})"
     else:
-        # 4.2:  field=op.value
+        # 4.2: field=op.value
         encoded_value = _url_encode_single_value(value)
         return f"{field}={op}.{encoded_value}"
 
@@ -720,7 +715,7 @@ def _to_query_string_not(filter_: NotFilter) -> str:
     """ NotFilter string.
 
      4.6: NotFilter  "not.filter" 
-     ComparisonFilter， "field=not.op.value"
+     ComparisonFilter,  "field=not.op.value"
 
     Args:
         filter_: NotFilter 
@@ -731,7 +726,7 @@ def _to_query_string_not(filter_: NotFilter) -> str:
     inner = filter_.filter
 
     if isinstance(inner, ComparisonFilter):
-        # ComparisonFilter， field=not.op.value
+        # ComparisonFilter, field=not.op.value
         field = inner.field
         op = inner.op.value
         value = inner.value
@@ -745,7 +740,7 @@ def _to_query_string_not(filter_: NotFilter) -> str:
             encoded_value = _url_encode_single_value(value)
             return f"{field}=not.{op}.{encoded_value}"
     else:
-        # ， not.filter
+        # , not.filter
         inner_str = _format_filter_for_nested(inner)
         return f"not={inner_str}"
 
@@ -768,7 +763,7 @@ def _url_decode_value(encoded: str) -> str | int | float | bool | None:
     Returns:
         typevalue
     """
-    # URL 
+    # URL
     decoded = unquote(encoded)
 
     # value
@@ -779,7 +774,6 @@ def _url_decode_value(encoded: str) -> str | int | float | bool | None:
     if decoded == "false":
         return False
 
-    # 
     try:
         # integer
         if "." not in decoded and "e" not in decoded.lower():
@@ -800,7 +794,7 @@ def _url_decode_value(encoded: str) -> str | int | float | bool | None:
 def _split_by_comma_at_depth_zero(s: str) -> list[str]:
     """ 0 string.
 
-    ，。
+, . 
 
     Args:
         s: string
@@ -856,7 +850,7 @@ def _parse_nested_filter(nested: str) -> Filter:
     if not nested:
         raise ValueError("Invalid query string format: empty filter")
 
-    # and(...) 
+    # and(...)
     if nested.startswith("and(") and nested.endswith(")"):
         inner = nested[4:-1]  #  "and("  ")"
         if not inner:
@@ -865,7 +859,7 @@ def _parse_nested_filter(nested: str) -> Filter:
         filters = [_parse_nested_filter(p) for p in parts]
         return AndFilter(filters=filters)
 
-    # or(...) 
+    # or(...)
     if nested.startswith("or(") and nested.endswith(")"):
         inner = nested[3:-1]  #  "or("  ")"
         if not inner:
@@ -874,14 +868,14 @@ def _parse_nested_filter(nested: str) -> Filter:
         filters = [_parse_nested_filter(p) for p in parts]
         return OrFilter(filters=filters)
 
-    # not.filter （ NOT）
+    # not.filter ( NOT)
     if nested.startswith("not."):
         inner = nested[4:]  #  "not."
         inner_filter = _parse_nested_filter(inner)
         return NotFilter(filter=inner_filter)
 
-    # field.not.op.value （ComparisonFilter  NOT）
-    # field.op.value 
+    # field.not.op.value (ComparisonFilter NOT)
+    # field.op.value
     return _parse_comparison_nested(nested)
 
 
@@ -903,7 +897,6 @@ def _parse_comparison_nested(nested: str) -> Filter:
     Raises:
         ValueError: 
     """
-    # （）
     first_dot = nested.find(".")
     if first_dot == -1:
         raise ValueError(f"Invalid query string format: {nested}")
@@ -911,13 +904,12 @@ def _parse_comparison_nested(nested: str) -> Filter:
     field = nested[:first_dot]
     rest = nested[first_dot + 1 :]
 
-    # NOT 
+    # NOT
     is_not = False
     if rest.startswith("not."):
         is_not = True
         rest = rest[4:]  #  "not."
 
-    # 
     second_dot = rest.find(".")
     if second_dot == -1:
         raise ValueError(f"Invalid query string format: {nested}")
@@ -925,7 +917,6 @@ def _parse_comparison_nested(nested: str) -> Filter:
     op_str = rest[:second_dot]
     value_str = rest[second_dot + 1 :]
 
-    # 
     if op_str not in _VALID_OPERATORS:
         raise ValueError(f"Unknown operator in query string: {op_str}")
 
@@ -944,7 +935,7 @@ def _parse_comparison_nested(nested: str) -> Filter:
             values = []
             for p in parts:
                 decoded = _url_decode_value(p)
-                # IN  str, int, float type
+                # IN str, int, float type
                 if decoded is None or isinstance(decoded, bool):
                     values.append(str(decoded) if decoded is not None else "null")
                 else:
@@ -979,7 +970,7 @@ def from_query_string(query: str) -> Filter:
          Filter DSL 
 
     Raises:
-        ValueError: string、
+        ValueError: string, 
 
     Examples:
         >>> from_query_string("name=eq.alice")
@@ -999,7 +990,6 @@ def from_query_string(query: str) -> Filter:
     if not query:
         raise ValueError("Invalid query string format: empty query")
 
-    # 
     eq_pos = query.find("=")
     if eq_pos == -1:
         raise ValueError(f"Invalid query string format: {query}")
@@ -1007,7 +997,7 @@ def from_query_string(query: str) -> Filter:
     left = query[:eq_pos]
     right = query[eq_pos + 1 :]
 
-    # and=(...) 
+    # and=(...)
     if left == "and":
         if right.startswith("("):
             if not right.endswith(")"):
@@ -1018,11 +1008,11 @@ def from_query_string(query: str) -> Filter:
             parts = _split_by_comma_at_depth_zero(inner)
             filters = [_parse_nested_filter(p) for p in parts]
             return AndFilter(filters=filters)
-        # right  "not." ， field=op.value 
+        # right "not.", field=op.value
         if not right.startswith("not.") and not any(right.startswith(f"{op}.") for op in _VALID_OPERATORS):
             raise ValueError(f"Invalid query string format: {query}")
 
-    # or=(...) 
+    # or=(...)
     if left == "or":
         if right.startswith("("):
             if not right.endswith(")"):
@@ -1033,11 +1023,11 @@ def from_query_string(query: str) -> Filter:
             parts = _split_by_comma_at_depth_zero(inner)
             filters = [_parse_nested_filter(p) for p in parts]
             return OrFilter(filters=filters)
-        # right  "not." ， field=op.value 
+        # right "not.", field=op.value
         if not right.startswith("not.") and not any(right.startswith(f"{op}.") for op in _VALID_OPERATORS):
             raise ValueError(f"Invalid query string format: {query}")
 
-    # not=filter （ NOT）
+    # not=filter ( NOT)
     if left == "not":
         try:
             inner_filter = _parse_nested_filter(right)
@@ -1046,16 +1036,15 @@ def from_query_string(query: str) -> Filter:
         if inner_filter is not None:
             return NotFilter(filter=inner_filter)
 
-    # field=op.value  field=not.op.value 
+    # field=op.value field=not.op.value
     field = left
 
-    # NOT 
+    # NOT
     is_not = False
     if right.startswith("not."):
         is_not = True
         right = right[4:]  #  "not."
 
-    # 
     dot_pos = right.find(".")
     if dot_pos == -1:
         raise ValueError(f"Invalid query string format: {query}")
@@ -1063,7 +1052,6 @@ def from_query_string(query: str) -> Filter:
     op_str = right[:dot_pos]
     value_str = right[dot_pos + 1 :]
 
-    # 
     if op_str not in _VALID_OPERATORS:
         raise ValueError(f"Unknown operator in query string: {op_str}")
 
@@ -1082,7 +1070,7 @@ def from_query_string(query: str) -> Filter:
             values_list = []
             for p in parts:
                 decoded = _url_decode_value(p)
-                # IN  str, int, float type
+                # IN str, int, float type
                 if decoded is None or isinstance(decoded, bool):
                     values_list.append(str(decoded) if decoded is not None else "null")
                 else:

@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -164,7 +161,7 @@ TRUNCATE_TAIL_CHARS = 5_000
 # =============================================================================
 
 # Default working directory for E2B sandboxes. Matches the home directory of
-# the default "user" account in E2B templates.  Every reference to this path
+# the default "user" account in E2B templates. Every reference to this path
 # should use this constant so there is a single source of truth.
 E2B_DEFAULT_WORK_DIR = "/home/user"
 
@@ -172,9 +169,9 @@ E2B_DEFAULT_WORK_DIR = "/home/user"
 def _env_float(name: str, default: float) -> float:
     """Parse a float env var crash-safe: empty/invalid values fall back to *default*.
 
-    NAC#1312 CR: configurationdefaultvalue pydantic default_factory value，
-    ``float(os.getenv(...))``， Helm  env 
-    config  ValueError——。
+    NAC#1312 CR: configurationdefaultvalue pydantic default_factory value, 
+    ``float(os.getenv(...))``,  Helm  env 
+    config  ValueError -- . 
     """
     raw = os.getenv(name)
     if raw is None or not raw.strip():
@@ -237,7 +234,7 @@ class E2BSandboxConfig(BaseSandboxConfig):
     # backoff, and succeeds once the path recovers instead of failing fast.
     # <= 0 falls back to legacy count-based retries (max_retries).
     # crash-safe: / env valuedefault
-    # （Helm value, NAC#1312 CR finding）。
+    # (Helm value, NAC#1312 CR finding) .
     transient_retry_window: float = Field(default_factory=lambda: _env_float("E2B_TRANSIENT_RETRY_WINDOW", 60.0))
 
 
@@ -811,7 +808,7 @@ class BaseSandbox(ABC):
             Exception: Implementations should only return False when the path
                 verifiably does not exist, and propagate infrastructure
                 failures (connection errors, timeouts, permission issues)
-                instead of swallowing them into False — a swallowed connection
+                instead of swallowing them into False - a swallowed connection
                 error reads as "file not found" and misleads callers
                 (NAC#1304). E2BSandbox follows this contract; LocalSandbox
                 currently still returns False on any error (local ``Path``
@@ -1155,7 +1152,7 @@ class BaseSandboxManager[TSandbox: "BaseSandbox"](ABC):
         try:
             return run_async_function_sync(_persist_sandbox_state)
         except RuntimeError as e:
-            # Event loop conflict — silently fail (persisting state is non-critical)
+            # Event loop conflict - silently fail (persisting state is non-critical)
             err_msg = str(e)
             if (
                 "bound to a different event loop" in err_msg
@@ -1193,7 +1190,7 @@ class BaseSandboxManager[TSandbox: "BaseSandbox"](ABC):
         try:
             return run_async_function_sync(_load_sandbox_state)
         except RuntimeError as e:
-            # Event loop conflict — return None so the caller creates a new sandbox
+            # Event loop conflict - return None so the caller creates a new sandbox
             err_msg = str(e)
             if (
                 "bound to a different event loop" in err_msg
@@ -1264,18 +1261,16 @@ class BaseSandboxManager[TSandbox: "BaseSandbox"](ABC):
         Ensures the sandbox and the code using it share the same event loop context.
         Solves cross-thread/event-loop access to asyncio primitives.
         """
-        # ：（）
         inst = self._instance
         if inst is not None:
             if self.is_running():
                 return inst
-            # _instance （pause/stop  start_sync 
-            # ）：，。
+            # _instance (pause/stop start_sync
             logger.warning("Sandbox instance exists but is not running; will re-create.")
             self._instance = None
 
         with self._start_lock:
-            # Double-check：，
+            # Double-check:
             if self._instance is not None:
                 return self._instance
 
@@ -1301,7 +1296,7 @@ class BaseSandboxManager[TSandbox: "BaseSandbox"](ABC):
     def add_upload_assets(self, upload_assets: list[tuple[str, str]]) -> None:
         """Add upload assets to the sandbox, uploading immediately if already running.
 
-         upload assets（ teammate  spawn）
+         upload assets ( teammate  spawn) 
 
         Thread-safe: uses _start_lock to coordinate with start_sync().
         If sandbox is already running, uploads immediately.

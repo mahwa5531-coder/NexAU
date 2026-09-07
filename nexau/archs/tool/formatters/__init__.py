@@ -22,8 +22,8 @@ class ToolFormatterContext:
 
     RFC-0017: formatter  after_tool middleware 
 
-    tool_output  runtime ；formatter  LLM
-     llm-facing output。
+    tool_output  runtime ; formatter  LLM
+     llm-facing output. 
     """
 
     tool_name: str
@@ -39,7 +39,7 @@ ToolFormatter = Callable[[ToolFormatterContext], object]
 def resolve_tool_formatter(formatter: str | ToolFormatter | None) -> ToolFormatter:
     """Resolve a formatter spec to a callable.
 
-    RFC-0017:  builtin alias（markdown / xml） import path
+    RFC-0017:  builtin alias (markdown / xml)  import path
     """
 
     if formatter is None:

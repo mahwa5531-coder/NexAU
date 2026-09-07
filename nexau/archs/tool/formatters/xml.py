@@ -25,15 +25,15 @@ def format_tool_output_as_xml(context: ToolFormatterContext) -> object:
 
     RFC-0017: XML formatter
 
-    1. string，package
-    2.  / multimodal  XML，
+    1. string, package
+    2.  / multimodal  XML, 
     3.  Dict / List /  XML 
     """
 
     sanitized_output = _strip_display_only_fields(context.tool_output)
-    # RFC-0017: 。
-    # returnDisplay key，value LLM，
-    # XML package； multimodal/image value。
+    # RFC-0017: .
+    # returnDisplay key, value LLM
+    # XML package; multimodal/image value.
     direct_content = _unwrap_single_content_field(sanitized_output)
     if direct_content is not None:
         return direct_content
@@ -53,7 +53,7 @@ def _unwrap_single_content_field(value: object) -> object | None:
     RFC-0017: 
 
      display-only  ``{"content": ...}`` 
-    ``{"result": ...}`` ，value， XML 。
+    ``{"result": ...}``, value,  XML . 
     """
 
     if not isinstance(value, dict):

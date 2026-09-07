@@ -39,7 +39,7 @@ def write_todos(
     """
     try:
         # Validate todos parameter (runtime check for JSON/LLM input)
-        # Empty list [] is valid (clears todo list)
+        # Empty list is valid (clears todo list)
         if not isinstance(todos, list):
             return {
                 "content": "`todos` parameter must be an array",

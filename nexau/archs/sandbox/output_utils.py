@@ -1,11 +1,9 @@
 # Shell output cleaning utilities for LLM-friendly formatting.
-#
 # Strip ANSI escape codes and resolve carriage returns from shell output.
-#
 # Provides a pipeline to clean raw subprocess output before it reaches the LLM:
-# 1. strip_ansi()           — remove ANSI CSI/OSC/control escape sequences
-# 2. resolve_cr()           — simulate carriage-return line overwrites
-# 3. clean_shell_output()   — combined pipeline (strip → resolve)
+# 1. strip_ansi - remove ANSI CSI/OSC/control escape sequences
+# 2. resolve_cr - simulate carriage-return line overwrites
+# 3. clean_shell_output - combined pipeline (strip → resolve)
 
 from __future__ import annotations
 

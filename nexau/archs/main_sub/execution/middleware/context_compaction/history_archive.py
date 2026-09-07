@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -17,9 +14,9 @@
 RFC-0021: context compaction sandbox
 
 "" +  boundary  append 
-``transcript.jsonl``。Agent  ``read_file`` / ``search_file_content`` 。
+``transcript.jsonl``. Agent  ``read_file`` / ``search_file_content`` . 
 
-：
+: 
 
 - ** append-only**: ``{sandbox_tmp}/.nexau_history_archive/<namespace>/transcript.jsonl``
 - ****, type:
@@ -29,7 +26,7 @@ RFC-0021: context compaction sandbox
 - **exception**: sandbox  / failure, exception (failure)
 
 : agent  ``search_file_content`` grep transcript.jsonl 
-,  round ; append-only 。
+,  round ; append-only . 
 """
 
 from __future__ import annotations
@@ -49,10 +46,10 @@ from nexau.core.messages import ImageBlock, Message, Role, TextBlock, ToolResult
 logger = logging.getLogger(__name__)
 
 ARCHIVE_SUBDIR = ".nexau_history_archive"
-"""sandbox  (RFC-0021)。
+"""sandbox  (RFC-0021). 
 
  config:  ``"../foo"`` class,
-defaultvalue,  use case 。
+defaultvalue,  use case . 
 """
 
 TRANSCRIPT_FILENAME = "transcript.jsonl"
@@ -62,7 +59,7 @@ BOUNDARY_KEY = "_boundary"
 PREVIEW_MAX_CHARS = 300
 _SAFE_ARCHIVE_COMPONENT_RE = re.compile(r"[^A-Za-z0-9_.-]+")
 
-# mime → ;  .bin
+# mime → ; .bin
 _MIME_EXT: dict[str, str] = {
     "image/jpeg": "jpg",
     "image/jpg": "jpg",
@@ -160,9 +157,9 @@ class BoundaryRecord:
 
 class HistoryArchiveWriter:
     """RFC-0021:  + boundary append  sandbox 
-    transcript.jsonl。
+    transcript.jsonl. 
 
-     sandbox  IO,  LocalSandbox / E2BSandbox 。
+     sandbox  IO,  LocalSandbox / E2BSandbox . 
     """
 
     def __init__(
@@ -185,18 +182,18 @@ class HistoryArchiveWriter:
         *,
         agent_state: Any,
     ) -> HistoryArchiveWriter | None:
-        """ agent_state  writer; sandbox  None。
+        """ agent_state  writer; sandbox  None. 
 
          sandbox  ``ARCHIVE_SUBDIR``
-        (``.nexau_history_archive``),  config — ;
-        defaultvalue。
+        (``.nexau_history_archive``),  config - ;
+        defaultvalue. 
 
         try :  sandbox  (get_sandbox / get_temp_dir / create_directory),
-        "sandbox "" bug"。``_scan_transcript``  try, 。
+        "sandbox "" bug". ``_scan_transcript``  try, . 
         """
         if agent_state is None:
             return None
-        get_sb = getattr(agent_state, "get_sandbox", None)  # noqa: B009 — duck-typing
+        get_sb = getattr(agent_state, "get_sandbox", None)  # noqa: B009 - duck-typing
         if not callable(get_sb):
             logger.debug("[HistoryArchiveWriter] agent_state has no get_sandbox; skip.")
             return None
@@ -282,23 +279,23 @@ class HistoryArchiveWriter:
         run_id: str | None,
         agent_id: str | None,
     ) -> BoundaryRecord | None:
-        """:  removed  + boundary  append  transcript.jsonl。
+        """:  removed  + boundary  append  transcript.jsonl. 
 
         base64 ImageBlock  ``images/{msg_id}-{idx}.{ext}`` ,
-        transcript.jsonl  ``url=file:images/...``  ( transcript )。
-        URL ImageBlock 。
+        transcript.jsonl  ``url=file:images/...``  ( transcript ). 
+        URL ImageBlock . 
 
-        failure None, exception —— failure。
+        failure None, exception  --  failure. 
         """
         if not removed:
             return None
         try:
             round_num = self._next_round
 
-            # 1. base64 :  removed messages,  dump 
+            # 1. base64: removed messages, dump
             processed, extracted_images = self._externalize_images(removed)
 
-            # 2.  boundary record
+            # 2. boundary record
             preview = self._build_preview(removed)
             summary_id = self._find_summary_id(removed)
             record = BoundaryRecord(
@@ -318,12 +315,12 @@ class HistoryArchiveWriter:
                 extracted_images=extracted_images,
             )
 
-            # 3. : removed messages + boundary 
+            # 3.: removed messages + boundary
             new_lines: list[str] = [m.model_dump_json() for m in processed]
             new_lines.append(json.dumps(record.to_line_dict(), ensure_ascii=False))
             new_content = "\n".join(new_lines) + "\n"
 
-            # 3. read+rewrite append (sandbox API  append , )
+            # 3. read+rewrite append (sandbox API append, )
             existing = ""
             try:
                 if self._sandbox.file_exists(self._transcript_path):
@@ -380,7 +377,7 @@ class HistoryArchiveWriter:
 
     def _externalize_images(self, removed: list[Message]) -> tuple[list[Message], int]:
         """ base64 ImageBlock  ``images/{msg_id}-{path}.{ext}`` ,
-         (list, )。
+         (list, ). 
 
         :
         - **** ImageBlock (USER / ASSISTANT )
@@ -399,7 +396,6 @@ class HistoryArchiveWriter:
                 return any(isinstance(c, ImageBlock) and c.base64 for c in block.content)
             return False
 
-        # , 
         needs_processing = any(_has_b64_image(b) for msg in removed for b in msg.content)
         if not needs_processing:
             return removed, 0
@@ -411,7 +407,7 @@ class HistoryArchiveWriter:
             logger.warning("[HistoryArchiveWriter] cannot create images dir: %s", exc)
             return removed, 0
 
-        # nested function , mypy  nonlocal
+        # nested function, mypy nonlocal
         extracted = 0
 
         def _externalize_one(msg_id: str, path_label: str, img: ImageBlock) -> ImageBlock:
@@ -450,7 +446,7 @@ class HistoryArchiveWriter:
                 result.append(msg)
                 continue
 
-            # block;  block  —  message 。
+            # block; block - message .
             new_content: list[Any] = []
             for idx, block in enumerate(msg.content):
                 if isinstance(block, ImageBlock) and block.base64:
@@ -460,7 +456,7 @@ class HistoryArchiveWriter:
                     and isinstance(block.content, list)
                     and any(isinstance(c, ImageBlock) and c.base64 for c in block.content)
                 ):
-                    # tool result  ImageBlock
+                    # tool result ImageBlock
                     new_inner: list[Any] = []
                     for jdx, inner in enumerate(block.content):
                         if isinstance(inner, ImageBlock) and inner.base64:
@@ -471,8 +467,8 @@ class HistoryArchiveWriter:
                 else:
                     new_content.append(block)
 
-            # message  (Pydantic update=  instance, 
-            # —  deep=True ,  message )
+            # message (Pydantic update= instance
+            # - deep=True, message )
             result.append(msg.model_copy(update={"content": new_content}))
         return result, extracted
 
@@ -517,13 +513,13 @@ def build_archive_hint(
     archive_dir: str,
     transcript_path: str,
 ) -> str:
-    """RFC-0021:  ()。
+    """RFC-0021:  (). 
 
-     agent  transcript.jsonl ,  search_file_content / read_file 。
-     writer  sandbox  transcript 。
+     agent  transcript.jsonl,  search_file_content / read_file . 
+     writer  sandbox  transcript . 
 
-    ** hint ** —— 。 TextBlock 
-    ,  ``\\n\\n`` ; , 。
+    ** hint **  --  .  TextBlock 
+,  ``\\n\\n`` ;, . 
     """
     return (
         f"📁 [Archive] {total_archived} earlier message(s) archived across "

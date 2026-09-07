@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -665,9 +662,9 @@ class MCPServerConfig:
     # disable parallel
     disable_parallel: bool = False
     source_id: str | None = None
-    # RFC-0019: server default（None = auto-allow，backward compatibility）
+    # RFC-0019: server default (None = auto-allow, backward compatibility)
     permissions: dict[str, list[str]] | None = None
-    # RFC-0019: per-tool （key=，None value = auto-allow）
+    # RFC-0019: per-tool (key=, None value = auto-allow)
     tool_permissions: dict[str, dict[str, list[str]] | None] | None = None
 
 
@@ -698,7 +695,7 @@ class MCPTool(Tool):
             # For stdio sessions, store the server config for recreation
             self._session_params = server_config
 
-        # CC : MCP  mcp__{server}__{tool}
+        # CC: MCP mcp__{server}__{tool}
         self._server_name = server_config.name if server_config else "unknown"
         self._raw_tool_name = mcp_tool.name
         prefixed_name = f"mcp__{self._server_name}__{mcp_tool.name}"
@@ -713,7 +710,7 @@ class MCPTool(Tool):
             source_id=server_config.source_id if server_config else None,
         )
 
-        # RFC-0019:  tool_permissions > server permissions > None (auto-allow)
+        # RFC-0019: tool_permissions > server permissions > None (auto-allow)
         resolved_perms: dict[str, list[str]] | None = None
         if server_config is not None:
             if server_config.tool_permissions is not None and self._raw_tool_name in server_config.tool_permissions:
@@ -722,8 +719,8 @@ class MCPTool(Tool):
                 resolved_perms = server_config.permissions
         self.permissions = resolved_perms
 
-        # MCPTool  async execute_async() （ await MCP RPC），
-        # executor  async  to_thread → _execute_sync → asyncio.run。
+        # MCPTool async execute_async ( await MCP RPC)
+        # executor async to_thread → _execute_sync → asyncio.run.
         self._has_native_async_execute = True
 
     async def _get_thread_local_session(self) -> Any:
@@ -953,9 +950,9 @@ class MCPTool(Tool):
 
         P1 async/sync : sync-only  + running-loop 
 
-         running event loop  sync （CLI、）。
+         running event loop  sync  (CLI, ) . 
         async executor  has_native_async_execute  MCPTool
-         await execute_async()，。
+         await execute_async(), . 
 
         Raises:
             RuntimeError:  async context 
@@ -963,7 +960,7 @@ class MCPTool(Tool):
         try:
             asyncio.get_running_loop()
         except RuntimeError:
-            pass  #  running loop —  sync 
+            pass  # running loop - sync
         else:
             raise RuntimeError(
                 "MCPTool._execute_sync() cannot be called from an async context. Use `await tool.execute_async(...)` instead."
@@ -972,7 +969,7 @@ class MCPTool(Tool):
 
     def execute(self, **kwargs: Any) -> dict[str, Any]:
         """Execute the MCP tool synchronously (for backward compatibility)."""
-        # RFC-0019: MCP permission check（AskPermission/PermissionDenied  Executor）
+        # RFC-0019: MCP permission check (AskPermission/PermissionDenied Executor)
         ctx: FrameworkContext | None = kwargs.get("ctx")
         if ctx is not None:
             check_mcp_permission(ctx, self._server_name, self._raw_tool_name)
@@ -992,10 +989,10 @@ class MCPTool(Tool):
 
         P1 async/sync :  _execute_sync  new_event_loop
 
-         _execute_async()， MCP RPC ，
+         _execute_async(),  MCP RPC, 
          _execute_sync  event loop 
-         loop session 。 execute() / _execute_sync()
-        backward compatibility sync 。
+         loop session .  execute() / _execute_sync()
+        backward compatibility sync . 
         """
         # RFC-0019: MCP permission check
         ctx: FrameworkContext | None = kwargs.get("ctx")
@@ -1014,7 +1011,7 @@ class MCPTool(Tool):
 
     async def _execute_async(self, **kwargs: Any) -> dict[str, Any]:
         """Execute the MCP tool asynchronously."""
-        # Filter out agent_state and global_storage parameters (same as execute())
+        # Filter out agent_state and global_storage parameters (same as execute)
         kwargs = {k: v for k, v in kwargs.items() if k not in ("agent_state", "global_storage")}
         try:
             # Create a thread-local session to avoid event loop conflicts
@@ -1615,16 +1612,16 @@ def sync_initialize_mcp_tools(server_configs: list[dict[str, Any]]) -> Sequence[
 
     P1 async/sync :  new_event_loop 
 
-     running event loop  sync （CLI、、ThreadPoolExecutor worker）
-     asyncio.run()。async  initialize_mcp_tools()。
+     running event loop  sync  (CLI,, ThreadPoolExecutor worker) 
+     asyncio.run(). async  initialize_mcp_tools(). 
 
     Raises:
-        RuntimeError:  async context （ await initialize_mcp_tools()）
+        RuntimeError:  async context  ( await initialize_mcp_tools()) 
     """
     try:
         asyncio.get_running_loop()
     except RuntimeError:
-        pass  # No running loop — expected for sync callers
+        pass  # No running loop - expected for sync callers
     else:
         raise RuntimeError(
             "sync_initialize_mcp_tools() cannot be called from an async context. Use `await initialize_mcp_tools(...)` instead."

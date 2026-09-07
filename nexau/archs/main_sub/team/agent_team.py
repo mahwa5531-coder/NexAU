@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -71,11 +68,11 @@ def _safe_deepcopy_config(config: AgentConfig) -> AgentConfig:
 
     RFC-0002:  AgentConfig
 
-    package pickle object（ tracer 、
-    middleware  OpenAI client  httpx  _thread.RLock、
-    hook package）， deepcopy 。
+    package pickle object ( tracer, 
+    middleware  OpenAI client  httpx  _thread.RLock, 
+    hook package),  deepcopy . 
     """
-    # 1.  pickle 
+    # 1. pickle
     saved = {
         "tracers": config.tracers,
         "resolved_tracer": config.resolved_tracer,
@@ -86,7 +83,7 @@ def _safe_deepcopy_config(config: AgentConfig) -> AgentConfig:
         "before_tool_hooks": config.before_tool_hooks,
     }
 
-    # 2.  pickle 
+    # 2. pickle
     config.tracers = []
     config.resolved_tracer = None
     config.middlewares = None
@@ -95,10 +92,10 @@ def _safe_deepcopy_config(config: AgentConfig) -> AgentConfig:
     config.before_model_hooks = None
     config.before_tool_hooks = None
 
-    # 3.  deepcopy
+    # 3. deepcopy
     copied = copy.deepcopy(config)
 
-    # 4.  config  config
+    # 4. config config
     for field, value in saved.items():
         setattr(config, field, value)
         setattr(copied, field, value)
@@ -150,13 +147,13 @@ class AgentTeam:
         self._role_counters: dict[str, int] = {}
         self._errored_agents: set[str] = set()  # agent_ids that exited with error
 
-        # Leader agent reference (set in run())
+        # Leader agent reference (set in run)
         self._leader_agent: Agent | None = None
 
-        # Main event loop reference (set in run(), used by spawn_teammate)
+        # Main event loop reference (set in run, used by spawn_teammate)
         self._loop: asyncio.AbstractEventLoop | None = None
 
-        # SSE multiplexer (set in run() when on_event is provided)
+        # SSE multiplexer (set in run when on_event is provided)
         self._multiplexer: TeamSSEMultiplexer | None = None
 
         # Run lifecycle tracking (for SSE reconnection support)
@@ -216,11 +213,10 @@ class AgentTeam:
 
         Idempotent: safe to call multiple times.
         """
-        # 
         if self._task_board is not None:
             return
 
-        # 1. 
+        # 1.
         await self._engine.setup_models(
             [
                 TeamModel,
@@ -231,7 +227,7 @@ class AgentTeam:
             ]
         )
 
-        # 2. 
+        # 2.
         self._team_id = f"team-{uuid4().hex[:8]}"
         self._leader_agent_id = "leader"
 
@@ -260,7 +256,7 @@ class AgentTeam:
             await self._engine.create(team)
             logger.info(f"Created team: {self._team_id}")
 
-        # 3. 
+        # 3.
         task_lock = TaskLockService(engine=self._engine)
         self._task_board = TaskBoard(
             engine=self._engine,
@@ -285,7 +281,7 @@ class AgentTeam:
             notify_leader=self.notify_leader,
         )
 
-        # 4.  teammate 
+        # 4. teammate
         existing_members = await self._engine.find_many(
             TeamMemberModel,
             filters=AndFilter(
@@ -322,15 +318,15 @@ class AgentTeam:
         if role_name not in self._candidates:
             raise ValueError(f"Unknown role: {role_name}")
 
-        # 1.  ID
+        # 1. ID
         count = self._role_counters.get(role_name, 0) + 1
         self._role_counters[role_name] = count
         agent_id = f"{role_name}-{count}"
 
-        # 2.  teammate  session_id
+        # 2. teammate session_id
         agent_session_id = f"{self._team_session_id}:{agent_id}"
 
-        # 3.  teammate （ session_id）
+        # 3. teammate ( session_id)
         member = TeamMemberModel(
             user_id=self._user_id,
             session_id=self._team_session_id,
@@ -342,11 +338,11 @@ class AgentTeam:
         )
         await self._engine.create(member)
 
-        # 4.  team  teammate system prompt（deepcopy  config）
-        # skills / middlewares object， teammate 
-        # candidate config， spawn。
+        # 4. team teammate system prompt (deepcopy config)
+        # skills / middlewares object, teammate
+        # candidate config, spawn.
         config = _safe_deepcopy_config(self._candidates[role_name])
-        # teammate tools  deepcopy  config（ candidate config）
+        # teammate tools deepcopy config ( candidate config)
         config.tools = list(config.tools) + get_teammate_tools()
         teammate_lines: list[str] = []
         for aid, a in self._teammate_agents.items():
@@ -368,19 +364,19 @@ class AgentTeam:
         else:
             config.system_prompt = team_context.lstrip()
 
-        # 5a.  SSE middleware（ multiplexer ）
+        # 5a. SSE middleware ( multiplexer )
         if self._multiplexer is not None:
             handler = self._multiplexer.create_event_handler(agent_id=agent_id, role_name=role_name)
             mw = AgentEventsMiddleware(session_id=agent_session_id, on_event=handler)
-            # list， candidate config  middlewares
-            # （_safe_deepcopy_config  pickle ）
+            # list, candidate config middlewares
+            # (_safe_deepcopy_config pickle )
             config.middlewares = [*(config.middlewares or []), mw]
             if config.llm_config:
                 config.llm_config.stream = True
 
-        # 6.  teammate Agent （ session， team_state）
-        # Agent.create() async factory  async context 
-        # sync Agent() （ running event loop  RuntimeError）。
+        # 6. teammate Agent ( session, team_state)
+        # Agent.create async factory async context
+        # sync Agent ( running event loop RuntimeError) .
         teammate_team_state = AgentTeamState(
             team=self,
             task_board=self.task_board,
@@ -400,9 +396,9 @@ class AgentTeam:
         )
         self._teammate_agents[agent_id] = agent
 
-        # 7.  teammate 
-        # spawn_teammate  async method，teammate 
-        # run_coroutine_threadsafe 。
+        # 7. teammate
+        # spawn_teammate async method, teammate
+        # run_coroutine_threadsafe .
         if self._loop is None:
             raise RuntimeError("AgentTeam._loop not set. Call run() first.")
         teammate_future = asyncio.run_coroutine_threadsafe(
@@ -424,11 +420,11 @@ class AgentTeam:
         """
         agent = self._teammate_agents.pop(agent_id, None)
 
-        # 1. Force-stop executor 
+        # 1. Force-stop executor
         if agent is not None:
             agent.executor.force_stop()
 
-        # 2. cancel Future 
+        # 2. cancel Future
         future = self._teammate_futures.pop(agent_id, None)
         if future is not None and not future.done():
             future.cancel()
@@ -437,7 +433,7 @@ class AgentTeam:
             except (Exception,):
                 pass
 
-        # 3.  DB 
+        # 3. DB
         member = await self._engine.find_first(
             TeamMemberModel,
             filters=AndFilter(
@@ -453,7 +449,7 @@ class AgentTeam:
             member.status = "stopped"
             await self._engine.update(member)
 
-        # 4.  watchdog 
+        # 4. watchdog
         if self._watchdog is not None:
             self._watchdog.unregister(agent_id)
 
@@ -464,17 +460,17 @@ class AgentTeam:
 
         RFC-0002:  Teammate list
 
-         executor.is_idle ， future.done()。
-        executor  team_mode  tool call  idle ，
-         future ， agent 。
+         executor.is_idle,  future.done(). 
+        executor  team_mode  tool call  idle, 
+         future,  agent . 
         """
         results: list[TeammateInfo] = []
         for agent_id, agent in self._teammate_agents.items():
             future = self._teammate_futures.get(agent_id)
-            # agent  → error
+            # agent → error
             if agent_id in self._errored_agents:
                 status = "error"
-            # future   executor  idle  → idle
+            # future executor idle → idle
             elif future is None or future.done() or agent.executor.is_idle:
                 status = "idle"
             else:
@@ -493,12 +489,12 @@ class AgentTeam:
 
         RFC-0002:  agent 
 
-         send_message_to_agent ，method role=user ，
-         stream  agent 。
+         send_message_to_agent, method role=user, 
+         stream  agent . 
         """
         msg = {"role": "user", "content": content}
 
-        # 1.  SSE 
+        # 1. SSE
         if self._multiplexer is not None:
             self._multiplexer.emit(
                 agent_id=to_agent_id,
@@ -506,7 +502,7 @@ class AgentTeam:
                 role_name="user",
             )
 
-        # 2.  agent
+        # 2. agent
         if to_agent_id == self._leader_agent_id:
             if self._leader_agent is not None:
                 self._leader_agent.enqueue_message(msg)
@@ -519,7 +515,7 @@ class AgentTeam:
                 agent.enqueue_message(msg)
                 logger.info(f"Enqueued user message to {to_agent_id}")
 
-                # RFC-0002:  teammate  executor （），
+                # RFC-0002: teammate executor
                 future = self._teammate_futures.get(to_agent_id)
                 if future is not None and future.done() and self._loop is not None:
                     logger.info(f"Restarting exited teammate for user message: {to_agent_id}")
@@ -541,17 +537,17 @@ class AgentTeam:
 
         RFC-0002:  teammate  leader 
 
-         executor.enqueue_message ，
-        executor  _message_available 。
+         executor.enqueue_message, 
+        executor  _message_available . 
         """
         enqueue_text = f"[Team Message from {from_agent_id}]: {content}"
         msg = {"role": "user", "content": enqueue_text}
 
-        # 0.  watchdog ， leader
+        # 0. watchdog, leader
         if from_agent_id != "watchdog" and self._watchdog is not None:
             self._watchdog.reset_idle_notification()
 
-        # 1.  SSE 
+        # 1. SSE
         if self._multiplexer is not None:
             self._multiplexer.emit(
                 agent_id=to_agent_id,
@@ -562,7 +558,7 @@ class AgentTeam:
                 ),
             )
 
-        # 2.  agent
+        # 2. agent
         if to_agent_id == self._leader_agent_id:
             if self._leader_agent is not None:
                 self._leader_agent.enqueue_message(msg)
@@ -575,7 +571,7 @@ class AgentTeam:
                 agent.enqueue_message(msg)
                 logger.info(f"Enqueued message to {to_agent_id} from {from_agent_id}")
 
-                # 3.  teammate  executor （idle timeout），
+                # 3. teammate executor (idle timeout)
                 future = self._teammate_futures.get(to_agent_id)
                 if future is not None and future.done() and self._loop is not None:
                     logger.info(f"Restarting exited teammate: {to_agent_id}")
@@ -592,7 +588,7 @@ class AgentTeam:
 
         RFC-0002:  leader agent
 
-        completed、idle ， enqueue_message  leader。
+        completed, idle,  enqueue_message  leader. 
         """
         self.send_message_to_agent(
             to_agent_id=self._leader_agent_id,
@@ -608,24 +604,24 @@ class AgentTeam:
         Returns True when leader and all teammates are in the executor's
         team_mode wait loop. Used by watchdog for deadlock detection.
 
-        Note: agents waiting for user response (ask_user) are excluded —
+        Note: agents waiting for user response (ask_user) are excluded -
         they are idle but not "stuck", so we should not wake the leader.
         """
-        # 1.  leader
+        # 1. leader
         if self._leader_agent is not None:
             if not self._leader_agent.executor.is_idle:
                 return False
-            # leader 
+            # leader
             if self._leader_agent.executor.is_waiting_for_user:
                 return False
         else:
-            return False  # leader ， all-idle
+            return False  # leader, all-idle
 
-        # 2.  teammate
+        # 2. teammate
         for agent in self._teammate_agents.values():
             if not agent.executor.is_idle:
                 return False
-            # ask_user  idle ，agent 
+            # ask_user idle, agent
             if agent.executor.is_waiting_for_user:
                 return False
 
@@ -636,14 +632,14 @@ class AgentTeam:
 
         RFC-0002:  Teammate Agent
 
-        Agent  executor  team_mode ，
-         force_stop() 。
+        Agent  executor  team_mode, 
+         force_stop() . 
         """
         agent = self._teammate_agents.get(agent_id)
         if agent is None:
             return
 
-        # DB  running， error 
+        # DB running, error
         await self._update_member_status(agent_id, "running")
         self._errored_agents.discard(agent_id)
 
@@ -652,14 +648,14 @@ class AgentTeam:
             self._watchdog.register(agent_id)
 
         try:
-            # RFC-0002: ，teammate  idle 
+            # RFC-0002: teammate idle
             await agent.run_async(message=[], variables=self._variables)
             logger.info(f"Teammate {agent_id} exited normally")
             await self._update_member_status(agent_id, "idle")
         except Exception as e:
             logger.error(f"Teammate {agent_id} exited with error: {e}")
             self._errored_agents.add(agent_id)
-            # 1.  SSE error stream 
+            # 1. SSE error stream
             if self._multiplexer is not None:
                 role_name = agent.config.name or agent_id
                 self._multiplexer.emit(
@@ -670,7 +666,7 @@ class AgentTeam:
                     ),
                     role_name=role_name,
                 )
-            # 2.  DB  error（ idle）
+            # 2. DB error ( idle)
             await self._update_member_status(agent_id, "error")
         finally:
             if self._watchdog is not None:
@@ -681,16 +677,16 @@ class AgentTeam:
 
         RFC-0002: running Teammate
 
-         teammate  executor， Future completed，
-        。DB （ idle），
-         run()  _restore_teammates() 。
+         teammate  executor,  Future completed, 
+        . DB  ( idle), 
+         run()  _restore_teammates() . 
         """
-        # 1. Force-stop  teammate executor
+        # 1. Force-stop teammate executor
         stopped_ids = list(self._teammate_agents.keys())
         for agent in self._teammate_agents.values():
             agent.executor.force_stop()
 
-        # 2.  Future completed（）
+        # 2. Future completed
         for future in self._teammate_futures.values():
             if not future.done():
                 try:
@@ -698,7 +694,7 @@ class AgentTeam:
                 except (TimeoutError, asyncio.CancelledError, Exception):
                     future.cancel()
 
-        # 3.  DB  idle， agent lock
+        # 3. DB idle, agent lock
         for agent_id in stopped_ids:
             await self._update_member_status(agent_id, "idle")
             teammate_session_id = f"{self._team_session_id}:{agent_id}"
@@ -707,7 +703,7 @@ class AgentTeam:
                 agent_id=agent_id,
             )
 
-        # 4. （DB ， run ）
+        # 4. (DB, run )
         self._teammate_agents.clear()
         self._teammate_futures.clear()
 
@@ -716,9 +712,9 @@ class AgentTeam:
 
         RFC-0002:  spawn  teammate
 
-         DB  stopped  teammate ，
-         Agent 。
-        Agent  session 。
+         DB  stopped  teammate, 
+         Agent . 
+        Agent  session . 
         """
         existing_members = await self._engine.find_many(
             TeamMemberModel,
@@ -746,9 +742,9 @@ class AgentTeam:
             agent_id = member.agent_id
             agent_session_id = member.member_session_id
 
-            # 1.  config  team （deepcopy  candidate config）
+            # 1. config team (deepcopy candidate config)
             config = _safe_deepcopy_config(self._candidates[role_name])
-            # teammate tools  deepcopy  config（ candidate config）
+            # teammate tools deepcopy config ( candidate config)
             config.tools = list(config.tools) + get_teammate_tools()
             team_context = (
                 "\n\n# Team Context\n\n"
@@ -762,18 +758,18 @@ class AgentTeam:
             else:
                 config.system_prompt = team_context.lstrip()
 
-            # 2.  SSE middleware（ multiplexer ）
+            # 2. SSE middleware ( multiplexer )
             if self._multiplexer is not None:
                 handler = self._multiplexer.create_event_handler(agent_id=agent_id, role_name=role_name)
                 mw = AgentEventsMiddleware(session_id=agent_session_id, on_event=handler)
-                # list， candidate config  middlewares
+                # list, candidate config middlewares
                 config.middlewares = [*(config.middlewares or []), mw]
                 if config.llm_config:
                     config.llm_config.stream = True
 
-            # 3.  Agent （session ）
-            # Agent.create() async factory  async context 
-            # sync Agent() （ running event loop  RuntimeError）。
+            # 3. Agent (session )
+            # Agent.create async factory async context
+            # sync Agent ( running event loop RuntimeError) .
             teammate_team_state = AgentTeamState(
                 team=self,
                 task_board=self.task_board,
@@ -793,7 +789,7 @@ class AgentTeam:
             )
             self._teammate_agents[agent_id] = agent
 
-            # 4. 
+            # 4.
             if self._loop is None:
                 raise RuntimeError("AgentTeam._loop not set. Call run() first.")
             teammate_future = asyncio.run_coroutine_threadsafe(
@@ -809,24 +805,24 @@ class AgentTeam:
 
         RFC-0002:  Team
 
-         Stop method， leader  teammate 。
-         leader  agent lock， run 。
+         Stop method,  leader  teammate . 
+         leader  agent lock,  run . 
         """
-        # 1.  leader
+        # 1. leader
         if self._leader_agent is not None:
             self._leader_agent.executor.force_stop()
 
-        # 2.  teammates
+        # 2. teammates
         await self.stop_all_teammates()
 
-        # 3.  leader lock（ run_async ）
+        # 3. leader lock ( run_async )
         leader_session_id = f"{self._team_session_id}:leader"
         await self._session_manager.agent_lock.force_release(
             session_id=leader_session_id,
             agent_id=self._leader_agent_id,
         )
 
-        # 4.  watchdog
+        # 4. watchdog
         if self._watchdog is not None:
             self._watchdog.stop()
 
@@ -860,17 +856,17 @@ class AgentTeam:
     ) -> str:
         """Run the team with the leader agent in forever-run mode.
 
-        RFC-0002: （）
+        RFC-0002:  () 
         RFC-0014: 
 
-        Leader agent  team_mode ， finish_team stop tool。
-        Teammate agents  spawn_teammate ，。
-         enqueue_message 。
+        Leader agent  team_mode,  finish_team stop tool. 
+        Teammate agents  spawn_teammate, . 
+         enqueue_message . 
 
-        SSE  self._multiplexer ：
-        -  self._multiplexer （ run_streaming() ），
-           leader  teammate  AgentEventsMiddleware。
-        -  self._multiplexer  None，middleware。
+        SSE  self._multiplexer: 
+        -  self._multiplexer  ( run_streaming() ), 
+           leader  teammate  AgentEventsMiddleware. 
+        -  self._multiplexer  None, middleware. 
 
         Args:
             message: User message to send to the leader.
@@ -884,29 +880,29 @@ class AgentTeam:
         Raises:
             RuntimeError: If team is already running (concurrent call protection).
         """
-        # RFC-0014:  run()， leader lock 
+        # RFC-0014: run, leader lock
         if self._is_running:
             raise RuntimeError("Team is already running. Use enqueue_user_message() for follow-up messages.")
 
         await self.initialize()
 
-        # ， spawn_teammate 
+        # , spawn_teammate
         self._loop = asyncio.get_running_loop()
         self._is_running = True
 
-        # variables， leader  spawn  teammate 
+        # variables, leader spawn teammate
         if variables is not None:
             self._variables = variables
 
-        # 1.  watchdog
+        # 1. watchdog
         watchdog_task: asyncio.Task[None] | None = None
         if self._watchdog is not None:
             watchdog_task = asyncio.create_task(self._watchdog.run())
 
         try:
-            # 2.  candidate  leader system prompt（deepcopy  config）
+            # 2. candidate leader system prompt (deepcopy config)
             leader_config = _safe_deepcopy_config(self._leader_config)
-            # team tools  deepcopy  leader config（ config）
+            # team tools deepcopy leader config ( config)
             leader_config.tools = list(leader_config.tools) + get_leader_tools()
             candidate_lines = [f"- `{name}`: {cfg.description or cfg.name or name}" for name, cfg in self._candidates.items()]
             team_context = (
@@ -926,22 +922,22 @@ class AgentTeam:
             else:
                 leader_config.system_prompt = team_context.lstrip()
 
-            # 3.  finish_team  stop tool
+            # 3. finish_team stop tool
             if leader_config.stop_tools is None:
                 leader_config.stop_tools = set()
             leader_config.stop_tools.add("finish_team")
 
-            # 3a.  SSE middleware（ multiplexer ）
+            # 3a. SSE middleware ( multiplexer )
             leader_session_id = f"{self._team_session_id}:leader"
             if self._multiplexer is not None:
                 leader_handler = self._multiplexer.create_event_handler(agent_id=self._leader_agent_id, role_name="leader")
                 leader_mw = AgentEventsMiddleware(session_id=leader_session_id, on_event=leader_handler)
-                # list， leader config  middlewares
+                # list, leader config middlewares
                 leader_config.middlewares = [*(leader_config.middlewares or []), leader_mw]
                 if leader_config.llm_config:
                     leader_config.llm_config.stream = True
 
-            # 4.  sandbox manager（ agent  sandbox ）
+            # 4. sandbox manager ( agent sandbox )
             if self._shared_sandbox_manager is None:
                 leader_sandbox_config = leader_config.sandbox_config
                 if leader_sandbox_config is None:
@@ -967,9 +963,9 @@ class AgentTeam:
                     sandbox_config=leader_sandbox_config,
                 )
 
-            # 5.  team_state  leader agent（ session）
-            # Agent.create() async factory  async context 
-            # sync Agent() （ running event loop  RuntimeError）。
+            # 5. team_state leader agent ( session)
+            # Agent.create async factory async context
+            # sync Agent ( running event loop RuntimeError) .
             leader_team_state = AgentTeamState(
                 team=self,
                 task_board=self.task_board,
@@ -987,14 +983,14 @@ class AgentTeam:
             )
             self._leader_agent = leader
 
-            # RFC-0002:  leader  executor  teammate ，
-            # teammate  nudge， _wait_for_messages。
+            # RFC-0002: leader executor teammate
+            # teammate nudge, _wait_for_messages.
             leader.executor.has_active_teammates = lambda: len(self._teammate_agents) > 0
 
-            # 5.  spawn  teammate（ DB ， Agent ）
+            # 5. spawn teammate ( DB, Agent )
             await self._restore_teammates()
 
-            # 6.  SSE 
+            # 6. SSE
             if self._multiplexer is not None:
                 self._multiplexer.emit(
                     agent_id=self._leader_agent_id,
@@ -1002,13 +998,13 @@ class AgentTeam:
                     role_name="user",
                 )
 
-            # 7. Leader  team_mode ， finish_team 
+            # 7. Leader team_mode, finish_team
             raw = await leader.run_async(message=message, variables=self._variables)
             result = raw[0] if isinstance(raw, tuple) else raw
 
             return result
         finally:
-            # 8.  watchdog， teammate 
+            # 8. watchdog, teammate
             if watchdog_task is not None:
                 watchdog_task.cancel()
                 try:
@@ -1016,10 +1012,10 @@ class AgentTeam:
                 except asyncio.CancelledError:
                     pass
 
-            # 9. Leader ， teammate
+            # 9. Leader, teammate
             await self.stop_all_teammates()
 
-            # 9a.  sandbox 
+            # 9a. sandbox
             if self._shared_sandbox_manager is not None:
                 self._shared_sandbox_manager.on_run_complete()
                 leader_sandbox_cfg = self._leader_config.sandbox_config
@@ -1029,12 +1025,12 @@ class AgentTeam:
                 elif status_after_run == "stop":
                     self._shared_sandbox_manager.stop()
 
-            # 10.  SSE multiplexer（）
+            # 10. SSE multiplexer
             if self._multiplexer is not None:
                 self._multiplexer.close()
                 self._multiplexer = None
 
-            # 11. ，completed（ SSE ）
+            # 11., completed ( SSE )
             self._is_running = False
             if self._on_run_complete is not None:
                 try:
@@ -1052,8 +1048,8 @@ class AgentTeam:
 
         RFC-0002: Team SSE 
 
-         TeamSSEMultiplexer， team，
-         async generator  TeamStreamEnvelope 。
+         TeamSSEMultiplexer,  team, 
+         async generator  TeamStreamEnvelope . 
 
         Args:
             message: User message to send to the leader.
@@ -1065,29 +1061,29 @@ class AgentTeam:
         Yields:
             TeamStreamEnvelope events from all agents.
         """
-        # 1.  team_id
+        # 1. team_id
         await self.initialize()
 
-        # 2.  multiplexer  self（run()  self._multiplexer）
+        # 2. multiplexer self (run self._multiplexer)
         multiplexer = TeamSSEMultiplexer(team_id=self._team_id, on_envelope=on_envelope)
         self._multiplexer = multiplexer
 
-        # 3.  team（run()  self._multiplexer middleware）
+        # 3. team (run self._multiplexer middleware)
         run_task: asyncio.Task[str] = asyncio.create_task(self.run(message, variables=variables))
 
         try:
-            # 4.  envelope 
+            # 4. envelope
             async for envelope in multiplexer.stream():
                 yield envelope
 
-            # 5.  run_task completed，exception
+            # 5. run_task completed, exception
             await run_task
         except Exception:
             multiplexer.close()
             raise
         finally:
-            # 6. SSE cancel run_task， team 
-            # on_envelope  EventStore，
-            # /team/subscribe 。
-            # run()  finally  multiplexer  on_run_complete。
+            # 6. SSE cancel run_task, team
+            # on_envelope EventStore
+            # /team/subscribe .
+            # run finally multiplexer on_run_complete.
             pass

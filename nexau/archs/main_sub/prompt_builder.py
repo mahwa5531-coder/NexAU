@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -180,7 +177,7 @@ class PromptBuilder:
                         )
                         parts.append(SystemPromptPart(text=text, cache=prompt_item.cache))
                     else:
-                        # Plain string in list — cached by default
+                        # Plain string in list - cached by default
                         text = self.prompt_handler.create_dynamic_prompt(
                             prompt_item,
                             agent_config,
@@ -193,7 +190,7 @@ class PromptBuilder:
                 self._append_suffix_and_nexau_md(parts, agent_config, runtime_context)
                 return parts
 
-            # Single string — cached by default
+            # Single string - cached by default
             text = self.prompt_handler.create_dynamic_prompt(
                 agent_config.system_prompt,
                 agent_config,

@@ -1,18 +1,16 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 
-"""rfc0019 — sessions.pending_tool_calls JSON column
+"""rfc0019 - sessions.pending_tool_calls JSON column
 
 RFC-0019 (PR #481) added a ``pending_tool_calls`` JSON field to
 ``SessionModel`` so the framework can persist held tool-call decisions
 across the user's allow/deny prompt. Fresh DBs pick this up via
 ``SQLModel.metadata.create_all``, but **legacy DBs whose ``sessions``
-table pre-dates #481 silently lack the column** — the SQL hint file
+table pre-dates #481 silently lack the column** - the SQL hint file
 ``nexau/archs/session/migrations/001_tool_permission.sql`` only carries
 a *comment* about a manual ``ALTER TABLE``; no Python code performs
 the ALTER. First call to ``session.pending_tool_calls`` then crashes
@@ -54,14 +52,14 @@ def _has_column(table_name: str, column_name: str) -> bool:
 
 def upgrade() -> None:
     # ``sessions`` may not exist if the deployer disabled session
-    # persistence entirely (in-memory only) — guard against that too.
+    # persistence entirely (in-memory only) - guard against that too.
     bind = op.get_bind()
     insp = inspect(bind)
     if "sessions" not in insp.get_table_names():
         return
 
     if not _has_column("sessions", "pending_tool_calls"):
-        # sa.JSON dispatches to JSONB on PG, JSON (TEXT-backed) on SQLite —
+        # sa.JSON dispatches to JSONB on PG, JSON (TEXT-backed) on SQLite -
         # matches the SQLModel field declaration in
         # ``nexau/archs/session/models/session.py``.
         op.add_column(

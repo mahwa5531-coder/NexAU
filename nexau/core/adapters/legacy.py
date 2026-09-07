@@ -185,7 +185,7 @@ def messages_from_legacy_openai_chat(messages: list[dict[str, Any]]) -> list[Mes
                 content_blocks.append(TextBlock(text=text))  # pyright: ignore[reportCallIssue]
 
         # Undo our historical Chat Completions image workaround:
-        #   {"role":"user","content":[{"type":"text","text":"Images returned by tool call X:"},{"type":"image_url",...},...]}
+        # {"role":"user","content":[{"type":"text","text":"Images returned by tool call X:"},{"type":"image_url",...},...]}
         # When we see that pattern, merge the images back into the preceding tool result block and drop this user message.
         if role == Role.USER and isinstance(content, list):
             first_text = next((b.text for b in content_blocks if isinstance(b, TextBlock) and b.text), None)
@@ -230,7 +230,7 @@ def messages_from_legacy_openai_chat(messages: list[dict[str, Any]]) -> list[Mes
         if "reasoning" in raw:
             metadata["reasoning"] = raw.get("reasoning")
         if "reasoning_details" in raw:
-            # OpenRouter wire format — preserved verbatim for unmodified echo-back.
+            # OpenRouter wire format - preserved verbatim for unmodified echo-back.
             metadata["reasoning_details"] = raw.get("reasoning_details")
         if "thought_signature" in raw:
             metadata["thought_signature"] = raw.get("thought_signature")

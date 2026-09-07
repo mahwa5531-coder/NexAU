@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -63,8 +60,8 @@ _CONTEXT_OVERFLOW_MARKERS = (
     "input token count",
     "token limit exceeded",
     "context_length_exceeded",
-    # OpenAI  overflow ,:
-    #   "The input (296915 tokens) is longer than the model's context length (262144 tokens)."
+    # OpenAI overflow,:
+    # "The input (296915 tokens) is longer than the model's context length (262144 tokens)."
     "longer than the model",
     "model's context length",
 )
@@ -107,7 +104,7 @@ class ContextCompactionMiddleware(Middleware):
         self._session_id: str | None = None
         self._global_storage: Any | None = None
 
-        # RFC-0021: history archive (lazy , )
+        # RFC-0021: history archive (lazy, )
         self._archive_writer: HistoryArchiveWriter | None = None
 
         # Tracer span state for in-flight compaction (one compaction at a time)
@@ -147,7 +144,7 @@ class ContextCompactionMiddleware(Middleware):
         self.summary_api_key = self.summary_llm_config_overrides.get("api_key")
         self.summary_api_type = self.summary_llm_config_overrides.get("api_type")
 
-        # RFC-0021:  (, hint , )
+        # RFC-0021: (, hint, )
         self.save_history = config.save_history
 
         # Create strategies from config
@@ -358,7 +355,7 @@ class ContextCompactionMiddleware(Middleware):
         original_message_count: int,
         original_token_count: int | None,
     ) -> None:
-        # 1.  tracer span（ event emitter）
+        # 1. tracer span ( event emitter)
         self._start_compaction_span(
             agent_state,
             phase,
@@ -368,7 +365,7 @@ class ContextCompactionMiddleware(Middleware):
             original_token_count,
         )
 
-        # 2. （ emitter ）
+        # 2. ( emitter )
         if self._event_emitter is None:
             return
         run_id = self._resolve_run_id(agent_state)
@@ -402,7 +399,7 @@ class ContextCompactionMiddleware(Middleware):
         error: str | None = None,
         fallback: bool = False,
     ) -> None:
-        # 1.  tracer span（ event emitter）
+        # 1. tracer span ( event emitter)
         self._end_compaction_span(
             phase,
             mode,
@@ -415,7 +412,7 @@ class ContextCompactionMiddleware(Middleware):
             error,
         )
 
-        # 2. （ emitter ）
+        # 2. ( emitter )
         if self._event_emitter is None:
             return
         run_id = self._resolve_run_id(agent_state)
@@ -454,7 +451,7 @@ class ContextCompactionMiddleware(Middleware):
         ContextCompactionMiddleware is the only writer that fires today; both
         regular (token-threshold trigger) and emergency (provider context
         overflow retry) paths use ``CompactAutoVariant`` since neither carries
-        user intent — emergency mode is differentiated via the ``strategy``
+        user intent - emergency mode is differentiated via the ``strategy``
         field set to the emergency strategy class name.
 
         ``CompactManualVariant`` / ``CompactFocusedVariant`` will be emitted by
@@ -462,7 +459,7 @@ class ContextCompactionMiddleware(Middleware):
         those wiring points don't exist in the codebase yet.
 
         Caller is responsible for delivering the variant via the
-        appropriate channel — both routes converge on ``ctx.history.replace``:
+        appropriate channel - both routes converge on ``ctx.history.replace``:
 
         - **before_model / after_model hooks** (regular path): set
           ``HookResult.replace_extra=variant`` on the returned HookResult.
@@ -625,7 +622,7 @@ class ContextCompactionMiddleware(Middleware):
             )
             raise
 
-        # RFC-0021: ，
+        # RFC-0021:
         after_tokens = self._estimate_tokens(compacted_messages)
         compacted_messages = self._maybe_archive_compaction(
             agent_state=hook_input.agent_state,
@@ -637,7 +634,7 @@ class ContextCompactionMiddleware(Middleware):
             strategy_name=self.compaction_strategy.name,
         )
 
-        # compaction strategy  hard truncation fallback
+        # compaction strategy hard truncation fallback
         compaction_used_fallback = getattr(self.compaction_strategy, "last_compact_used_fallback", False)
 
         self._compact_count += 1
@@ -686,7 +683,7 @@ class ContextCompactionMiddleware(Middleware):
         base_llm_config = cast(LLMConfig, params.llm_config)
         summary_llm_config, summary_client = self._resolve_summary_runtime(base_llm_config, params.openai_client)
 
-        # RFC-0009:  global_storage  Langfuse 
+        # RFC-0009: global_storage Langfuse
         gs = getattr(self, "_global_storage", None)
         if gs is None and params.agent_state is not None:
             gs = getattr(params.agent_state, "global_storage", None)
@@ -772,7 +769,7 @@ class ContextCompactionMiddleware(Middleware):
                 )
                 raise
 
-            # Stamp session_id on emergency summary messages for traceability,
+            # Stamp session_id on emergency summary messages for traceability
             # matching the behaviour of SlidingWindowCompaction (regular path).
             if self._session_id is not None:
                 for msg in compacted_messages:
@@ -782,7 +779,7 @@ class ContextCompactionMiddleware(Middleware):
 
             after_tokens = self._estimate_tokens(compacted_messages, params.tools)
 
-            # RFC-0021: （emergency strategy ）
+            # RFC-0021: (emergency strategy )
             emergency_strategy_name = self.emergency_compaction_strategy.name
             compacted_messages = self._maybe_archive_compaction(
                 agent_state=params.agent_state,
@@ -841,7 +838,7 @@ class ContextCompactionMiddleware(Middleware):
 
             # RFC-0026: emergency path can't return a HookResult (we're inside
             # the LLM-retry call chain, not a hook). Emit through the public
-            # FrameworkContext API — same canonical operation the executor
+            # FrameworkContext API - same canonical operation the executor
             # would route through, just invoked here because we know the WHY
             # right now. RPC-friendly: only Pydantic args cross the boundary.
             if params.framework_context is not None:
@@ -951,7 +948,7 @@ class ContextCompactionMiddleware(Middleware):
             raise
         compacted_tokens = self._estimate_tokens(compacted_messages)
 
-        # RFC-0021: ，
+        # RFC-0021:
         compacted_messages = self._maybe_archive_compaction(
             agent_state=hook_input.agent_state,
             messages_before=messages,
@@ -963,7 +960,7 @@ class ContextCompactionMiddleware(Middleware):
         )
         compacted_message_count = len(compacted_messages)
 
-        # compaction strategy  hard truncation fallback
+        # compaction strategy hard truncation fallback
         compaction_used_fallback = getattr(self.compaction_strategy, "last_compact_used_fallback", False)
 
         # Update statistics
@@ -1008,7 +1005,7 @@ class ContextCompactionMiddleware(Middleware):
         """Update the compaction strategy's global_storage from agent_state.
 
         RFC-0009:  global_storage  compaction strategy,
-         LLMCaller  Langfuse 。
+         LLMCaller  Langfuse . 
         """
         gs = self._global_storage
         if gs is None and agent_state is not None:
@@ -1016,18 +1013,18 @@ class ContextCompactionMiddleware(Middleware):
         if gs is None:
             return
 
-        # 1.  SlidingWindowCompaction  API 
+        # 1. SlidingWindowCompaction API
         strategy = self.compaction_strategy
-        configure_fn = getattr(strategy, "configure_llm_runtime", None)  # noqa: B009 — duck-typing
+        configure_fn = getattr(strategy, "configure_llm_runtime", None)  # noqa: B009 - duck-typing
         if callable(configure_fn):
-            # configure_llm_runtime  _global_storage  LLMCaller
+            # configure_llm_runtime _global_storage LLMCaller
             base_cfg = getattr(strategy, "_base_llm_config", None)  # noqa: B009
             base_client = getattr(strategy, "_base_openai_client", None)  # noqa: B009
             session_id = getattr(strategy, "_session_id", None)  # noqa: B009
             if base_cfg is not None:
                 configure_fn(base_cfg, base_client, session_id=session_id, global_storage=gs)
             else:
-                # Strategy not yet configured with an LLM config — just store gs directly
+                # Strategy not yet configured with an LLM config - just store gs directly
                 object.__setattr__(strategy, "_global_storage", gs)
 
     def _compact_messages(
@@ -1059,10 +1056,10 @@ class ContextCompactionMiddleware(Middleware):
         trigger_reason: str,
         strategy_name: str,
     ) -> list[Message]:
-        """RFC-0021:  before/after ， sandbox 。
+        """RFC-0021:  before/after,  sandbox . 
 
-        failure —— exception。
-        value： messages_after。
+        failure  --  exception. 
+        value:  messages_after. 
         """
         if not self.save_history or agent_state is None:
             return messages_after
@@ -1091,7 +1088,7 @@ class ContextCompactionMiddleware(Middleware):
         if meta is None:
             return messages_after
 
-        # RFC-0021:  hint,  agent  ("
+        # RFC-0021: hint, agent ("
         # agent")
         return self._inject_archive_hint(messages_after, meta)
 
@@ -1110,12 +1107,12 @@ class ContextCompactionMiddleware(Middleware):
         for msg in messages:
             md = msg.metadata or {}
             if md.get("isSummary") is True or md.get("is_compacted") is True:
-                # LLM provider  TextBlock ,
-                # separator ——  TextBlock 。
-                # hint  trace / prompt 。
+                # LLM provider TextBlock
+                # separator -- TextBlock .
+                # hint trace / prompt .
                 msg.content.append(TextBlock(text="\n\n" + hint))
                 return messages
-        # summary （ ToolResultCompaction ）： framework 
+        # summary ( ToolResultCompaction ): framework
         framework_msg = Message(
             role=Role.FRAMEWORK,
             content=[TextBlock(text=hint)],

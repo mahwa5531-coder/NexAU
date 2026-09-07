@@ -1,10 +1,8 @@
 # Permission rules model for tool permission management.
-#
-# RFC-0019: 
-#
-# permission_rules  allow/deny 。
-# Session  tool YAML configuration source=config ，
-# allow  source=user 。
+# RFC-0019:
+# permission_rules allow/deny .
+# Session tool YAML configuration source=config
+# allow source=user .
 
 from __future__ import annotations
 
@@ -19,7 +17,7 @@ class PermissionRuleModel(SQLModel, table=True):
     RFC-0019: permission_rules 
 
     key (user_id, session_id, tool_name, rule_content, behavior)
-     session  tool 。
+     session  tool . 
     """
 
     __tablename__ = "permission_rules"  # type: ignore[assignment]

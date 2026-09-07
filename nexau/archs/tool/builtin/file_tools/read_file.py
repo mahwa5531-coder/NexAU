@@ -23,7 +23,7 @@ DEFAULT_LINE_LIMIT = 800  # 800 lines per view (SWE-agent / Antigravity standard
 MAX_LINE_LENGTH = 1000  # Truncate lines longer than this with '... [truncated]'
 MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10MB
 
-# Total output budget — limits view window to 46KB (~11,500 tokens), preventing context bloat.
+# Total output budget - limits view window to 46KB (~11,500 tokens), preventing context bloat.
 MAX_TOTAL_OUTPUT_CHARS = 46_080
 
 # Audio extensions - returned as placeholder text (nexau has no AudioBlock)
@@ -117,7 +117,6 @@ def _head_truncate_lines(
     if total_chars <= max_chars:
         return lines, 0, 0
 
-    # ，
     head_count = 0
     head_chars = 0
     for line in lines:
@@ -127,7 +126,7 @@ def _head_truncate_lines(
         head_chars += cost
         head_count += 1
 
-    # 1 （ head_count  0）
+    # 1 ( head_count 0)
     if head_count == 0 and n > 0:
         head_count = 1
         head_chars = len(lines[0])
@@ -160,7 +159,7 @@ def _read_text_lossy(file_path: str, sandbox: BaseSandbox) -> str:
 
     Follows the same approach as OpenAI Codex (from_utf8_lossy): always read
     raw bytes and decode as UTF-8, replacing invalid byte sequences with U+FFFD.
-    This avoids unreliable chardet encoding detection — especially when the file
+    This avoids unreliable chardet encoding detection - especially when the file
     is large and the first 10KB sample contains only ASCII, causing chardet to
     misidentify the encoding as ascii or utf-7.
     """
@@ -367,7 +366,7 @@ def read_file(
                 "error": {"message": error_msg, "type": "BINARY_FILE"},
             }
 
-        # Read text file — always UTF-8 lossy, matching Codex's from_utf8_lossy approach
+        # Read text file - always UTF-8 lossy, matching Codex's from_utf8_lossy approach
         content_str = _read_text_lossy(resolved_path, sandbox)
         all_lines = content_str.splitlines()
         total_lines = len(all_lines)
@@ -389,14 +388,14 @@ def read_file(
             else:
                 formatted_lines.append(line)
 
-        # ④ Head-only truncation — cap total output chars to protect context window
+        # ④ Head-only truncation - cap total output chars to protect context window
         formatted_lines, omitted_count, omitted_chars = _head_truncate_lines(formatted_lines)
 
         # Check if more content exists beyond the selected range
         actual_end = min(end_line, total_lines)
         was_line_truncated = actual_end < total_lines
 
-        # Build numbered content — when trailing lines were omitted, only
+        # Build numbered content - when trailing lines were omitted, only
         # show the kept head portion with a truncation marker.
         if omitted_count > 0:
             kept_count = len(formatted_lines)

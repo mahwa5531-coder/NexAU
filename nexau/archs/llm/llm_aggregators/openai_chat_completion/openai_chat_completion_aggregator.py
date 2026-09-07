@@ -4,7 +4,7 @@ Aggregates OpenAI ``ChatCompletionChunk`` events into a complete
 ``ChatCompletion`` plus emits unified Event objects. Handles canonical
 OpenAI wire format plus extension fields used by OpenRouter / DeepSeek /
 Qwen / vLLM (``reasoning_content`` flat, ``reasoning_details`` structured,
-``reasoning`` flat — all routed through ``_extract_reasoning_delta``).
+``reasoning`` flat - all routed through ``_extract_reasoning_delta``).
 
 ⚠️ PARITY PROTOCOL: This module has a twin in
 ``nexau/archs/main_sub/execution/llm_caller.py``
@@ -17,7 +17,7 @@ or emission logic requires:
    provider extension), record a fixture via
    ``tests/aggregator_parity/scripts/record_fixture.py``.
 3. If parity surfaces a divergence, fix the buggy side rather than xfail
-   — real Set A↔Set B drift = real production bug.
+   - real Set A↔Set B drift = real production bug.
 
 See ``tests/aggregator_parity/README.md`` for the full protocol.
 """
@@ -157,8 +157,8 @@ class OpenAIChatCompletionAggregator(Aggregator[ChatCompletionChunk, ChatComplet
         Raises:
             RuntimeError: If no valid chunks were received
         """
-        # RFC-0023 § ② — emit per-call metadata BEFORE choice validation.
-        # If the stream only contained reasoning_content (DeepSeek + logprobs),
+        # RFC-0023 § ② - emit per-call metadata BEFORE choice validation.
+        # If the stream only contained reasoning_content (DeepSeek + logprobs)
         # _choice_aggregators may still be empty but the call did happen and
         # downstream consumers (parity tests, agent_events_middleware) need
         # the metadata. So fire the event first, then validate.
@@ -178,7 +178,7 @@ class OpenAIChatCompletionAggregator(Aggregator[ChatCompletionChunk, ChatComplet
         return self._value.model_copy(deep=True)
 
     def _emit_metadata_event(self) -> None:
-        """RFC-0023 § ② — emit ModelCallFinishedEvent once per call.
+        """RFC-0023 § ② - emit ModelCallFinishedEvent once per call.
 
         Token usage is owned by ``UsageUpdateEvent`` (canonical normalized form).
         """
@@ -269,14 +269,14 @@ class _ChoiceAggregator(Aggregator[ChatCompletionChunkChoice, ChatCompletionChoi
             logprobs=None,
         )
         self._started = False
-        # Thinking (reasoning_content) state — ， OpenAI-compatible 
+        # Thinking (reasoning_content) state -, OpenAI-compatible
         self._thinking_message_id: str | None = None
         self._thinking_started = False
         self._thinking_ended = False
-        # Retain reasoning text + details for build() (RFC-0023 § ③).
+        # Retain reasoning text + details for build (RFC-0023 § ③).
         # Two parallel wire formats from OpenAI-compatible providers:
-        #   - reasoning_content (str): DeepSeek / Qwen / vLLM
-        #   - reasoning_details (list[dict]): OpenRouter
+        # - reasoning_content (str): DeepSeek / Qwen / vLLM
+        # - reasoning_details (list[dict]): OpenRouter
         # Both are non-standard extensions of ChatCompletionMessage; we
         # attach them to the built message via the SDK's pydantic
         # ``model_extra`` (extra="allow" on the SDK's ConfiguredBaseModel).
@@ -314,13 +314,13 @@ class _ChoiceAggregator(Aggregator[ChatCompletionChunkChoice, ChatCompletionChoi
                 )
             )
 
-        # Reasoning content — （），DeepSeek/Qwen/vLLM  provider 
-        # OpenAI SDK  model_extra（ChoiceDelta configuration extra='allow'）
+        # Reasoning content -, DeepSeek/Qwen/vLLM provider
+        # OpenAI SDK model_extra (ChoiceDelta configuration extra='allow')
         self._aggregate_reasoning(delta)
 
         # Aggregate content
         if delta.content:
-            # ， thinking message
+            # , thinking message
             self._end_thinking_if_needed()
             self._value.message.content = (self._value.message.content or "") + delta.content
             # Emit TextMessageContentEvent
@@ -367,7 +367,7 @@ class _ChoiceAggregator(Aggregator[ChatCompletionChunkChoice, ChatCompletionChoi
 
         # Emit message end event when choice is complete
         if item.finish_reason is not None:
-            # provider  reasoning_content （）， thinking
+            # provider reasoning_content, thinking
             self._end_thinking_if_needed()
             # Ensure all tool calls have emitted their start+end events
             for aggregator in self._tool_call_aggregators.values():
@@ -387,7 +387,7 @@ class _ChoiceAggregator(Aggregator[ChatCompletionChunkChoice, ChatCompletionChoi
             The complete ChatCompletionChoice object
 
         Raises:
-            RuntimeError: If the stream produced absolutely nothing —
+            RuntimeError: If the stream produced absolutely nothing -
             no content, no refusal, no tool calls, no reasoning. That
             indicates the connection died before any payload arrived
             and the caller should fail loudly.
@@ -418,7 +418,7 @@ class _ChoiceAggregator(Aggregator[ChatCompletionChunkChoice, ChatCompletionChoi
         # Replace empty/None content with the canonical placeholder so the
         # built ChatCompletion is downstream-safe for serialization +
         # next-turn LLM calls. (Reasoning_content is attached separately
-        # below — kept for trace/audit, dropped by serializer whitelists.)
+        # below - kept for trace/audit, dropped by serializer whitelists.)
         if not self._value.message.content and self._value.message.refusal is None and not self._tool_call_aggregators:
             self._value.message.content = _EMPTY_CONTENT_PLACEHOLDER
 
@@ -465,9 +465,9 @@ class _ChoiceAggregator(Aggregator[ChatCompletionChunkChoice, ChatCompletionChoi
         Two independent wire formats may carry reasoning from an OpenAI-compatible provider
         (neither typed by the SDK):
 
-        - ``reasoning_content`` — DeepSeek / Qwen / vLLM: a single aggregated string
+        - ``reasoning_content`` - DeepSeek / Qwen / vLLM: a single aggregated string
           (may also arrive as ``list[{text: ...}]`` which we flatten).
-        - ``reasoning_details`` — OpenRouter: a list of structured blocks (``reasoning.text``,
+        - ``reasoning_details`` - OpenRouter: a list of structured blocks (``reasoning.text``,
           ``reasoning.summary``, ...) whose text may live under either ``text`` or ``summary``.
           This function only extracts the display text for UI streaming; the original
           structured list is preserved elsewhere for verbatim echo-back.
@@ -476,7 +476,7 @@ class _ChoiceAggregator(Aggregator[ChatCompletionChunkChoice, ChatCompletionChoi
         if not extra:
             return ""
         parts: list[str] = []
-        # ``reasoning`` (bare flat key, no ``_content`` suffix) — Step / a few
+        # ``reasoning`` (bare flat key, no ``_content`` suffix) - Step / a few
         # other OpenAI-compatible providers stream chain-of-thought under this
         # key. Distinct from DeepSeek's ``reasoning_content`` and OpenRouter's
         # structured ``reasoning_details``; all three coexist in the wild and
@@ -498,9 +498,9 @@ class _ChoiceAggregator(Aggregator[ChatCompletionChunkChoice, ChatCompletionChoi
 
     def _aggregate_reasoning(self, delta: ChoiceDelta) -> None:
         """Emit Thinking* events for reasoning_content deltas."""
-        # Retain raw reasoning fields for build() (RFC-0023 § ③).
+        # Retain raw reasoning fields for build (RFC-0023 § ③).
         extra = delta.model_extra or {}
-        # Bare ``reasoning`` (Step) — store under the same canonical
+        # Bare ``reasoning`` (Step) - store under the same canonical
         # ``reasoning_content`` slot on the built message. Downstream
         # consumers (UI, persistence, ModelResponse) only know about
         # ``reasoning_content``; we don't fork the schema per vendor.
@@ -530,7 +530,7 @@ class _ChoiceAggregator(Aggregator[ChatCompletionChunkChoice, ChatCompletionChoi
         if not reasoning_delta:
             return
         if self._thinking_ended:
-            # reasoning_content  provider exception，
+            # reasoning_content provider exception
             return
         if not self._thinking_started:
             self._thinking_started = True
@@ -605,7 +605,7 @@ class _ToolCallAggregator(Aggregator[ChoiceDeltaToolCall, ChatCompletionMessageT
         # Args deltas accumulated while waiting for tool name to arrive.
         # Some providers send id+arguments before name, in which case
         # emitting ToolCallArgsEvent immediately leaves downstream
-        # consumers (live UI) seeing arguments for an unknown tool —
+        # consumers (live UI) seeing arguments for an unknown tool -
         # they fall back to a placeholder name. We buffer these deltas
         # and flush them as a single ToolCallArgsEvent right after the
         # ToolCallStartEvent fires.
@@ -659,8 +659,8 @@ class _ToolCallAggregator(Aggregator[ChoiceDeltaToolCall, ChatCompletionMessageT
                         timestamp=int(datetime.now().timestamp() * 1000),
                     )
                 )
-                # args delta（ START  id+arguments
-                # chunk），"START → ARGS …"。
+                # args delta ( START id+arguments
+                # chunk), "START → ARGS ...".
                 if self._pending_args:
                     flushed = "".join(self._pending_args)
                     self._pending_args.clear()
@@ -678,7 +678,7 @@ class _ToolCallAggregator(Aggregator[ChoiceDeltaToolCall, ChatCompletionMessageT
             if fn.arguments:
                 self._value.function.arguments += fn.arguments
                 if self._started:
-                    # ：name ， ARGS。
+                    # : name, ARGS.
                     self._on_event(
                         ToolCallArgsEvent(
                             tool_call_id=self._value.id,
@@ -687,10 +687,10 @@ class _ToolCallAggregator(Aggregator[ChoiceDeltaToolCall, ChatCompletionMessageT
                         )
                     )
                 else:
-                    # name （ provider  name  chunk）。
-                    # delta， START  flush。
+                    # name ( provider name chunk) .
+                    # delta, START flush.
                     self._pending_args.append(fn.arguments)
-                # Update JSON state regardless — tracks bracket-balanced JSON
+                # Update JSON state regardless - tracks bracket-balanced JSON
                 # against the accumulated `_value.function.arguments`.
                 self._update_json_state()
 
@@ -730,7 +730,7 @@ class _ToolCallAggregator(Aggregator[ChoiceDeltaToolCall, ChatCompletionMessageT
                     timestamp=int(datetime.now().timestamp() * 1000),
                 )
             )
-            # args ；START 。
+            # args ; START .
             if self._pending_args:
                 flushed = "".join(self._pending_args)
                 self._pending_args.clear()

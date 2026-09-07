@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -50,7 +47,7 @@ def _noop_event_handler(_: Event) -> None:
 class AgentEventsMiddleware(Middleware):
     """Middleware that surfaces aggregator events to the user's callback.
 
-    RFC-0023 § ③ end state — Set A aggregators now live inside
+    RFC-0023 § ③ end state - Set A aggregators now live inside
     ``llm_caller`` (one instance per stream call); they pull this
     middleware's ``on_event`` via ``Middleware.get_event_handler`` and
     drive emission directly. This middleware no longer instantiates or

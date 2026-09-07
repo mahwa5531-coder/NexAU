@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -67,8 +64,8 @@ class SessionManager:
             lock_ttl: Lock time-to-live in seconds (default: 30s)
             heartbeat_interval: Heartbeat interval in seconds (default: 10s)
         """
-        # package engine  DB  owner event loop ，
-        # worker  loop  loop-bound  async DB 
+        # package engine DB owner event loop
+        # worker loop loop-bound async DB
         safe_engine: DatabaseEngine = LoopSafeDatabaseEngine(engine)
         self._engine: DatabaseEngine = safe_engine
         self._agent_service = AgentService(engine=safe_engine)
@@ -173,7 +170,7 @@ class SessionManager:
         # Determine the agent_id to use
         agent_id_to_use = agent_id
 
-        # Root agent reuse logic: if no agent_id provided and this is root agent,
+        # Root agent reuse logic: if no agent_id provided and this is root agent
         # try to reuse existing root_agent_id from session
         if agent_id_to_use is None and is_root and session.root_agent_id is not None:
             agent_id_to_use = session.root_agent_id
@@ -416,9 +413,9 @@ class SessionManager:
 
         RFC-0019: Session 
 
-         agent  tool list， YAML  permissions 
-        allow/deny  source=config 。
-         permissions  tool 。
+         agent  tool list,  YAML  permissions 
+        allow/deny  source=config . 
+         permissions  tool . 
         """
         for tool in tools:
             permissions = getattr(tool, "permissions", None)
@@ -469,7 +466,7 @@ class SessionManager:
 
         RFC-0019: / Ask 
 
-        Set to None to clear (resume )。
+        Set to None to clear (resume ). 
         """
         session = await self._get_or_create_session(user_id=user_id, session_id=session_id)
         session.pending_tool_calls = pending_tool_calls

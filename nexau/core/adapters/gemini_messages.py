@@ -2,8 +2,8 @@
 
 RFC-0006: Gemini  structured adapter 
 
-Gemini  ``contents`` / ``systemInstruction``，
- structured tool calling  OpenAI 。
+Gemini  ``contents`` / ``systemInstruction``, 
+ structured tool calling  OpenAI . 
 """
 
 from __future__ import annotations
@@ -20,8 +20,8 @@ class GeminiMessagesAdapter(LLMAdapter):
 
     RFC-0006: Gemini 
 
-     UMP Message list， Gemini REST 
-    ``contents`` / ``systemInstruction`` ， OpenAI message 。
+     UMP Message list,  Gemini REST 
+    ``contents`` / ``systemInstruction``,  OpenAI message . 
     """
 
     def to_vendor_format(self, messages: list[Message]) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:

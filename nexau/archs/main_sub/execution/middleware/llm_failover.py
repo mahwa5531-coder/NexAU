@@ -1,30 +1,22 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
 # LLM failover middleware.
-#
 # RFC-0003: LLM middleware
-#
-# LLM provider failure， provider retry。
-# middleware ， LLMCaller 。
-#
-# # 
-#
-# 1. wrap_model_call  LLM 
-# 2.  provider failure， status_code / exception type
-# 3.  LLMConfig + Client， modified params
-# 4.  fallback_providers 
+# LLM provider failure, provider retry.
+# middleware, LLMCaller .
+# 1. wrap_model_call LLM
+# 2. provider failure, status_code / exception type
+# 3. LLMConfig + Client, modified params
+# 4. fallback_providers
 
 from __future__ import annotations
 
@@ -56,9 +48,9 @@ class FailoverTrigger:
     RFC-0003: configuration
     """
 
-    # 1.  HTTP status codes（ 500, 502, 503, 529）
+    # 1. HTTP status codes ( 500, 502, 503, 529)
     status_codes: list[int] = field(default_factory=lambda: [500, 502, 503])
-    # 2. exceptionclass（ "RateLimitError", "InternalServerError"）
+    # 2. exceptionclass ( "RateLimitError", "InternalServerError")
     exception_types: list[str] = field(default_factory=lambda: list[str]())
 
 
@@ -70,7 +62,7 @@ class FallbackProvider:
     """
 
     name: str
-    # llm_config  LLMConfig 
+    # llm_config LLMConfig
     llm_config: dict[str, str | int | float | bool] = field(default_factory=lambda: dict[str, str | int | float | bool]())
 
 
@@ -80,8 +72,8 @@ class CircuitBreakerConfig:
 
     RFC-0003: configuration
 
-     provider failure failure_threshold ， recovery_timeout_seconds
-     provider， fallback。
+     provider failure failure_threshold,  recovery_timeout_seconds
+     provider,  fallback. 
     """
 
     failure_threshold: int = 3
@@ -100,7 +92,7 @@ class _CircuitBreaker:
 
     : CLOSED → OPEN → HALF_OPEN → CLOSED
     - CLOSED:  provider
-    - OPEN: failurevalue， provider
+    - OPEN: failurevalue,  provider
     - HALF_OPEN: recovery_timeout 
     """
 
@@ -116,7 +108,7 @@ class _CircuitBreaker:
             return False
         elapsed = time.monotonic() - self._opened_at
         if elapsed >= self._recovery_timeout:
-            # HALF_OPEN: 
+            # HALF_OPEN:
             return False
         return True
 
@@ -142,9 +134,9 @@ def _extract_status_code(exc: Exception) -> int | None:
 
     RFC-0003:  SDK exception HTTP 
 
-     openai.APIStatusError.status_code  anthropic.APIStatusError.status_code。
+     openai.APIStatusError.status_code  anthropic.APIStatusError.status_code. 
     """
-    # openai >= 1.x  anthropic >= 0.18  status_code property
+    # openai >= 1.x anthropic >= 0.18 status_code property
     if isinstance(exc, openai.APIStatusError):
         return exc.status_code
     if isinstance(exc, anthropic.APIStatusError):
@@ -173,8 +165,8 @@ class LLMFailoverMiddleware(Middleware):
 
     RFC-0003: LLM middleware
 
-     provider failure， provider。
-     wrap_model_call ， LLMCaller 。
+     provider failure,  provider. 
+     wrap_model_call,  LLMCaller . 
 
     YAML configuration::
 
@@ -207,7 +199,7 @@ class LLMFailoverMiddleware(Middleware):
         trigger: dict[str, list[int] | list[str]] | None = None,
         circuit_breaker: dict[str, int | float] | None = None,
     ) -> None:
-        # 1. 
+        # 1.
         trigger_dict = trigger or {}
         raw_codes = trigger_dict.get("status_codes", [500, 502, 503])
         raw_exc_types = trigger_dict.get("exception_types", [])
@@ -216,7 +208,7 @@ class LLMFailoverMiddleware(Middleware):
             exception_types=[str(t) for t in raw_exc_types],
         )
 
-        # 2.  fallback providers
+        # 2. fallback providers
         self._fallback_providers: list[FallbackProvider] = []
         for entry in fallback_providers:
             name = str(entry.get("name", f"fallback-{len(self._fallback_providers)}"))
@@ -224,7 +216,7 @@ class LLMFailoverMiddleware(Middleware):
             llm_dict = dict(raw_llm) if isinstance(raw_llm, dict) else {}
             self._fallback_providers.append(FallbackProvider(name=name, llm_config=llm_dict))
 
-        # 3. 
+        # 3.
         self._circuit_breaker: _CircuitBreaker | None = None
         if circuit_breaker is not None:
             cb_cfg = CircuitBreakerConfig(
@@ -240,15 +232,15 @@ class LLMFailoverMiddleware(Middleware):
     def wrap_model_call(self, params: ModelCallParams, call_next: ModelCallFn) -> ModelResponse | None:
         """Intercept LLM calls and failover on matching errors.
 
-        RFC-0003:  LLM ，error
+        RFC-0003:  LLM, error
 
         :
-        1. ， provider
+        1.,  provider
         2.  provider
         3. failure →  fallback providers
         4.  provider failure → exception
         """
-        # 1.  provider（）
+        # 1. provider
         skip_primary = self._circuit_breaker is not None and self._circuit_breaker.should_skip_primary()
 
         last_exc: Exception | None = None
@@ -270,7 +262,7 @@ class LLMFailoverMiddleware(Middleware):
                     type(exc).__name__,
                 )
 
-        # 2.  fallback providers
+        # 2. fallback providers
         for i, provider in enumerate(self._fallback_providers):
             try:
                 fallback_params = self._apply_fallback(params, provider)
@@ -292,7 +284,6 @@ class LLMFailoverMiddleware(Middleware):
                     type(exc).__name__,
                 )
 
-        # ，
         if last_exc is not None:
             raise last_exc
         raise RuntimeError("LLM failover: Primary provider was skipped and no fallback providers were available.")
@@ -306,7 +297,7 @@ class LLMFailoverMiddleware(Middleware):
 
         RFC-0003: exception
 
-        （OR）：
+         (OR): 
         - status_code  trigger.status_codes 
         - exceptionclass trigger.exception_types 
         """
@@ -327,33 +318,33 @@ class LLMFailoverMiddleware(Middleware):
 
         RFC-0003:  provider  params
 
-         params， llm_config  client。
-         fallback  provider。
+         params,  llm_config  client. 
+         fallback  provider. 
         """
-        # 1.  config 
+        # 1. config
         original_config = params.llm_config
         if isinstance(original_config, LLMConfig):
             new_config = original_config.copy()
         else:
             new_config = LLMConfig()
 
-        # 2.  fallback 
+        # 2. fallback
         for key, value in provider.llm_config.items():
             new_config.set_param(key, value)
 
-        # 3.  client
+        # 3. client
         new_client = _build_client_for_config(new_config)
 
-        # 4.  api_params
+        # 4. api_params
         new_api_params = new_config.to_openai_params()
-        # params  config （ tools, stop ）
+        # params config ( tools, stop )
         for key in ("tools", "tool_choice", "stop"):
             if key in params.api_params and key not in new_api_params:
                 new_api_params[key] = params.api_params[key]
         if params.max_tokens is not None:
             new_api_params["max_tokens"] = params.max_tokens
 
-        # 5.  params（，）
+        # 5. params (, )
         new_params = copy.copy(params)
         new_params.llm_config = new_config
         new_params.openai_client = new_client

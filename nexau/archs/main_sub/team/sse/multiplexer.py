@@ -1,13 +1,10 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
+# http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -50,10 +47,10 @@ class TeamSSEMultiplexer:
 
     RFC-0002:  Agent event aggregator
 
-     agent  create_event_handler ，
-     asyncio.Queue， stream() 。
+     agent  create_event_handler, 
+     asyncio.Queue,  stream() . 
 
-     ``_put`` 。
+     ``_put`` . 
     """
 
     def __init__(
@@ -66,26 +63,24 @@ class TeamSSEMultiplexer:
         self._queue: asyncio.Queue[TeamStreamEnvelope | None] = asyncio.Queue()
         self._on_envelope = on_envelope
 
-        # ，
         try:
             self._loop: asyncio.AbstractEventLoop | None = asyncio.get_running_loop()
         except RuntimeError:
             self._loop = None
 
     # ------------------------------------------------------------------
-    # 
     # ------------------------------------------------------------------
 
     def _put(self, item: TeamStreamEnvelope | None) -> None:
         """Thread-safe put into the async queue.
 
-        （ ThreadPoolExecutor  tool
-         asyncio.run() ）， call_soon_threadsafe 。
-         owner loop ， put_nowait（）。
+         ( ThreadPoolExecutor  tool
+         asyncio.run() ),  call_soon_threadsafe . 
+         owner loop,  put_nowait () . 
         """
         loop = self._loop
         if loop is None or loop.is_closed():
-            # owner loop  loop  — （）
+            # owner loop loop -
             self._queue.put_nowait(item)
             return
 
@@ -95,14 +90,12 @@ class TeamSSEMultiplexer:
             running = None
 
         if running is loop:
-            # ，
             self._queue.put_nowait(item)
         else:
-            # ，
             try:
                 loop.call_soon_threadsafe(self._queue.put_nowait, item)
             except RuntimeError:
-                # loop ，
+                # loop
                 logger.warning("TeamSSEMultiplexer: owner loop closed during _put, using fallback")
                 self._queue.put_nowait(item)
 
@@ -113,7 +106,7 @@ class TeamSSEMultiplexer:
 
         RFC-0002:  agent 
 
-        functionpackage TeamStreamEnvelope 。
+        functionpackage TeamStreamEnvelope . 
         """
 
         def handler(event: Event) -> None:
@@ -132,7 +125,7 @@ class TeamSSEMultiplexer:
     def emit(self, agent_id: str, event: Event, *, role_name: str | None = None) -> None:
         """Emit a custom event to the SSE stream.
 
-        RFC-0002:  SSE （、Agent ）
+        RFC-0002:  SSE  (, Agent ) 
         """
         envelope = TeamStreamEnvelope(
             team_id=self._team_id,
@@ -149,7 +142,7 @@ class TeamSSEMultiplexer:
 
         RFC-0002:  agent 
 
-         None value。
+         None value. 
         """
         while True:
             envelope = await self._queue.get()
@@ -162,7 +155,7 @@ class TeamSSEMultiplexer:
 
         RFC-0002: 
 
-         None value， stream() 。
-        close() ， put_nowait。
+         None value,  stream() . 
+        close(),  put_nowait. 
         """
         self._put(None)

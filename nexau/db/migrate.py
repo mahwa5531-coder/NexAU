@@ -1,14 +1,12 @@
 # Copyright (c) Nex-AGI. All rights reserved.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 
 """Programmatic alembic driver for nexau session DB schema (RFC-0022).
 
-nexau is a *library*, not a service — users `pip install nexau` and call
+nexau is a *library*, not a service - users `pip install nexau` and call
 ``Agent(...).run(...)``; they don't run separate CLI migration commands.
 This module wraps alembic so schema migrations apply transparently inside
 ``setup_models``.
@@ -17,7 +15,7 @@ Key responsibilities:
 - Locate the bundled ``migrations/`` directory (works for editable installs
   AND wheels via ``importlib.resources.files``).
 - Provide a programmatic ``upgrade_to_head`` that synchronously applies all
-  pending migrations against a given ``DATABASE_URL`` (sync URL — alembic
+  pending migrations against a given ``DATABASE_URL`` (sync URL - alembic
   runs migrations on a sync connection even when the application uses
   async).
 - Detect a *legacy* database (existing tables but no ``alembic_version``
@@ -25,9 +23,9 @@ Key responsibilities:
   behave the same as on a fresh DB.
 
 Environment overrides:
-- ``NEXAU_AUTO_MIGRATE=off`` — caller must run migrations explicitly,
+- ``NEXAU_AUTO_MIGRATE=off`` - caller must run migrations explicitly,
   ``setup_models`` only checks the DB is at head and fails fast otherwise.
-- ``NEXAU_AUTO_MIGRATE=auto`` (default) — apply pending migrations on
+- ``NEXAU_AUTO_MIGRATE=auto`` (default) - apply pending migrations on
   ``setup_models``.
 """
 
@@ -65,7 +63,7 @@ def _migrations_dir() -> Path:
 def _build_config(database_url: str) -> Config:
     """Build an alembic Config object pointing at the packaged migrations.
 
-    We don't use ``alembic.ini`` on disk — alembic supports configuring
+    We don't use ``alembic.ini`` on disk - alembic supports configuring
     via API. Saves users the discovery cost of "where did this config
     file come from" when debugging.
     """
@@ -87,7 +85,7 @@ def _to_sync_url(database_url: str) -> str:
 
     nexau's ``SQLDatabaseEngine`` uses ``sqlite+aiosqlite`` /
     ``postgresql+asyncpg``. alembic's migration runner needs a sync URL.
-    The mapping is simple — just drop the async driver suffix.
+    The mapping is simple - just drop the async driver suffix.
     """
     replacements = {
         "sqlite+aiosqlite://": "sqlite://",
@@ -108,7 +106,6 @@ def _to_sync_url(database_url: str) -> str:
 
 # Maps a recognizable schema fingerprint to the revision id that schema
 # corresponds to. Order matters: more-specific fingerprints first.
-#
 # These ids are the long-form alembic revision hashes from
 # ``migrations/versions/*.py``. Keep this list aligned with new revisions
 # whenever a migration adds a fingerprint-detectable column.
@@ -131,7 +128,7 @@ def _detect_baseline_revision(conn: Connection) -> str | None:
     if not tables:
         return None
 
-    # If alembic_version already exists, nothing to detect — caller path
+    # If alembic_version already exists, nothing to detect - caller path
     # uses the recorded revision.
     if "alembic_version" in tables:
         return None  # caller skips stamp + lets alembic upgrade from there
@@ -144,7 +141,7 @@ def _detect_baseline_revision(conn: Connection) -> str | None:
         # 2. agent_run_actions exists without those cols → pre-Phase-1, at 0001.
         return "0001"
 
-    # 3. Some other tables present but no agent_run_actions — caller path
+    # 3. Some other tables present but no agent_run_actions - caller path
     # may be a non-nexau schema or a fresh DB with other models registered;
     # safest is to start from scratch (run all migrations).
     return None
@@ -175,9 +172,9 @@ def upgrade_to_head(database_url: str) -> None:
     upgrading, so the migration is idempotent and safe to re-run.
 
     Honored env vars:
-      ``NEXAU_AUTO_MIGRATE=off``   — skip the upgrade; only verify DB is
+      ``NEXAU_AUTO_MIGRATE=off``   - skip the upgrade; only verify DB is
                                      at head, fail loud otherwise.
-      ``NEXAU_AUTO_MIGRATE=auto``  — (default) stamp baseline if needed,
+      ``NEXAU_AUTO_MIGRATE=auto``  - (default) stamp baseline if needed,
                                      run upgrade head.
     """
     mode = os.environ.get("NEXAU_AUTO_MIGRATE", "auto").lower()
@@ -185,7 +182,7 @@ def upgrade_to_head(database_url: str) -> None:
         _verify_at_head_or_fail(database_url)
         return
 
-    # ``:memory:`` SQLite DBs are scoped to a single connection — alembic
+    # ``:memory:`` SQLite DBs are scoped to a single connection - alembic
     # opens its own sync connection separate from the application's async
     # one, so it would see an empty DB and fail to ALTER non-existent
     # tables. ``setup_models``'s ``create_all`` already lays down the head
@@ -205,13 +202,13 @@ def upgrade_to_head(database_url: str) -> None:
             ctx = MigrationContext.configure(conn)
             current = ctx.get_current_revision()
 
-            # 1. Already at head — nothing to do.
+            # 1. Already at head - nothing to do.
             if current == head_rev:
                 logger.debug("nexau db at head revision %s, no migration", head_rev)
                 return
 
-            # 2. No alembic_version row — either fresh DB or legacy nexau DB.
-            #    Detect which by looking at table fingerprints.
+            # 2. No alembic_version row - either fresh DB or legacy nexau DB.
+            # Detect which by looking at table fingerprints.
             if current is None:
                 baseline = _detect_baseline_revision(conn)
                 if baseline is not None:
