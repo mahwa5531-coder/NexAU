@@ -1772,6 +1772,20 @@ def call_llm_with_openai_chat_completion(
             if typed_msg.get("role") == "assistant" and typed_msg.get("content") == "" and typed_msg.get("tool_calls"):
                 del typed_msg["content"]
     kwargs["messages"] = messages
+    extra_params = kwargs.pop("extra_params", None)
+    if extra_params and isinstance(extra_params, dict):
+        existing_extra_body = dict(kwargs.get("extra_body") or {})
+        existing_extra_body.update(extra_params)
+        kwargs["extra_body"] = existing_extra_body
+    if "reasoning" in kwargs:
+        existing_extra_body = dict(kwargs.get("extra_body") or {})
+        existing_extra_body["reasoning"] = kwargs.pop("reasoning")
+        kwargs["extra_body"] = existing_extra_body
+    kwargs.pop("thinkingConfig", None)
+    if "extra_body" in kwargs and isinstance(kwargs["extra_body"], dict):
+        r = kwargs["extra_body"].get("reasoning")
+        if isinstance(r, dict) and "effort" in r and "max_tokens" in r:
+            r.pop("max_tokens", None)
     stream_requested = bool(kwargs.pop("stream", False) or getattr(llm_config, "stream", False))
 
     # Check if tracing is active (there's a current span and we have a tracer)
@@ -2108,6 +2122,15 @@ async def call_llm_with_openai_chat_completion_async(
         existing_extra_body = dict(kwargs.get("extra_body") or {})
         existing_extra_body.update(extra_params)
         kwargs["extra_body"] = existing_extra_body
+    if "reasoning" in kwargs:
+        existing_extra_body = dict(kwargs.get("extra_body") or {})
+        existing_extra_body["reasoning"] = kwargs.pop("reasoning")
+        kwargs["extra_body"] = existing_extra_body
+    kwargs.pop("thinkingConfig", None)
+    if "extra_body" in kwargs and isinstance(kwargs["extra_body"], dict):
+        r = kwargs["extra_body"].get("reasoning")
+        if isinstance(r, dict) and "effort" in r and "max_tokens" in r:
+            r.pop("max_tokens", None)
     stream_requested = bool(kwargs.pop("stream", False) or getattr(llm_config, "stream", False))
 
     should_trace = tracer is not None and get_current_span() is not None
