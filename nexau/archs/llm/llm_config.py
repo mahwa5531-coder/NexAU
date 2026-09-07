@@ -22,9 +22,9 @@ from typing import Any
 class LLMConfig:
     """Configuration class for LLM-related parameters."""
 
-    # 默认流式 idle 超时 5 分钟（与 Codex stream_idle_timeout 一致）
+    # default idle timeout 5 （ Codex stream_idle_timeout ）
     DEFAULT_STREAM_IDLE_TIMEOUT_MS: int = 300_000
-    # 默认连接超时 15 秒（与 Codex websocket_connect_timeout 一致）
+    # defaulttimeout 15 （ Codex websocket_connect_timeout ）
     DEFAULT_CONNECT_TIMEOUT_MS: int = 15_000
 
     def __init__(
@@ -46,6 +46,7 @@ class LLMConfig:
         cache_control_ttl: str | None = None,
         tokenizer_path: str | None = None,
         stream_idle_timeout_ms: int | None = None,
+        stream_idle_timeout: float | None = None,
         connect_timeout_ms: int | None = None,
         tool_streaming: bool = True,
         allow_unsigned_thinking: bool = False,
@@ -68,8 +69,8 @@ class LLMConfig:
             debug: Enable debug logging of LLM messages
             stream: Enable streaming responses when supported by backend
             api_type: API type
-            tokenizer_path: HuggingFace tokenizer 路径或模型名称，如 "meta-llama/Llama-3.1-8B-Instruct"。
-                仅在 api_type="generate_with_token" 时生效，通过 AutoTokenizer.from_pretrained 加载。
+            tokenizer_path: HuggingFace tokenizer ， "meta-llama/Llama-3.1-8B-Instruct"。
+                 api_type="generate_with_token" ， AutoTokenizer.from_pretrained 。
             stream_idle_timeout_ms: Per-chunk idle timeout in ms for streaming responses.
                 If no chunk arrives within this duration, the stream is aborted.
                 None → DEFAULT_STREAM_IDLE_TIMEOUT_MS (300_000ms = 5 min).
@@ -102,12 +103,15 @@ class LLMConfig:
         self.api_type = api_type
         self.cache_control_ttl = cache_control_ttl
         self.tokenizer_path: str | None = tokenizer_path
-        self.stream_idle_timeout_ms: int | None = stream_idle_timeout_ms
+        if stream_idle_timeout is not None and stream_idle_timeout_ms is None:
+            self.stream_idle_timeout_ms = int(stream_idle_timeout * 1000)
+        else:
+            self.stream_idle_timeout_ms = stream_idle_timeout_ms
         self.connect_timeout_ms: int | None = connect_timeout_ms
         self.tool_streaming = tool_streaming
         self.allow_unsigned_thinking = allow_unsigned_thinking
 
-        # tool_streaming 仅适用于 Anthropic
+        # tool_streaming  Anthropic
         if tool_streaming is not True and api_type != "anthropic_chat_completion":
             raise ValueError("tool_streaming is only supported for api_type='anthropic_chat_completion'")
 
@@ -203,14 +207,18 @@ class LLMConfig:
         # Add extra parameters
         params.update(self.extra_params)
 
+        # Transport and connection parameters should not be passed to chat completions endpoint
+        for timeout_key in ("stream_idle_timeout", "stream_idle_timeout_ms", "connect_timeout_ms"):
+            params.pop(timeout_key, None)
+
         return self.apply_param_drops(params)
 
     def to_client_kwargs(self) -> dict[str, Any]:
         """Convert to OpenAI/Anthropic client initialization kwargs.
 
-        stream_idle_timeout_ms → httpx read timeout，实现每帧超时而非总超时。
+        stream_idle_timeout_ms → httpx read timeout，timeouttimeout。
         connect_timeout_ms → httpx connect timeout。
-        两者通过 httpx.Timeout 组合传入 SDK。
+         httpx.Timeout  SDK。
         """
         import httpx as _httpx
 
@@ -223,7 +231,7 @@ class LLMConfig:
         if self.max_retries:
             kwargs["max_retries"] = self.max_retries
 
-        # 构建 httpx.Timeout：read 对应 stream_idle_timeout，connect 对应 connect_timeout
+        # httpx.Timeout：read  stream_idle_timeout，connect  connect_timeout
         connect = self.get_connect_timeout()
         read = self.get_stream_idle_timeout()
         total = self.timeout if self.timeout else None
@@ -232,6 +240,26 @@ class LLMConfig:
             connect=connect,
             read=read,
         )
+
+        # Inject Bifrost / Cloud Gateway telemetry headers
+        try:
+            from nexau.archs.platform.path_helpers import get_installation_id
+            from nexau.archs.platform.crypto_vault import get_auth_metadata
+
+            meta = get_auth_metadata()
+            headers: dict[str, str] = {
+                "X-Machine-ID": get_installation_id(),
+                "X-Client-Version": "Mash-Desktop/1.0.0",
+            }
+            if meta.get("email"):
+                headers["X-User-ID"] = str(meta["email"])
+            if hasattr(self, "session_id") and self.session_id:
+                headers["X-Session-ID"] = str(self.session_id)
+            if hasattr(self, "default_headers") and self.default_headers:
+                headers.update(self.default_headers)
+            kwargs["default_headers"] = headers
+        except Exception:
+            pass
 
         return kwargs
 

@@ -74,7 +74,7 @@ Before marking a task as completed, write a deliverable to `deliverable_path` th
 - Test your work with `run_shell_command` when possible (syntax checks, imports)
 - Message the leader if you encounter blockers or need clarification
 - Read other teammates' deliverables when your task depends on their work
-- 最后一步用 .skills/nexau-agent/scripts/validate_agent.py 来验证你写的Agent是否正确，使用 LoadSkill `nexau-agent` to understand how to use the validator
+-  .skills/nexau-agent/scripts/validate_agent.py Agent， LoadSkill `nexau-agent` to understand how to use the validator
 
 # Testing
 
@@ -83,10 +83,10 @@ Before marking a task as completed, write a deliverable to `deliverable_path` th
   export LLM_API_KEY={Ask User If not provided or hardcoded in agent yaml}
 
 # Important Requirements
-1. 用中文回复、用中文写文档
-2. NexAU 自带的read_file读文件的工具就支持读图片、视频给模型，不需要再实现额外的工具解析视频、图片。
-3. 在对任务有基础了解后一定要用 `write_todos` 写 Todo list 并在做的过程中更新 TODO list 状态
-4. 不要自己去读图片或视频，太消耗上下文了
+1. 、
+2. NexAU read_file、，、。
+3.  `write_todos`  Todo list  TODO list 
+4. ，
 
 
 # Runtime Environment

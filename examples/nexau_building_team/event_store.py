@@ -1,6 +1,6 @@
 """In-memory event store for team SSE events.
 
-RFC-0045: 团队 SSE 事件存储（含快照优化）
+RFC-0045:  SSE （）
 
 Stores serialized TeamStreamEnvelope dicts keyed by (user_id, session_id),
 enabling history replay after frontend reconnection.
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 class EventStore:
     """Thread-safe in-memory event store with snapshot support.
 
-    RFC-0045: 带快照的线程安全事件存储
+    RFC-0045: 
 
     Each append() call both stores the raw event and incrementally updates
     a compacted state snapshot.  get_snapshot() returns the pre-reduced
@@ -34,20 +34,20 @@ class EventStore:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._events: dict[tuple[str, str], list[dict[str, object]]] = {}
-        # 增量快照：每次 append 时原地更新，避免重播
+        # ： append ，
         self._snapshots: dict[tuple[str, str], SnapshotState] = {}
 
     def append(self, user_id: str, session_id: str, envelope_dict: dict[str, object]) -> None:
         """Persist one envelope dict and update the snapshot.
 
-        RFC-0045: 追加事件并增量更新快照
+        RFC-0045: 
         """
         with self._lock:
             key = (user_id, session_id)
             self._events.setdefault(key, []).append(envelope_dict)
             count = len(self._events[key])
 
-            # 增量更新快照（in-place mutation）
+            # （in-place mutation）
             if key not in self._snapshots:
                 self._snapshots[key] = {}
             apply_envelope(self._snapshots[key], envelope_dict)
@@ -63,7 +63,7 @@ class EventStore:
     def get_snapshot(self, user_id: str, session_id: str) -> dict[str, Any]:
         """Return the compacted state snapshot and total event count.
 
-        RFC-0045: 返回预压缩的快照状态
+        RFC-0045: 
 
         Response shape:
             {

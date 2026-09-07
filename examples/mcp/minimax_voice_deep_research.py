@@ -158,9 +158,9 @@ Today is {{date}}.
         else:
             print("\n⚠️  No tools available")
         response = agent.run(
-            message="WebSearch 和 WebRead 工具，搜索并整理今天的最新的 LLM 相关的资讯，然后用MiniMax的生成语音，并发语音消息到飞书的 bot测试群 里",
+            message="WebSearch  WebRead ， LLM ，MiniMax， bot ",
             context={
-                "date": "2025年 8 月 27 日",
+                "date": "2025 8  27 ",
             },
         )
 

@@ -98,8 +98,15 @@ def dict_to_response_event(d: dict[str, Any]) -> ResponseStreamEvent:
         usage = resp.get("usage")
         if isinstance(usage, dict):
             usage = dict(usage)
-            usage.setdefault("input_tokens_details", {"cached_tokens": 0})
-            usage.setdefault("output_tokens_details", {"reasoning_tokens": 0})
+            itd = dict(usage.get("input_tokens_details") or {})
+            itd.setdefault("cached_tokens", 0)
+            itd.setdefault("cache_write_tokens", 0)
+            usage["input_tokens_details"] = itd
+
+            otd = dict(usage.get("output_tokens_details") or {})
+            otd.setdefault("reasoning_tokens", 0)
+            usage["output_tokens_details"] = otd
+
             usage.setdefault(
                 "total_tokens",
                 int(usage.get("input_tokens", 0) or 0) + int(usage.get("output_tokens", 0) or 0),

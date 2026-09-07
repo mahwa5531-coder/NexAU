@@ -29,19 +29,19 @@ Example: `0003-session-recovery.md`
 
 Refer to `WRITING_GUIDE.md` for detailed formatting rules. Key requirements:
 
-**Title**: `# RFC-{number}: {中文标题}` — use Chinese for readability.
+**Title**: `# RFC-{number}: {}` — use Chinese for readability.
 
 **Front Matter** (all fields required):
-- **状态**: draft | accepted | implemented | superseded | rejected
-- **优先级**: P0 | P1 | P2 | P3
-- **标签**: `agent`, `tool`, `skill`, 等
-- **Agent 角色**: Agent 角色名如 `multi-modal-extractor`, `ads-judger` 等
-- **创建日期**: YYYY-MM-DD
-- **更新日期**: YYYY-MM-DD
+- ****: draft | accepted | implemented | superseded | rejected
+- ****: P0 | P1 | P2 | P3
+- ****: `agent`, `tool`, `skill`, 
+- **Agent **: Agent  `multi-modal-extractor`, `ads-judger` 
+- ****: YYYY-MM-DD
+- ****: YYYY-MM-DD
 
-**Required Sections**: 摘要, 动机, 设计 (概述 + 详细设计), 权衡取舍 (替代方案 + 缺点), 实现计划, 未解决的问题
+**Required Sections**: , ,  ( + ),  ( + ), , 
 
-**Optional Sections**: 示例, 测试方案, 相关文件, 参考资料
+**Optional Sections**: , , , 
 
 ### 4. Content Depth
 
@@ -75,7 +75,7 @@ After creating the RFC, update `README.md` to add the new RFC entry to the appro
 Before finalizing, verify:
 
 - File name follows `{number}-{title}.md` format
-- Title follows `# RFC-{number}: {中文标题}` format
+- Title follows `# RFC-{number}: {}` format
 - All front matter fields are present
 - All required sections are included
 - Diagrams use the standard color scheme

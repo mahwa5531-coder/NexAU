@@ -83,7 +83,7 @@ class TransportBase[TTransportConfig](ABC):
             heartbeat_interval=heartbeat_interval,
         )
 
-        # RFC-0001 Phase 4: 运行中 Agent 注册表，供 interrupt 查找
+        # RFC-0001 Phase 4: running Agent ， interrupt 
         # key: (user_id, session_id, agent_id)
         self._running_agents: dict[tuple[str, str, str], Agent] = {}
         self._running_agents_lock = asyncio.Lock()
@@ -104,15 +104,20 @@ class TransportBase[TTransportConfig](ABC):
         # Save stateful objects before deep copy to avoid pickling issues
         # - Tracers (e.g., LangfuseTracer with httpx clients containing thread locks)
         # - Middlewares (e.g., ContextCompactionMiddleware with unpicklable state)
-        # These objects contain unpicklable state (thread locks, connections, etc.)
+        # - Tools (tool bindings containing closures, queues, locks)
+        # - Sub-agents (contain their own middlewares/tools)
         saved_tracers = cfg.tracers
         saved_resolved_tracer = cfg.resolved_tracer
         saved_middlewares = cfg.middlewares
+        saved_tools = cfg.tools
+        saved_sub_agents = cfg.sub_agents
 
         # Temporarily clear stateful objects for deep copy
         cfg.tracers = []
         cfg.resolved_tracer = None
         cfg.middlewares = None
+        cfg.tools = []
+        cfg.sub_agents = None
 
         try:
             cfg_copy = cfg.model_copy(deep=True)
@@ -121,11 +126,14 @@ class TransportBase[TTransportConfig](ABC):
             cfg.tracers = saved_tracers
             cfg.resolved_tracer = saved_resolved_tracer
             cfg.middlewares = saved_middlewares
+            cfg.tools = saved_tools
+            cfg.sub_agents = saved_sub_agents
 
         # Assign stateful objects to the copy (shallow - should be shared, not duplicated)
         cfg_copy.tracers = saved_tracers
         cfg_copy.resolved_tracer = saved_resolved_tracer
         cfg_copy.middlewares = list(saved_middlewares) if saved_middlewares else []
+        cfg_copy.tools = list(saved_tools) if saved_tools else []
 
         # Add new middlewares
         cfg_copy.middlewares.extend(middlewares)
@@ -134,8 +142,9 @@ class TransportBase[TTransportConfig](ABC):
         if enable_stream and cfg_copy.llm_config:
             cfg_copy.llm_config.stream = True
 
-        if cfg_copy.sub_agents:
-            for name, sub_cfg in cfg_copy.sub_agents.items():
+        if saved_sub_agents:
+            cfg_copy.sub_agents = {}
+            for name, sub_cfg in saved_sub_agents.items():
                 if sub_cfg:
                     cfg_copy.sub_agents[name] = TransportBase._recursively_apply_middlewares(
                         sub_cfg, *middlewares, enable_stream=enable_stream
@@ -203,7 +212,7 @@ class TransportBase[TTransportConfig](ABC):
             variables=variables,
         )
 
-        # RFC-0001 Phase 4: 注册 agent 到运行表
+        # RFC-0001 Phase 4:  agent 
         agent_key = (user_id, session_id, agent.agent_id)
         async with self._running_agents_lock:
             self._running_agents[agent_key] = agent
@@ -212,7 +221,7 @@ class TransportBase[TTransportConfig](ABC):
             # Run agent (agent handles locking and persistence internally)
             response = cast(str, await agent.run_async(message=message, context=context, variables=variables))
         finally:
-            # RFC-0001 Phase 4: 从运行表移除
+            # RFC-0001 Phase 4: 
             async with self._running_agents_lock:
                 self._running_agents.pop(agent_key, None)
 
@@ -275,7 +284,7 @@ class TransportBase[TTransportConfig](ABC):
             variables=variables,
         )
 
-        # RFC-0001 Phase 4: 注册 agent 到运行表
+        # RFC-0001 Phase 4:  agent 
         agent_key = (user_id, session_id, agent.agent_id)
         async with self._running_agents_lock:
             self._running_agents[agent_key] = agent
@@ -298,10 +307,21 @@ class TransportBase[TTransportConfig](ABC):
             while not event_queue.empty():
                 yield event_queue.get_nowait()
 
-            # Wait for agent task to complete (RunFinishedEvent is emitted by middleware)
-            await agent_task
         finally:
-            # RFC-0001 Phase 4: 从运行表移除
+            # Prevent background token leak if client disconnected or stream cancelled
+            if not agent_task.done():
+                logger.info("Stream interrupted or client disconnected; terminating agent (session_id: %s)", session_id)
+                try:
+                    await agent.stop(force=True)
+                except Exception as e:
+                    logger.warning("Error stopping agent on stream disconnect: %s", e)
+                agent_task.cancel()
+                try:
+                    await agent_task
+                except (asyncio.CancelledError, Exception):
+                    pass
+
+            # RFC-0001 Phase 4: cleanup running agent tracking
             async with self._running_agents_lock:
                 self._running_agents.pop(agent_key, None)
 
@@ -319,15 +339,15 @@ class TransportBase[TTransportConfig](ABC):
     ) -> StopResult:
         """Handle a stop request for a running agent.
 
-        RFC-0001 Phase 4: Transport 层 stop 端点
+        RFC-0001 Phase 4: Transport  stop 
 
-        在运行表中查找匹配的 Agent 实例并调用 stop()。
+         Agent  stop()。
 
         Args:
             user_id: User ID
             session_id: Session ID
             agent_id: Optional agent ID (if None, stops the first matching agent)
-            force: True 立即停止，False 优雅停止
+            force: True ，False 
             timeout: Maximum seconds to wait for execution to complete
 
         Returns:
@@ -344,13 +364,13 @@ class TransportBase[TTransportConfig](ABC):
             force,
         )
 
-        # 查找匹配的运行中 Agent
+        # running Agent
         agent: Agent | None = None
         async with self._running_agents_lock:
             if agent_id:
                 agent = self._running_agents.get((user_id, session_id, agent_id))
             else:
-                # 未指定 agent_id 时，查找该 session 下任意运行中的 agent
+                # agent_id ， session running agent
                 for key, running_agent in self._running_agents.items():
                     if key[0] == user_id and key[1] == session_id:
                         agent = running_agent

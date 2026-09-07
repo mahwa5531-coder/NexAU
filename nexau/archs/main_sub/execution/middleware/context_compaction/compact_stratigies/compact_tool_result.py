@@ -51,7 +51,7 @@ class ToolResultCompaction:
     ):
         """Initialize tool result compaction.
 
-        micro-compact: 增强 ToolResultCompaction，支持工具类型过滤
+        micro-compact:  ToolResultCompaction，type
 
         Args:
             keep_system: Whether to preserve the system message. Default: True.
@@ -134,7 +134,7 @@ class ToolResultCompaction:
                             protected_indices.add(i)
                             break
 
-        # micro-compact: 构建 tool_use_id → tool_name 映射，用于 compactable_tools 过滤
+        # micro-compact:  tool_use_id → tool_name ， compactable_tools 
         tool_use_id_to_name: dict[str, str] = {}
         if self.compactable_tools is not None:
             for msg in messages:
@@ -153,7 +153,7 @@ class ToolResultCompaction:
                 any_compacted = False
                 for block in msg.content:
                     if isinstance(block, ToolResultBlock):
-                        # micro-compact: compactable_tools 过滤——仅压缩指定工具的结果
+                        # micro-compact: compactable_tools ——
                         should_compact_block = True
                         if self.compactable_tools is not None:
                             tool_name = tool_use_id_to_name.get(block.tool_use_id, "")

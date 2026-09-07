@@ -39,18 +39,133 @@ def is_windows_host() -> bool:
     return sys.platform == "win32"
 
 
+def get_nexau_home() -> Path:
+    """Return the global ~/.nexau directory."""
+    p = Path.home() / ".nexau"
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+def get_database_path() -> Path:
+    """Return the unified SQLite database path (~/.nexau/nexau.db)."""
+    return get_nexau_home() / "nexau.db"
+
+
+def get_installation_id() -> str:
+    """Return the unique permanent machine/installation UUID (~/.nexau/installation_id).
+    
+    Uses native Windows OS Machine GUID on Windows, with cryptographic UUIDv4 fallback.
+    """
+    p = get_nexau_home() / "installation_id"
+    if p.exists():
+        text = p.read_text(encoding="utf-8").strip()
+        if text:
+            return text
+
+    if is_windows_host():
+        try:
+            import winreg
+            key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Cryptography")
+            machine_guid, _ = winreg.QueryValueEx(key, "MachineGuid")
+            if machine_guid and str(machine_guid).strip():
+                guid_str = str(machine_guid).strip()
+                p.write_text(guid_str, encoding="utf-8")
+                return guid_str
+        except Exception:
+            pass
+
+    import uuid
+    new_id = str(uuid.uuid4())
+    p.write_text(new_id, encoding="utf-8")
+    return new_id
+
+
+def get_session_brain_dir(session_id: str | None = None, project_id: str | None = None) -> Path:
+    """Return the brain directory for a session.
+
+    Adopts Antigravity's unified flat brain architecture:
+    - Dedicated session brain at ~/.nexau/brain/<session_id>/
+    - Backwards-compatible: checks ~/.nexau/projects/<p_id>/sessions/<s_id>/ and
+      ~/.nexau/standalone_sessions/<s_id>/ if legacy data exists.
+    - If no session_id: ~/.nexau/brain
+    """
+    if session_id:
+        if project_id:
+            legacy_proj = get_nexau_home() / "projects" / project_id / "sessions" / session_id
+            if legacy_proj.exists():
+                return legacy_proj
+        legacy_standalone = get_nexau_home() / "standalone_sessions" / session_id
+        if legacy_standalone.exists():
+            return legacy_standalone
+
+        d = get_nexau_home() / "brain" / session_id
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+    d = get_nexau_home() / "brain"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def get_project_cache_dir(project_id: str) -> Path:
+    """Return the shared project cache directory (~/.nexau/projects/<project_id>/cache/)."""
+    d = get_nexau_home() / "projects" / project_id / "cache"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def scaffold_nexau_system_storage() -> Path:
+    """Scaffold global NexAU system directories on disk (~/.nexau/...).
+    Ensures brain, projects, cache, and tasks directories exist on clean install.
+    """
+    home = get_nexau_home()
+    (home / "brain").mkdir(parents=True, exist_ok=True)
+    (home / "projects").mkdir(parents=True, exist_ok=True)
+    (home / "tasks").mkdir(parents=True, exist_ok=True)
+    return home
+
+
+def scaffold_session_storage(session_id: str, project_id: str | None = None) -> Path:
+    """Scaffold complete session brain and storage subdirectories on disk:
+    ~/.nexau/brain/<session_id>/
+      ├── .system_generated/
+      │   ├── logs/
+      │   ├── tasks/
+      │   └── messages/
+      ├── .user_uploaded/
+      ├── media/
+      └── scratch/
+    """
+    brain_dir = get_session_brain_dir(session_id, project_id)
+    (brain_dir / ".system_generated" / "logs").mkdir(parents=True, exist_ok=True)
+    (brain_dir / ".system_generated" / "tasks").mkdir(parents=True, exist_ok=True)
+    (brain_dir / ".system_generated" / "messages").mkdir(parents=True, exist_ok=True)
+    (brain_dir / ".user_uploaded").mkdir(parents=True, exist_ok=True)
+    (brain_dir / "media").mkdir(parents=True, exist_ok=True)
+    (brain_dir / "scratch").mkdir(parents=True, exist_ok=True)
+    return brain_dir
+
+
+def get_brain_dir(session_id: str | None = None, project_id: str | None = None) -> Path:
+    """Backwards-compatible alias for get_session_brain_dir."""
+    return get_session_brain_dir(session_id, project_id)
+
+
 def get_local_temp_root() -> Path:
     """Return the host temp directory used for local NexAU operations."""
     return Path(tempfile.gettempdir())
 
 
-def get_local_bash_tool_results_dir() -> Path:
+def get_local_bash_tool_results_dir(session_id: str | None = None) -> Path:
     """Return the base directory used for local shell stdout/stderr artifacts."""
+    if session_id:
+        return get_brain_dir(session_id) / ".system_generated" / _BASH_TOOL_RESULTS_DIR
     return get_local_temp_root() / _BASH_TOOL_RESULTS_DIR
 
 
-def get_local_tool_output_dir() -> Path:
+def get_local_tool_output_dir(session_id: str | None = None) -> Path:
     """Return the base directory used by long-tool-output persistence."""
+    if session_id:
+        return get_brain_dir(session_id) / ".system_generated" / _TOOL_OUTPUTS_DIR
     return get_local_temp_root() / _TOOL_OUTPUTS_DIR
 
 

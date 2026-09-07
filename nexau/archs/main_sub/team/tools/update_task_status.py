@@ -14,7 +14,7 @@
 
 """update_task_status tool — update task status on the task board.
 
-RFC-0002: 更新任务状态（含交付物验证）
+RFC-0002: （）
 """
 
 from __future__ import annotations
@@ -35,15 +35,15 @@ async def update_task_status(
 ) -> UpdateTaskStatusResult | ToolError:
     """Update task status (pending -> in_progress -> completed).
 
-    RFC-0002: 更新任务状态
+    RFC-0002: 
 
-    当状态变为 completed 时：
-    1. 验证交付物文件存在（deliverable_path）
-    2. 自动通知 leader agent 以便其检查进度或分配新任务
+     completed ：
+    1. （deliverable_path）
+    2.  leader agent 
     """
     ts = require_team_state(agent_state)
 
-    # RFC-0002: 完成任务时验证交付物文件存在
+    # RFC-0002: completed
     if status == "completed":
         task_info = await ts.task_board.get_task_info(task_id)
         if task_info.deliverable_path is not None:
@@ -66,7 +66,7 @@ async def update_task_status(
         result_summary=result_summary,
     )
 
-    # RFC-0002: 任务完成时通知 leader，唤醒其 forever-run 等待循环
+    # RFC-0002: completed leader， forever-run 
     if status == "completed" and not ts.is_leader:
         summary_text = f" Summary: {result_summary}" if result_summary else ""
         ts.team.notify_leader(

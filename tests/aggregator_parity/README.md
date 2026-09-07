@@ -1,6 +1,6 @@
 # Provider Stream Aggregator Parity Tests
 
-> RFC-0023 §阶段 ① — first concrete step toward unifying the two parallel provider stream aggregators.
+> RFC-0023 §Phase ① — first concrete step toward unifying the two parallel provider stream aggregators.
 
 ## Why this exists
 
@@ -20,12 +20,12 @@ that the persisted Message and the SSE-streamed view came from the same
 parsing of the same bytes.
 
 This test suite asserts that invariant on a fixed set of synthetic provider
-event fixtures, so future refactors (RFC-0023 §阶段 ②/③) have a safety net.
+event fixtures, so future refactors (RFC-0023 §Phase ②/③) have a safety net.
 
 ## What it does — three equivalence axes
 
 For each fixture, three independent equivalence axes are asserted. All three
-must be green before §阶段 ③ can retire Set B (see "RFC-0023 §阶段 ③ merge
+must be green before §Phase ③ can retire Set B (see "RFC-0023 §Phase ③ merge
 acceptance criteria" in the RFC).
 
 1. **Strong equivalence (Set A vs Set B)** — drive the same provider event
@@ -36,7 +36,7 @@ acceptance criteria" in the RFC).
    `test_responses_aggregator_parity.py` / `test_gemini_aggregator_parity.py`.
 2. **Weak gaps (Set A vs Set B)** — fields only present in Set B today
    (`usage`, `stop_reason`, `model`, reasoning `signature` / `redacted_data`).
-   Recorded — not asserted — because they motivate RFC-0023 §阶段 ② event
+   Recorded — not asserted — because they motivate RFC-0023 §Phase ② event
    extensions. Routed through `ParityReport.weak_gaps` and JUnit XML
    `record_property` for CI dashboards.
 3. **Vendor truth (Set A vs vendor non-stream JSON)** — Set A and Set B
@@ -88,7 +88,7 @@ JUnit XML test properties (visible in CI dashboards or via `pytest --junit-xml`)
 
 `gap_report.md` is the human-readable summary across all three axes for
 every fixture / recording on disk. It is the input list for RFC-0023
-§阶段 ②.
+§Phase ②.
 
 Regenerate after adding fixtures, fixing divergences, or registering
 new known xfails:
@@ -162,7 +162,7 @@ provider's Set A aggregator emits the standard event types.
   - **Total**: 207 parity / meta / synthetic tests passing + 1 xfail
     (Anthropic `rec_server_tool_use` — `web_search` server tool with
     citations_delta + multi-text-block divergence; design discussion
-    deferred to RFC-0023 §阶段 ②). All other drift divergences captured
+    deferred to RFC-0023 §Phase ②). All other drift divergences captured
     by the harness have been fixed in production code (5 production
     bugs fixed across all 4 providers).
   - **Coverage**: anthropic 91% / openai_chat 87% / openai_responses 88% /
@@ -170,10 +170,10 @@ provider's Set A aggregator emits the standard event types.
 - **PR-A.1** — Gemini provider (no public model on the gateway tested) +
   Anthropic `RedactedThinkingBlock` / `server_tool_use` recordings (need a
   reasoning model with redacted thinking enabled)
-- **PR-B (RFC-0023 §阶段 ②)** — Add `ModelCallFinishedEvent` + extend
+- **PR-B (RFC-0023 §Phase ②)** — Add `ModelCallFinishedEvent` + extend
   `ThinkingTextMessage*`; once landed, `test_*_weak_gaps_*` will be
   augmented to **assert** each gap is closed (no longer just record)
-- **PR-C (RFC-0023 §阶段 ③)** — Retire Set B; parity tests degenerate to
+- **PR-C (RFC-0023 §Phase ③)** — Retire Set B; parity tests degenerate to
   internal consistency tests on the now-single aggregator
 
 ### Why no OpenAI Chat fixtures lifted from `test_llm_streaming.py`
@@ -184,15 +184,15 @@ Anthropic-style typed-parts shape). Set B's permissive `consume()` accepts
 this; Set A's strict `ChatCompletionChunk` Pydantic typing rejects it (which
 sets `delta.content: str | None`). These cases live entirely in Set B's
 input domain — Set A never sees them in production at all. They represent
-a real input-domain divergence to resolve in RFC-0023 §阶段 ②/③ but are
+a real input-domain divergence to resolve in RFC-0023 §Phase ②/③ but are
 not parity-testable in their current form.
 
 The live OpenAI Chat recordings under `fixtures/openai_chat/recordings/`
 use canonical OpenAI format and exercise both Sets cleanly.
-- **PR-B (RFC-0023 §阶段 ②)** — Add `ModelCallFinishedEvent` + extend
+- **PR-B (RFC-0023 §Phase ②)** — Add `ModelCallFinishedEvent` + extend
   `ThinkingTextMessage*`; once landed, `test_*_weak_gaps_*` will be
   augmented to **assert** each gap is closed (no longer just record)
-- **PR-C (RFC-0023 §阶段 ③)** — Retire Set B; parity tests degenerate to
+- **PR-C (RFC-0023 §Phase ③)** — Retire Set B; parity tests degenerate to
   internal consistency tests on the now-single aggregator
 
 ## Coverage snapshot (this PR)
@@ -222,7 +222,7 @@ What's still uncovered after this iteration (deferred to PR-A.1 with real record
 | Fixture | Divergence | Status |
 |---------|-----------|--------|
 | Anthropic `thinking_delta_without_block_start` | Previously: Set A dropped orphan thinking_delta entirely (logs warning, emits no events). Set B infers block type and produces ReasoningBlock. Real production impact: live SSE wouldn't show the thinking, but persisted history would. | **fixed** in `AnthropicEventAggregator._handle_content_block_delta` — lazy-synthesizes thinking block on first delta, mirroring Set B's behavior |
-| Anthropic `rec_single_tool_call` (live recording) | Real gateway emits 8+ duplicate `content_block_start` events for the same tool_use index, each carrying empty `id`/`name`. Set B's `_active_blocks` merge logic preserves the prior id/name. Set A's strict `ToolUseBlock` Pydantic rejects empty values. **Confirms the production reality of the `duplicate_starts` synthetic test in `test_llm_streaming.py`**. Worked around in `anthropic_glue._coerce_to_sdk_events` (stateful prior-state preservation) for parity testability; underlying fix is for §阶段 ② to standardize behavior. | passing (with normalizer workaround) |
+| Anthropic `rec_single_tool_call` (live recording) | Real gateway emits 8+ duplicate `content_block_start` events for the same tool_use index, each carrying empty `id`/`name`. Set B's `_active_blocks` merge logic preserves the prior id/name. Set A's strict `ToolUseBlock` Pydantic rejects empty values. **Confirms the production reality of the `duplicate_starts` synthetic test in `test_llm_streaming.py`**. Worked around in `anthropic_glue._coerce_to_sdk_events` (stateful prior-state preservation) for parity testability; underlying fix is for §Phase ② to standardize behavior. | passing (with normalizer workaround) |
 | Anthropic recordings missing terminal `content_block_stop` / `message_stop` (max_tokens truncation) | Set B's `_flush_active_blocks` at finalize() handles this; Set A's events stop emitting prematurely → reconstructor would lose the unclosed block. Mirrored Set B's flush-at-finalize in the reconstructor itself. | passing (with reconstructor workaround) |
 | OpenAI Responses `rec_gpt5_tool_with_reasoning` + `rec_gpt5_high_reasoning` | Previously: gpt-5.x produced reasoning silently (`item.summary=[]`, no follow-up `reasoning_summary_*` events). Set B persisted an empty ReasoningBlock; Set A emitted no thinking events. Confirmed reproducible at every effort level (`medium` AND `high` + `summary=detailed`). | **fixed** in `_ReasoningItemAggregator` — emits `ThinkingTextMessageStart` on initial `output_item.added` reasoning dispatch (idempotent with `summary_part.added` Start emission), and emits `ThinkingTextMessageEnd` from `finish()` (called by parent on `output_item.done`). Silent reasoning now produces a Start+End pair (empty content) matching Set B's empty-block marker. |
 | Gemini `rec_thinking_then_tool` | Wire emits reasoning chunk → tool chunk in order. Set A kept the thinking block "open" while emitting tool Start+Args+End, then closed thinking at finishReason. Reconstructor produced `[ToolUseBlock, ReasoningBlock]` (close-event order) instead of `[ReasoningBlock, ToolUseBlock]` (wire order). | **fixed** in `GeminiRestEventAggregator._handle_text_part` and `_handle_function_call_part` — now call `_close_thinking_if_open()` before emitting tool/text events when transitioning from thinking, ensuring downstream block ordering matches wire order. |
@@ -239,7 +239,7 @@ After fixing the 3 production divergences (Anthropic orphan thinking_delta,
 OpenAI Responses silent reasoning, OpenAI Chat OpenRouter reasoning fields),
 a search of OSS confirms each one is a **known wire-format pathology**
 that other frameworks have hit and fixed independently. Documenting here so
-later RFC-0023 §阶段 ② design work has the prior-art context:
+later RFC-0023 §Phase ② design work has the prior-art context:
 
 ### 1. Reasoning field naming chaos (`reasoning_content` vs `reasoning` vs `reasoning_details`)
 

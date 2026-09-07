@@ -14,16 +14,17 @@
 
 """LLM request assembly and provider-boundary adapters.
 
-RFC-0006: structured tool calling 的 provider 延迟适配
+RFC-0006: structured tool calling  provider 
 
-本模块在真正发送请求前，根据 ``llm_config.api_type`` 把 neutral structured
-tool definitions 适配成 OpenAI / Anthropic / Gemini 所需的 provider schema。
+module， ``llm_config.api_type``  neutral structured
+tool definitions  OpenAI / Anthropic / Gemini  provider schema。
 """
 
 import asyncio
 import contextvars
 import functools
 import hashlib
+import inspect
 import json
 import logging
 import threading
@@ -40,6 +41,12 @@ import anthropic
 import httpx
 import openai
 import requests
+try:
+    from google import genai
+    from google.genai import types as genai_types
+except (ImportError, AttributeError):
+    genai = None  # type: ignore[assignment]
+    genai_types = None  # type: ignore[assignment]
 from openai import AsyncStream, Stream
 from openai.types.chat import ChatCompletion, ChatCompletionChunk
 
@@ -101,7 +108,7 @@ def _chat_completion_to_model_response(completion: ChatCompletion) -> ModelRespo
 def _resolve_run_id(model_call_params: ModelCallParams | None) -> str:
     """Best-effort run_id for stream aggregator instances.
 
-    RFC-0023 §阶段 ③ — Set A aggregators tag emitted events with ``run_id``.
+    RFC-0023 § ③ — Set A aggregators tag emitted events with ``run_id``.
     Production calls always have an ``agent_state`` carrying the live id;
     test scaffolding sometimes calls ``llm_caller`` without one, so fall
     back to a literal placeholder rather than crashing.
@@ -114,7 +121,7 @@ def _resolve_run_id(model_call_params: ModelCallParams | None) -> str:
 def _get_event_emitter(manager: MiddlewareManager | None) -> Callable[[Event], None]:
     """Resolve the unified event emitter from the middleware chain.
 
-    RFC-0023 §阶段 ③ — Set A aggregators now live inside ``llm_caller`` (one
+    RFC-0023 § ③ — Set A aggregators now live inside ``llm_caller`` (one
     instance per stream call). They need an ``on_event`` sink so the AG-UI
     events they emit reach the user's streaming callback. The sink is owned
     by ``AgentEventsMiddleware`` (via its ``on_event`` instance attribute);
@@ -136,7 +143,7 @@ logger = logging.getLogger(__name__)
 _MISSING_TOOL_RESULT_CONTENT = "no tool result (canceled, compacted or failed)"
 _OPENAI_PROMPT_CACHE_KEY_MAX_LENGTH = 64
 
-# 流式 idle 超时异常，区别于一般网络/API 错误，让重试逻辑可针对性处理
+# idle timeoutexception，/API error，retry
 OnRetryCallback = Callable[[int, int, float, str], None]
 """(attempt, max_attempts, backoff_seconds, error_message) → None"""
 
@@ -266,9 +273,9 @@ def _strip_thinking_signatures(messages: list[Message]) -> list[Message]:
 class StreamIdleTimeoutError(Exception):
     """Raised when no stream chunk is received within the configured idle timeout.
 
-    与 Codex 的 "idle timeout waiting for SSE/websocket" 语义对齐。
-    是每帧（per-chunk）超时，不是整个请求的总超时，因此 LLM 长推理
-    不会因总时间长而超时，只会在"长时间没有任何数据返回"时才触发。
+     Codex  "idle timeout waiting for SSE/websocket" 。
+    （per-chunk）timeout，timeout， LLM 
+    timeout，""。
     """
 
 
@@ -397,7 +404,7 @@ def _ensure_tool_results(messages: list[Message]) -> list[Message]:
     This function detects orphaned tool calls and injects synthetic tool result
     messages so the conversation remains valid.
     """
-    # 1. 收集所有 tool_use id、所在消息索引、以及工具名称
+    # 1.  tool_use id、、
     tool_use_ids: dict[str, int] = {}
     tool_use_names: dict[str, str] = {}
     for idx, msg in enumerate(messages):
@@ -410,25 +417,25 @@ def _ensure_tool_results(messages: list[Message]) -> list[Message]:
     if not tool_use_ids:
         return messages
 
-    # 2. 收集所有已有的 tool_result tool_use_id，同时支持前缀匹配
-    #    （框架的工具执行系统可能在 tool_call_id 后追加 UUID，如 "tool_call" -> "tool_call_a45a..."）
+    # 2.  tool_result tool_use_id，
+    # （ tool_call_id  UUID， "tool_call" -> "tool_call_a45a..."）
     matched_tool_use_ids: set[str] = set()
     for msg in messages:
         if msg.role == Role.TOOL:
             for block in msg.content:
                 if isinstance(block, ToolResultBlock):
                     result_id = block.tool_use_id
-                    # 精确匹配
+                    # 
                     if result_id in tool_use_ids:
                         matched_tool_use_ids.add(result_id)
                     else:
-                        # 前缀匹配：tool_use_id 以某个 ToolUseBlock.id 开头
+                        # ：tool_use_id  ToolUseBlock.id 
                         for use_id in tool_use_ids:
                             if result_id.startswith(use_id):
                                 matched_tool_use_ids.add(use_id)
                                 break
 
-    # 3. 找出缺失的 tool_use_id
+    # 3.  tool_use_id
     missing_ids = set(tool_use_ids.keys()) - matched_tool_use_ids
     if not missing_ids:
         return messages
@@ -439,13 +446,13 @@ def _ensure_tool_results(messages: list[Message]) -> list[Message]:
         missing_ids,
     )
 
-    # 4. 按所属 assistant 消息索引分组，以便在正确位置插入
+    # 4.  assistant ，
     missing_by_index: dict[int, list[str]] = {}
     for tid in missing_ids:
         assistant_idx = tool_use_ids[tid]
         missing_by_index.setdefault(assistant_idx, []).append(tid)
 
-    # 5. 构建新消息列表，在每个有缺失结果的 assistant 消息后插入合成结果
+    # 5. list， assistant 
     result: list[Message] = []
     for idx, msg in enumerate(messages):
         result.append(msg)
@@ -461,7 +468,7 @@ def _ensure_tool_results(messages: list[Message]) -> list[Message]:
                                 is_error=True,
                             )
                         ],
-                        # 保存工具名称，供 Gemini REST 转换使用（functionResponse 需要 name）
+                        # ， Gemini REST （functionResponse  name）
                         metadata={"tool_name": tool_use_names.get(tid, "")},
                     )
                 )
@@ -491,10 +498,10 @@ class LLMCaller:
             openai_client: OpenAI/Anthropic sync client instance
             llm_config: LLM configuration
             retry_attempts: Number of retry attempts for API calls
-            retry_backoff_max_seconds: 指数退避上限（秒），默认 30s。
-                避免长时间占用线程池 slot 或让用户等待过久。
-            on_retry: 每次重试前的回调，签名见 ``OnRetryCallback``。
-                用于 UI 展示「正在重试第 N 次…」等信息。
+            retry_backoff_max_seconds: （），default 30s。
+                 slot 。
+            on_retry: retry， ``OnRetryCallback``。
+                 UI 「retry N …」。
             middleware_manager: Optional middleware manager for wrapping calls
             global_storage: Optional global storage to retrieve tracer at call time
             session_id: Optional session ID injected into provider payloads
@@ -513,8 +520,8 @@ class LLMCaller:
         self.global_storage = global_storage
         self.session_id = session_id
 
-        # RFC-0001: 专用线程池执行 sync LLM SDK 调用，避免使用 event loop 的 default executor
-        # force stop 时可通过 shutdown(wait=False) 立即释放，不阻塞 event loop 关闭
+        # RFC-0001:  sync LLM SDK ， event loop  default executor
+        # force stop  shutdown(wait=False) ， event loop 
         self._llm_thread_pool: ThreadPoolExecutor = ThreadPoolExecutor(
             max_workers=4,
             thread_name_prefix="llm-call",
@@ -541,7 +548,7 @@ class LLMCaller:
     ) -> ModelResponse | None:
         """Call LLM with the given messages and return normalized response.
 
-        RFC-0006: structured tool calling 的 provider 延迟适配
+        RFC-0006: structured tool calling  provider 
 
         Args:
             messages: List of conversation messages
@@ -557,7 +564,7 @@ class LLMCaller:
         """
         runtime_client = openai_client if openai_client is not None else self.openai_client
 
-        if not runtime_client and not self.middleware_manager and self.llm_config.api_type != "gemini_rest":
+        if not runtime_client and not self.middleware_manager and self.llm_config.api_type not in ("gemini_rest", "google_genai"):
             raise RuntimeError(
                 "OpenAI client is not available. Please check your API configuration.",
             )
@@ -567,14 +574,15 @@ class LLMCaller:
         structured_provider_target: StructuredProviderTarget | None = None
         adapted_tools: list[Mapping[str, object]] | None = None
         if use_structured_tools:
-            # 1. RFC-0006: structured provider 目标完全由 api_type 决定。
+            # 1. RFC-0006: structured provider  api_type 。
             structured_provider_target = resolve_structured_provider_target(self.llm_config.api_type)
 
-            # 2. 仅在真正组装请求体时，把 neutral definitions 延迟转换为 provider schema。
+            strict_tools = bool((self.llm_config.extra_params or {}).get("strict_tools", False))
             adapted_tools = _adapt_structured_tools_for_provider(
                 tools,
                 structured_provider_target,
                 tool_streaming=self.llm_config.tool_streaming,
+                strict=strict_tools,
             )
 
         # Prepare API parameters
@@ -590,6 +598,7 @@ class LLMCaller:
         if adapted_tools and structured_provider_target == "openai":
             api_params["tools"] = adapted_tools
             api_params.setdefault("tool_choice", "auto")
+            api_params.setdefault("parallel_tool_calls", True)
 
         if adapted_tools and structured_provider_target == "gemini":
             api_params["tools"] = adapted_tools
@@ -670,13 +679,13 @@ class LLMCaller:
     ) -> ModelResponse | None:
         """Execute a single LLM call attempt (no retry loop).
 
-        P2 async/sync 技术债修复: _call_with_retry_async 的单次调用桥接
+        P2 async/sync : _call_with_retry_async 
 
-        从 _call_with_retry 提取的核心调用逻辑，不含重试循环。
-        用于 _call_with_retry_async 的 asyncio.to_thread 桥接，
-        外层的 async retry 循环负责重试和退避。
+         _call_with_retry ，retry。
+         _call_with_retry_async  asyncio.to_thread ，
+         async retry retry。
 
-        包含: 参数准备、session_id 注入、message 转换、tracer 传递。
+        package: 、session_id 、message 、tracer 。
         """
         from .executor import AgentStopReason
 
@@ -702,7 +711,16 @@ class LLMCaller:
         if self.llm_config.api_type in {"openai_chat_completion", "openai_responses"}:
             tool_image_policy = "embed_in_tool_message" if self.llm_config.api_type == "openai_responses" else "inject_user_message"
         if self.llm_config.api_type != "generate_with_token":
-            kwargs["messages"] = serialize_ump_to_openai_chat_payload(params.messages, tool_image_policy=tool_image_policy)
+            use_dev_role = bool(
+                getattr(self.llm_config, "use_developer_role", False)
+                or (self.llm_config.extra_params or {}).get("use_developer_role")
+                or (self.llm_config.model and self.llm_config.model.startswith(("o1", "o3", "o4")))
+            )
+            kwargs["messages"] = serialize_ump_to_openai_chat_payload(
+                params.messages,
+                tool_image_policy=tool_image_policy,
+                use_developer_role=use_dev_role,
+            )
 
         client = params.openai_client if params.openai_client is not None else self.openai_client
         response_content = call_llm_with_different_client(
@@ -742,10 +760,10 @@ class LLMCaller:
     ) -> ModelResponse | None:
         """Execute a single async LLM call attempt (no retry loop).
 
-        async/sync 技术债修复: 使用 AsyncOpenAI / AsyncAnthropic 原生 await，
-        彻底消除 to_thread 桥接。force stop 时 asyncio cancellation 直接生效。
+        async/sync :  AsyncOpenAI / AsyncAnthropic  await，
+         to_thread 。force stop  asyncio cancellation 。
 
-        包含: 参数准备、session_id 注入、message 转换、tracer 传递。
+        package: 、session_id 、message 、tracer 。
         """
         from .executor import AgentStopReason
 
@@ -771,7 +789,16 @@ class LLMCaller:
         if self.llm_config.api_type in {"openai_chat_completion", "openai_responses"}:
             tool_image_policy = "embed_in_tool_message" if self.llm_config.api_type == "openai_responses" else "inject_user_message"
         if self.llm_config.api_type != "generate_with_token":
-            kwargs["messages"] = serialize_ump_to_openai_chat_payload(params.messages, tool_image_policy=tool_image_policy)
+            use_dev_role = bool(
+                getattr(self.llm_config, "use_developer_role", False)
+                or (self.llm_config.extra_params or {}).get("use_developer_role")
+                or (self.llm_config.model and self.llm_config.model.startswith(("o1", "o3", "o4")))
+            )
+            kwargs["messages"] = serialize_ump_to_openai_chat_payload(
+                params.messages,
+                tool_image_policy=tool_image_policy,
+                use_developer_role=use_dev_role,
+            )
 
         async_client = self.async_openai_client
         response_content = await call_llm_with_different_client_async(
@@ -893,8 +920,8 @@ class LLMCaller:
                     raise RuntimeError(f"No response content or tool calls{error_detail}")
 
             except Exception as e:
-                # RFC-0001: shutdown_event 已设置时不重试，直接返回 None
-                # 让 execute() 在下一次迭代边界检测 stop_signal
+                # RFC-0001: shutdown_event retry， None
+                # execute()  stop_signal
                 if params.shutdown_event and params.shutdown_event.is_set():
                     logger.info("🛑 LLM call interrupted by shutdown_event, skipping retry")
                     return None
@@ -927,16 +954,16 @@ class LLMCaller:
     ) -> ModelResponse | None:
         """Async version of call_llm.
 
-        P2 async/sync 技术债修复: 异步 LLM 调用路径
+        P2 async/sync :  LLM 
 
-        使用 asyncio.sleep 替代 time.sleep 做退避重试，
-        Gemini REST 使用 httpx.AsyncClient 做真正的异步 HTTP 调用，
-        其他 provider (OpenAI/Anthropic) 通过 asyncio.to_thread 桥接 sync SDK。
+         asyncio.sleep  time.sleep retry，
+        Gemini REST  httpx.AsyncClient  HTTP ，
+         provider (OpenAI/Anthropic)  asyncio.to_thread  sync SDK。
         """
-        # 参数准备逻辑与 call_llm 相同
+        # call_llm 
         runtime_client = openai_client if openai_client is not None else self.openai_client
 
-        if not runtime_client and not self.middleware_manager and self.llm_config.api_type != "gemini_rest":
+        if not runtime_client and not self.middleware_manager and self.llm_config.api_type not in ("gemini_rest", "google_genai"):
             raise RuntimeError(
                 "OpenAI client is not available. Please check your API configuration.",
             )
@@ -1001,11 +1028,11 @@ class LLMCaller:
             framework_context=framework_context,
         )
 
-        # 使用 async retry wrapper
+        # async retry wrapper
         response_payload: ModelResponse | None
         if self.middleware_manager:
-            # Middleware wrapping 仍走 sync (在 to_thread 中)
-            # 使用 _call_once_sync 而非 _call_with_retry，避免嵌套重试
+            # Middleware wrapping  sync ( to_thread )
+            # _call_once_sync  _call_with_retry，retry
             def _wrapped(params: ModelCallParams) -> ModelResponse | None:
                 return self.middleware_manager.wrap_model_call(params, lambda p: self._call_once_sync(p))  # type: ignore[union-attr]
 
@@ -1033,17 +1060,17 @@ class LLMCaller:
     ) -> ModelResponse | None:
         """Async retry wrapper with asyncio.sleep for backoff.
 
-        async/sync 技术债修复: 原生 async SDK 调用 + asyncio.sleep 退避
+        async/sync :  async SDK  + asyncio.sleep 
 
-        - Gemini REST: httpx.AsyncClient 原生异步
-        - OpenAI / Anthropic (无 middleware): AsyncOpenAI / AsyncAnthropic
-          原生 await，asyncio cancellation 直接生效
-        - Middleware-wrapped: sync hook 需通过 _llm_thread_pool 桥接，
-          cleanup() 可 shutdown(wait=False) 释放
+        - Gemini REST: httpx.AsyncClient 
+        - OpenAI / Anthropic ( middleware): AsyncOpenAI / AsyncAnthropic
+           await，asyncio cancellation 
+        - Middleware-wrapped: sync hook  _llm_thread_pool ，
+          cleanup()  shutdown(wait=False) 
 
-        重要: 对非 Gemini provider，直接桥接 _call_once_sync() (单次调用)，
-        而不是 _call_with_retry() (自带重试循环)，避免 retry_attempts² 的
-        嵌套重试和重复 tracing span。
+        :  Gemini provider， _call_once_sync() ()，
+         _call_with_retry() (retry)， retry_attempts² 
+        retry tracing span。
         """
         from .executor import AgentStopReason
 
@@ -1059,15 +1086,15 @@ class LLMCaller:
                     return None
 
                 if sync_call_fn is not None:
-                    # Middleware-wrapped path: sync hook 需线程桥接
-                    # 使用专用 _llm_thread_pool 而非 default executor，
-                    # 避免 force stop 时阻塞 event loop shutdown
+                    # Middleware-wrapped path: sync hook 
+                    # _llm_thread_pool  default executor，
+                    # force stop  event loop shutdown
                     return await self._run_sync_in_llm_pool(sync_call_fn, params)
 
-                # Gemini REST: native async path (httpx.AsyncClient)
-                if self.llm_config.api_type == "gemini_rest":
+                # Gemini / Google GenAI: native async path
+                if self.llm_config.api_type in ("gemini_rest", "google_genai"):
                     kwargs = dict(params.api_params)
-                    return await call_llm_with_gemini_rest_async(
+                    return await call_llm_with_google_genai_async(
                         kwargs,
                         middleware_manager=self.middleware_manager,
                         model_call_params=params,
@@ -1075,13 +1102,13 @@ class LLMCaller:
                         tracer=self._get_tracer(),
                     )
 
-                # OpenAI / Anthropic: 原生 async SDK，直接 await
-                # 通过 shutdown_event 监控实现可取消：stop() 设置 event 后
-                # 立即 cancel 正在 await 的 LLM 调用
+                # OpenAI / Anthropic:  async SDK， await
+                # shutdown_event cancel：stop()  event 
+                # cancel  await  LLM 
                 if self.async_openai_client is not None:
                     return await self._call_once_async_cancellable(params)
 
-                # Fallback: 无 async client 时仍走线程桥接
+                # Fallback:  async client 
                 return await self._run_sync_in_llm_pool(self._call_once_sync, params)
 
             except Exception as e:
@@ -1096,6 +1123,9 @@ class LLMCaller:
                 if i == self.retry_attempts - 1:
                     raise e
                 capped_backoff = min(backoff, self.retry_backoff_max_seconds)
+                err_str = str(e)
+                if "in_flight_budget_exhausted" in err_str or "Retry after in-flight requests settle" in err_str or "Retry-After" in err_str:
+                    capped_backoff = max(capped_backoff, 15.0)
                 if self.on_retry is not None:
                     self.on_retry(i + 1, self.retry_attempts, capped_backoff, str(e))
                 await asyncio.sleep(capped_backoff)
@@ -1109,11 +1139,11 @@ class LLMCaller:
     ) -> ModelResponse | None:
         """Run a sync function in the dedicated LLM thread pool.
 
-        RFC-0001: 替代 asyncio.to_thread 以使用专用线程池
+        RFC-0001:  asyncio.to_thread 
 
-        与 asyncio.to_thread 相同语义（含 contextvars 传播），
-        但使用 _llm_thread_pool 而非 event loop 的 default executor，
-        确保 force stop 时 cleanup() 可通过 shutdown(wait=False) 释放。
+         asyncio.to_thread （ contextvars ），
+         _llm_thread_pool  event loop  default executor，
+         force stop  cleanup()  shutdown(wait=False) 。
         """
         loop = asyncio.get_running_loop()
         ctx = contextvars.copy_context()
@@ -1134,9 +1164,9 @@ class LLMCaller:
     ) -> ModelResponse | None:
         """Run _call_once_async but cancel if shutdown_event is set.
 
-        async/sync 技术债修复: 让 async LLM 调用可被 graceful stop 取消。
-        stop() 设置 shutdown_event 后，此方法 cancel 正在 await 的 HTTP 请求，
-        使 execute_async 的主循环能及时退出，asyncio.gather 不再无限等待。
+        async/sync :  async LLM  graceful stop cancel。
+        stop()  shutdown_event ，method cancel  await  HTTP ，
+         execute_async ，asyncio.gather 。
         """
         shutdown_ev = params.shutdown_event
         if shutdown_ev is not None and shutdown_ev.is_set():
@@ -1147,7 +1177,7 @@ class LLMCaller:
         if shutdown_ev is None:
             return await llm_task
 
-        # 轮询 shutdown_event（不使用 to_thread 避免 default executor 问题）
+        # shutdown_event（ to_thread  default executor ）
         async def _poll_shutdown() -> None:
             while not shutdown_ev.is_set():
                 await asyncio.sleep(0.1)
@@ -1211,8 +1241,8 @@ def call_llm_with_different_client(
             llm_config=llm_config,
             tracer=tracer,
         )
-    elif llm_config.api_type == "gemini_rest":
-        return call_llm_with_gemini_rest(
+    elif llm_config.api_type in ("gemini_rest", "google_genai"):
+        return call_llm_with_google_genai(
             kwargs,
             middleware_manager=middleware_manager,
             model_call_params=model_call_params,
@@ -1488,13 +1518,14 @@ def _adapt_structured_tools_for_provider(
     provider_target: StructuredProviderTarget,
     *,
     tool_streaming: bool = True,
+    strict: bool = False,
 ) -> list[Mapping[str, object]] | None:
     """Adapt neutral structured tools for the selected provider.
 
-    RFC-0006: Provider 延迟适配
+    RFC-0006: Provider 
 
-    输入保持 neutral / compatibility definition，输出在请求边界收敛到目标
-    provider 所需 schema；Gemini 路径继续保留 neutral definition 并走原生 adapter。
+     neutral / compatibility definition，
+    provider  schema；Gemini  neutral definition  adapter。
 
     Parameters
     ----------
@@ -1502,6 +1533,8 @@ def _adapt_structured_tools_for_provider(
         Forwarded to :func:`structured_tool_definition_to_anthropic`.  When
         *False*, ``eager_input_streaming`` is omitted from the Anthropic tool
         schema so that providers rejecting unknown fields are not affected.
+    strict:
+        When *True*, enforce OpenAI Structured Outputs schema constraints (strict: true).
     """
 
     if not tools:
@@ -1511,7 +1544,7 @@ def _adapt_structured_tools_for_provider(
     for tool in tools:
         normalized = normalize_structured_tool_definition(tool)
         if provider_target == "openai":
-            adapted_tools.append(structured_tool_definition_to_openai(normalized))
+            adapted_tools.append(structured_tool_definition_to_openai(normalized, strict=strict))
         elif provider_target == "anthropic":
             adapted_tools.append(structured_tool_definition_to_anthropic(normalized, tool_streaming=tool_streaming))
         elif provider_target == "gemini":
@@ -1571,7 +1604,7 @@ def _apply_anthropic_cache_control(
     if remaining > 0 and user_messages and user_messages[-1].get("content"):
         content = cast(list[dict[str, Any]] | str | None, user_messages[-1].get("content"))
         if isinstance(content, list) and content:
-            # RFC-0014: thinking/redacted_thinking blocks 不允许携带 cache_control
+            # RFC-0014: thinking/redacted_thinking blocks  cache_control
             no_cache_types = {"thinking", "redacted_thinking"}
             for block in content:
                 if block.get("type") not in no_cache_types:
@@ -1618,7 +1651,7 @@ def call_llm_with_anthropic_chat_completion(
         ).to_vendor_format(model_call_params.messages)
 
     def llm_call() -> Any:
-        # 组装 Anthropic 参数
+        # Anthropic 
         system_messages, user_messages = _build_anthropic_messages()
         _apply_cache_control(system_messages, user_messages)
 
@@ -1658,7 +1691,7 @@ def call_llm_with_anthropic_chat_completion(
         # Build the exact kwargs for tracing
         api_kwargs: dict[str, Any] = {"system": system_messages, "messages": user_messages, **new_kwargs}
 
-        # RFC-0023 §阶段 ③ — Set A is the single canonical aggregator. It
+        # RFC-0023 § ③ — Set A is the single canonical aggregator. It
         # emits AG-UI events through ``emitter`` (the middleware's on_event
         # sink) and yields a typed ``AnthropicMessage`` via ``build()``.
         run_id = _resolve_run_id(model_call_params)
@@ -1671,7 +1704,7 @@ def call_llm_with_anthropic_chat_completion(
                 with trace_ctx:
                     start_time = time.time()
                     first_token_time = None
-                    # RFC-0001: shutdown_event 检测
+                    # RFC-0001: shutdown_event 
                     _shutdown_ev = model_call_params.shutdown_event if model_call_params else None
                     with client.messages.create(**api_kwargs, stream=True) as stream:
                         for event in stream:
@@ -1694,7 +1727,7 @@ def call_llm_with_anthropic_chat_completion(
                         )
                     return ModelResponse.from_anthropic_message(message)
 
-            # RFC-0001: shutdown_event 检测
+            # RFC-0001: shutdown_event 
             _shutdown_ev = model_call_params.shutdown_event if model_call_params else None
             with client.messages.create(**api_kwargs, stream=True) as stream:
                 for event in stream:
@@ -1769,7 +1802,7 @@ def call_llm_with_openai_chat_completion(
                             stream=True,
                             **payload,
                         )
-                        # RFC-0001: shutdown_event 检测，流式中断时提前终止
+                        # RFC-0001: shutdown_event ，
                         _shutdown_ev = model_call_params.shutdown_event if model_call_params else None
                         with stream_ctx:
                             for chunk in stream_ctx:
@@ -1796,7 +1829,7 @@ def call_llm_with_openai_chat_completion(
                     stream=True,
                     **payload,
                 )
-                # RFC-0001: shutdown_event 检测
+                # RFC-0001: shutdown_event 
                 _shutdown_ev = model_call_params.shutdown_event if model_call_params else None
                 with stream_ctx:
                     for chunk in stream_ctx:
@@ -1894,11 +1927,11 @@ def call_llm_with_openai_responses(
 
     request_payload.pop("store", None)
 
-    # 默认开启 parallel_tool_calls；若 LLMConfig.extra_kwargs 显式关闭，则尊重配置。
+    # default parallel_tool_calls； LLMConfig.extra_kwargs ，configuration。
     request_payload.setdefault("parallel_tool_calls", _default_openai_responses_parallel_tool_calls(llm_config))
 
-    # 默认使用 detailed reasoning summary，使得 reasoning item 包含可读摘要。
-    # 如果调用方未指定 summary，自动注入 "detailed"。
+    # default detailed reasoning summary， reasoning item package。
+    # summary， "detailed"。
     reasoning_param = request_payload.get("reasoning")
     if isinstance(reasoning_param, dict) and "summary" not in reasoning_param:
         reasoning_param["summary"] = "detailed"
@@ -1914,8 +1947,8 @@ def call_llm_with_openai_responses(
     if "reasoning.encrypted_content" not in include_list:
         include_list.append("reasoning.encrypted_content")
 
-    # 将代理专用参数（如 prompt_cache_key）移入 extra_body，
-    # 因为 OpenAI SDK v2+ 不接受非标准 kwargs。
+    # （ prompt_cache_key） extra_body，
+    # OpenAI SDK v2+  kwargs。
     extra_body: dict[str, Any] = request_payload.pop("extra_body", None) or {}
     prompt_cache_key = request_payload.pop("prompt_cache_key", None)
     if prompt_cache_key is not None:
@@ -1947,7 +1980,7 @@ def call_llm_with_openai_responses(
         run_id = _resolve_run_id(model_call_params)
         emitter = _get_event_emitter(middleware_manager)
         aggregator = OpenAIResponsesAggregator(on_event=emitter, run_id=run_id)
-        # RFC-0001: shutdown_event 检测
+        # RFC-0001: shutdown_event 
         _shutdown_ev = model_call_params.shutdown_event if model_call_params else None
 
         try:
@@ -2002,9 +2035,9 @@ def call_llm_with_openai_responses(
 
 # ── Async LLM call functions ────────────────────────────────────────
 #
-# async/sync 技术债修复: 使用 AsyncOpenAI / AsyncAnthropic / httpx.AsyncClient
-# 实现原生 async 调用，消除 to_thread 桥接。
-# force stop 时 asyncio cancellation 直接传播，不再阻塞线程。
+# async/sync :  AsyncOpenAI / AsyncAnthropic / httpx.AsyncClient
+# async ， to_thread 。
+# force stop  asyncio cancellation ，。
 
 
 async def call_llm_with_different_client_async(
@@ -2045,8 +2078,8 @@ async def call_llm_with_different_client_async(
             llm_config=llm_config,
             tracer=tracer,
         )
-    elif llm_config.api_type == "gemini_rest":
-        return await call_llm_with_gemini_rest_async(
+    elif llm_config.api_type in ("gemini_rest", "google_genai"):
+        return await call_llm_with_google_genai_async(
             kwargs,
             middleware_manager=middleware_manager,
             model_call_params=model_call_params,
@@ -2075,12 +2108,17 @@ async def call_llm_with_openai_chat_completion_async(
             if typed_msg.get("role") == "assistant" and typed_msg.get("content") == "" and typed_msg.get("tool_calls"):
                 del typed_msg["content"]
     kwargs["messages"] = messages
+    extra_params = kwargs.pop("extra_params", None)
+    if extra_params and isinstance(extra_params, dict):
+        existing_extra_body = dict(kwargs.get("extra_body") or {})
+        existing_extra_body.update(extra_params)
+        kwargs["extra_body"] = existing_extra_body
     stream_requested = bool(kwargs.pop("stream", False) or getattr(llm_config, "stream", False))
 
     should_trace = tracer is not None and get_current_span() is not None
 
     if stream_requested:
-        # 1. 异步流式路径
+        # 1. 
         payload = kwargs.copy()
         payload.pop("stream", None)
         stream_options = {"include_usage": True}
@@ -2140,7 +2178,7 @@ async def call_llm_with_openai_chat_completion_async(
 
         return _chat_completion_to_model_response(completion)
 
-    # 2. 非流式路径
+    # 2. 
     async def _invoke(api_kwargs: dict[str, Any]) -> ChatCompletion:
         return cast(ChatCompletion, await client.chat.completions.create(**api_kwargs))
 
@@ -2196,7 +2234,7 @@ async def call_llm_with_anthropic_chat_completion_async(
         ).to_vendor_format(model_call_params.messages)
 
     def _build_api_kwargs() -> dict[str, Any]:
-        # 1. 组装参数（与 sync 版完全相同）
+        # 1. （ sync ）
         system_messages, user_messages = _build_anthropic_messages()
         _apply_cache_control(system_messages, user_messages)
 
@@ -2206,7 +2244,7 @@ async def call_llm_with_anthropic_chat_completion_async(
         return {"system": system_messages, "messages": user_messages, **new_kwargs}
 
     if not stream_requested:
-        # 2. 非流式路径
+        # 2. 
         async def _invoke_non_stream() -> Any:
             api_kwargs_local = _build_api_kwargs()
             if should_trace and tracer is not None:
@@ -2224,7 +2262,7 @@ async def call_llm_with_anthropic_chat_completion_async(
             resp = await _invoke_non_stream()
         return ModelResponse.from_anthropic_message(resp)
 
-    # 3. 流式路径
+    # 3. 
     async def _invoke_stream() -> Any:
         api_kwargs_local = _build_api_kwargs()
         run_id = _resolve_run_id(model_call_params)
@@ -2322,10 +2360,10 @@ async def call_llm_with_openai_responses_async(
 
     request_payload.pop("store", None)
 
-    # 默认开启 parallel_tool_calls；若 LLMConfig.extra_kwargs 显式关闭，则尊重配置。
+    # default parallel_tool_calls； LLMConfig.extra_kwargs ，configuration。
     request_payload.setdefault("parallel_tool_calls", _default_openai_responses_parallel_tool_calls(llm_config))
 
-    # 默认使用 detailed reasoning summary，使得 reasoning item 包含可读摘要。
+    # default detailed reasoning summary， reasoning item package。
     reasoning_param = request_payload.get("reasoning")
     if isinstance(reasoning_param, dict) and "summary" not in reasoning_param:
         reasoning_param["summary"] = "detailed"
@@ -2352,7 +2390,7 @@ async def call_llm_with_openai_responses_async(
     should_trace = tracer is not None and get_current_span() is not None
 
     if not stream_requested:
-        # 非流式路径
+        # 
         if should_trace and tracer is not None:
             trace_ctx = TraceContext(tracer, "OpenAI responses.create (async)", SpanType.LLM, inputs=request_payload)
             with trace_ctx:
@@ -2362,7 +2400,7 @@ async def call_llm_with_openai_responses_async(
             response = await client.responses.create(**request_payload)
         return ModelResponse.from_openai_response(response)
 
-    # 流式路径
+    # 
     run_id = _resolve_run_id(model_call_params)
     emitter = _get_event_emitter(middleware_manager)
     aggregator = OpenAIResponsesAggregator(on_event=emitter, run_id=run_id)
@@ -2487,15 +2525,15 @@ def _enrich_gemini_trace_outputs(
 ) -> dict[str, Any]:
     """Enrich Gemini REST trace output with model and usage for Langfuse.
 
-    Gemini REST 响应使用 modelVersion / usageMetadata，而 Langfuse tracer
-    的 end_span 依赖 output dict 中的 model / usage 来填充 generation 的
-    model 标签和 token 用量。此函数做字段映射注入。
+    Gemini REST  modelVersion / usageMetadata， Langfuse tracer
+     end_span  output dict  model / usage  generation 
+    model  token 。function。
     """
     enriched = dict(output)
-    # 1. 注入 model（Langfuse 用来标记 generation 的模型名）
+    # 1.  model（Langfuse  generation ）
     enriched["model"] = model_name
-    # 2. 将 usageMetadata 映射为 Langfuse 期望的 usage 格式
-    #    Langfuse _sanitize_usage 只保留 int 值，所以这里全部转 int。
+    # 2.  usageMetadata  Langfuse  usage 
+    # Langfuse _sanitize_usage  int value， int。
     usage_meta = output.get("usageMetadata")
     if isinstance(usage_meta, dict):
         meta: dict[str, object] = cast(dict[str, object], usage_meta)
@@ -2509,7 +2547,7 @@ def _enrich_gemini_trace_outputs(
             "output_tokens": _int_field("candidatesTokenCount"),
             "total_tokens": _int_field("totalTokenCount"),
         }
-        # 缓存和推理 token — 仅在实际存在时注入，保持 Langfuse 用量面板简洁
+        # token — ， Langfuse 
         cached = _int_field("cachedContentTokenCount")
         if cached > 0:
             usage["cached_tokens"] = cached
@@ -2519,57 +2557,6 @@ def _enrich_gemini_trace_outputs(
         enriched["usage"] = usage
     return enriched
 
-
-def _iter_gemini_sse_chunks(response: requests.Response) -> Iterator[dict[str, Any]]:
-    """Parse streaming chunks from a Gemini streaming response.
-
-    RFC-0003: 解析 Gemini 流式响应
-
-    Supports two response formats:
-    1. SSE format (``alt=sse``): lines prefixed with ``data:`` contain JSON payloads.
-    2. JSON array format (default ``streamGenerateContent``): the response body is
-       a JSON array of candidate objects, streamed incrementally.
-
-    The parser first attempts SSE parsing.  If no ``data:`` lines are found it
-    falls back to accumulating the raw bytes and parsing them as a JSON array.
-    """
-    raw_lines: list[str] = []
-    yielded_any = False
-
-    for line_bytes in response.iter_lines():
-        if not line_bytes:
-            continue
-        line = line_bytes.decode() if isinstance(line_bytes, bytes) else line_bytes
-
-        # 1. SSE 格式: 处理 "data:" 前缀行（兼容有无空格）
-        if line.startswith("data:"):
-            json_str = line[5:].lstrip()  # strip "data:" and optional leading space
-            if not json_str:
-                continue
-            try:
-                chunk = json.loads(json_str)
-                yielded_any = True
-                yield chunk
-            except json.JSONDecodeError:
-                logger.warning("Failed to parse Gemini SSE chunk: %s", json_str[:200])
-            continue
-
-        # 2. 非 SSE 行: 收集用于 JSON 数组回退解析
-        raw_lines.append(line)
-
-    # 3. 回退: 如果没有 SSE 数据，尝试将收集的行解析为 JSON 数组
-    if not yielded_any and raw_lines:
-        body = "\n".join(raw_lines)
-        try:
-            parsed = json.loads(body)
-            if isinstance(parsed, list):
-                for item_obj in cast(list[object], parsed):
-                    if isinstance(item_obj, dict):
-                        yield cast(dict[str, object], item_obj)
-            elif isinstance(parsed, dict):
-                yield parsed
-        except json.JSONDecodeError:
-            logger.warning("Failed to parse Gemini streaming response as JSON: %s", body[:500])
 
 
 def _gemini_sanitize_parameters(params: dict[str, object]) -> dict[str, object]:
@@ -2596,18 +2583,20 @@ def convert_tools_to_gemini(
 ) -> list[dict[str, Any]]:
     """Convert structured tool definitions to Gemini function declarations.
 
-    RFC-0006: Gemini 原生 structured tool adapter
+    RFC-0006: Gemini  structured tool adapter
 
-    Gemini 直接从 neutral structured definition 生成
-    ``functionDeclarations``，不再以 OpenAI schema 作为主中转形状。
+    Gemini  neutral structured definition 
+    ``functionDeclarations``， OpenAI schema 。
     """
 
     gemini_tools: list[dict[str, Any]] = []
     for tool in tools:
+        if hasattr(tool, "to_structured_definition"):
+            tool = tool.to_structured_definition()
         try:
             normalized = normalize_structured_tool_definition(tool)
         except ValueError:
-            if tool.get("type") != "function":
+            if isinstance(tool, dict) and tool.get("type") != "function":
                 continue
             raise
 
@@ -2623,7 +2612,129 @@ def convert_tools_to_gemini(
     return gemini_tools
 
 
-def call_llm_with_gemini_rest(
+def _build_bifrost_headers(
+    llm_config: LLMConfig,
+    model_call_params: ModelCallParams | None = None,
+) -> dict[str, str]:
+    """Build telemetry and session headers for Bifrost / Cloud Gateway."""
+    headers: dict[str, str] = {}
+    try:
+        from nexau.archs.platform.crypto_vault import get_auth_metadata
+        from nexau.archs.platform.path_helpers import get_installation_id
+
+        meta = get_auth_metadata()
+        headers["X-Machine-ID"] = get_installation_id()
+        headers["X-Client-Version"] = "Mash-Desktop/1.0.0"
+        if meta.get("email"):
+            headers["X-User-ID"] = str(meta["email"])
+    except Exception:
+        pass
+
+    # Extract session ID from model_call_params or llm_config
+    session_id: str | None = None
+    if model_call_params:
+        if getattr(model_call_params, "session_id", None):
+            session_id = str(model_call_params.session_id)
+        elif getattr(model_call_params, "agent_state", None) and getattr(model_call_params.agent_state, "session_id", None):
+            session_id = str(model_call_params.agent_state.session_id)
+        elif getattr(model_call_params, "token_trace_session", None) and getattr(model_call_params.token_trace_session, "session_id", None):
+            session_id = str(model_call_params.token_trace_session.session_id)
+
+    if not session_id and hasattr(llm_config, "session_id") and llm_config.session_id:
+        session_id = str(llm_config.session_id)
+    if not session_id and hasattr(llm_config, "extra_params") and isinstance(llm_config.extra_params, dict):
+        extra = llm_config.extra_params
+        session_id = str(extra.get("session_id") or (extra.get("extra_params") or {}).get("session_id") or "") or None
+
+    if session_id:
+        headers["X-Session-ID"] = session_id
+
+    if hasattr(llm_config, "default_headers") and llm_config.default_headers:
+        headers.update(llm_config.default_headers)
+    return headers
+
+
+def _build_google_genai_client(
+    llm_config: LLMConfig,
+    model_call_params: ModelCallParams | None = None,
+) -> genai.Client:
+    """Initialize a production-grade google-genai Client with Bifrost-first headers."""
+    if genai is None:
+        raise ImportError("google-genai is not installed. Install via `pip install google-genai`.")
+    http_opts: dict[str, Any] = {}
+    base_url = (llm_config.base_url or "").rstrip("/")
+    if base_url:
+        if base_url.endswith("/v1beta"):
+            http_opts["base_url"] = base_url[:-7]
+            http_opts["api_version"] = "v1beta"
+        elif base_url.endswith("/v1"):
+            http_opts["base_url"] = base_url[:-3]
+            http_opts["api_version"] = "v1"
+        else:
+            http_opts["base_url"] = base_url
+
+    headers = _build_bifrost_headers(llm_config, model_call_params)
+    if headers:
+        http_opts["headers"] = headers
+
+    if llm_config.timeout:
+        http_opts["timeout"] = float(llm_config.timeout)
+
+    api_key = llm_config.api_key or "bifrost-gateway"
+    return genai.Client(
+        api_key=api_key,
+        http_options=http_opts if http_opts else None,
+    )
+
+
+def _build_google_genai_config(
+    llm_config: LLMConfig,
+    system_instruction: Any,
+    gemini_tools: list[dict[str, Any]] | None,
+) -> genai_types.GenerateContentConfig:
+    """Build typed GenerateContentConfig for Google GenAI SDK."""
+    extra = llm_config.extra_params or {}
+    nested = extra.get("extra_params") if isinstance(extra.get("extra_params"), dict) else {}
+    thinking_config = (
+        extra.get("thinkingConfig")
+        or extra.get("thinking_config")
+        or nested.get("thinkingConfig")
+        or nested.get("thinking_config")
+    )
+    if thinking_config:
+        if isinstance(thinking_config, dict):
+            tc = dict(thinking_config)
+            if "includeThoughts" not in tc and "include_thoughts" not in tc:
+                tc["include_thoughts"] = True
+            thinking_cfg = tc
+        else:
+            thinking_cfg = thinking_config
+    else:
+        thinking_cfg = None
+
+    top_k_val: int | None = None
+    top_k = extra.get("top_k") or nested.get("top_k")
+    if top_k is not None:
+        try:
+            top_k_val = int(top_k)
+        except (TypeError, ValueError):
+            pass
+
+    sdk_tools = [{"function_declarations": gemini_tools}] if gemini_tools else None
+
+    return genai_types.GenerateContentConfig(
+        temperature=llm_config.temperature if llm_config.temperature is not None else 0.7,
+        max_output_tokens=llm_config.max_tokens,
+        top_p=llm_config.top_p,
+        top_k=top_k_val,
+        system_instruction=system_instruction,
+        tools=sdk_tools,
+        automatic_function_calling=genai_types.AutomaticFunctionCallingConfig(disable=True),
+        thinking_config=thinking_cfg,
+    )
+
+
+def call_llm_with_google_genai(
     kwargs: dict[str, Any],
     *,
     middleware_manager: MiddlewareManager | None = None,
@@ -2631,266 +2742,90 @@ def call_llm_with_gemini_rest(
     llm_config: LLMConfig | None = None,
     tracer: BaseTracer | None = None,
 ) -> ModelResponse:
-    """Call Gemini API directly via REST.
+    """Call Google GenAI API directly via the official google-genai SDK.
 
-    RFC-0006: Gemini 原生 structured tool adapter
-
-    Gemini 请求体直接从统一消息表示与 neutral structured tool definitions
-    生成，不再把 OpenAI schema 作为 structured tool calling 的主中转格式。
+    Bifrost-first architecture: telemetry headers and proxy URL are mapped directly
+    into genai.Client(http_options=...). Streaming responses yield typed
+    GenerateContentResponse chunks aggregated natively into ModelResponse.
     """
-    stream_requested = bool(kwargs.pop("stream", False) or getattr(llm_config, "stream", False))
     if not llm_config:
-        raise ValueError("llm_config is required for gemini_rest call")
-
-    tools = kwargs.get("tools")
-
-    # Convert messages
+        raise ValueError("llm_config is required for google_genai call")
     if model_call_params is None:
-        raise ValueError("Gemini REST calls require explicit ModelCallParams with UMP messages")
+        raise ValueError("Google GenAI calls require explicit ModelCallParams with UMP messages")
 
+    from nexau.archs.llm.llm_aggregators.gemini_rest.gemini_rest_event_aggregator import GeminiResponse
     from nexau.core.adapters.gemini_messages import GeminiMessagesAdapter
 
     contents, system_instruction = GeminiMessagesAdapter().to_vendor_format(model_call_params.messages)
+    tools = kwargs.get("tools")
+    gemini_tools = convert_tools_to_gemini(tools) if tools else []
 
-    # Base URL handling
-    base_url = llm_config.base_url.rstrip("/") if llm_config.base_url else ""
-    model_name = llm_config.model
-    api_key = llm_config.api_key
+    client = _build_google_genai_client(llm_config, model_call_params)
+    config = _build_google_genai_config(llm_config, system_instruction, gemini_tools)
 
-    # RFC-0003: 根据是否流式选择不同的 endpoint
-    endpoint = "streamGenerateContent" if stream_requested else "generateContent"
-
-    if not base_url or "generativelanguage.googleapis.com" in base_url:
-        if not base_url:
-            base_url = "https://generativelanguage.googleapis.com"
-        url = f"{base_url}/v1beta/models/{model_name}:{endpoint}?key={api_key}"
-    else:
-        url = f"{base_url}/models/{model_name}:{endpoint}?key={api_key}"
-
-    if stream_requested:
-        url += "&alt=sse"
-
-    # Construct request body - only include non-None values
-    generation_config: dict[str, Any] = {
-        "temperature": llm_config.temperature if llm_config.temperature is not None else 0.7,
-    }
-    if llm_config.max_tokens is not None:
-        generation_config["maxOutputTokens"] = llm_config.max_tokens
-    if llm_config.top_p is not None:
-        generation_config["topP"] = llm_config.top_p
-
-    # Optional: Gemini's topK sampling parameter, taken from extra_params["top_k"]
-    top_k = llm_config.extra_params.get("top_k")
-    if top_k is not None:
-        try:
-            generation_config["topK"] = int(top_k)
-        except (TypeError, ValueError):
-            pass
-
-    request_body: dict[str, Any] = {
-        "contents": contents,
-        "generationConfig": generation_config,
-    }
-
-    if system_instruction:
-        request_body["systemInstruction"] = system_instruction
-
-    if tools:
-        gemini_tools = convert_tools_to_gemini(tools)
-        if gemini_tools:
-            request_body["tools"] = [{"functionDeclarations": gemini_tools}]
-
-    thinking_config = llm_config.extra_params.get("thinkingConfig")
-    if thinking_config:
-        generation_config["thinkingConfig"] = thinking_config
-
-    # Check if tracing is active (there's a current span and we have a tracer)
+    stream_requested = bool(kwargs.pop("stream", False) or getattr(llm_config, "stream", False))
     should_trace = tracer is not None and get_current_span() is not None
+    trace_inputs = {"contents": contents, "model": llm_config.model}
 
-    # RFC-0003: 流式请求路径
     if stream_requested:
+        run_id = _resolve_run_id(model_call_params)
+        emitter = _get_event_emitter(middleware_manager)
+        aggregator = GeminiRestEventAggregator(on_event=emitter, run_id=run_id)
+        shutdown_ev = model_call_params.shutdown_event if model_call_params else None
 
-        def do_stream_request() -> dict[str, Any]:
-            """Execute streaming request and return aggregated response dict.
+        trace_ctx = TraceContext(tracer, "Google GenAI streamGenerateContent", SpanType.LLM, inputs=trace_inputs) if should_trace and tracer is not None else None
+        start_time = time.time()
+        first_token_time = None
 
-            RFC-0003: 执行 Gemini REST 流式请求
-            """
-            from nexau.archs.llm.llm_aggregators.gemini_rest.gemini_rest_event_aggregator import GeminiResponse  # noqa: PLC0415
+        try:
+            stream = client.models.generate_content_stream(
+                model=llm_config.model,
+                contents=contents,
+                config=config,
+            )
+            for chunk in stream:
+                if shutdown_ev is not None and shutdown_ev.is_set():
+                    logger.info("🛑 Shutdown event detected during Google GenAI streaming")
+                    break
+                if first_token_time is None:
+                    first_token_time = time.time()
+                chunk_json = chunk.model_dump(by_alias=True, mode="json", exclude_none=True)
+                processed_chunk = _process_stream_chunk(chunk_json, middleware_manager, model_call_params)
+                if processed_chunk is not None:
+                    aggregator.aggregate(cast(GeminiResponse, processed_chunk))
 
-            run_id = _resolve_run_id(model_call_params)
-            emitter = _get_event_emitter(middleware_manager)
-            aggregator = GeminiRestEventAggregator(on_event=emitter, run_id=run_id)
-            _shutdown_ev = model_call_params.shutdown_event if model_call_params else None
-
-            if should_trace and tracer is not None:
-                trace_ctx = TraceContext(
-                    tracer,
-                    "Gemini REST streamGenerateContent",
-                    SpanType.LLM,
-                    inputs=request_body,
-                )
+            res = cast(dict[str, Any], aggregator.build())
+            if trace_ctx is not None:
                 with trace_ctx:
-                    start_time = time.time()
-                    first_token_time = None
-                    # stream_idle_timeout → requests read timeout (每帧超时)
-                    _read_timeout = llm_config.get_stream_idle_timeout()
-                    _connect_timeout = llm_config.get_connect_timeout()
-                    try:
-                        resp = requests.post(
-                            url,
-                            json=request_body,
-                            timeout=(_connect_timeout, _read_timeout),
-                            stream=True,
-                        )
-                        resp.raise_for_status()
-                        for chunk_json in _iter_gemini_sse_chunks(resp):
-                            if _shutdown_ev is not None and _shutdown_ev.is_set():
-                                logger.info(
-                                    "🛑 Shutdown event detected during Gemini REST streaming, finalizing partial response",
-                                )
-                                break
-                            if first_token_time is None:
-                                first_token_time = time.time()
-                            processed_chunk = _process_stream_chunk(
-                                chunk_json,
-                                middleware_manager,
-                                model_call_params,
-                            )
-                            if processed_chunk is None:
-                                continue
-                            aggregator.aggregate(cast(GeminiResponse, processed_chunk))
-                    except requests.exceptions.ReadTimeout as exc:
-                        raise StreamIdleTimeoutError(
-                            f"Gemini REST stream idle timeout ({_read_timeout}s): {exc}",
-                        ) from exc
-                    result = cast(dict[str, Any], aggregator.build())
-                    trace_ctx.set_outputs(_enrich_gemini_trace_outputs(result, model_name))
+                    trace_ctx.set_outputs(_enrich_gemini_trace_outputs(res, llm_config.model))
                     if first_token_time is not None:
-                        trace_ctx.set_attributes(
-                            {"time_to_first_token_ms": (first_token_time - start_time) * 1000},
-                        )
-                    return result
-            else:
-                _read_timeout = llm_config.get_stream_idle_timeout()
-                _connect_timeout = llm_config.get_connect_timeout()
-                try:
-                    resp = requests.post(
-                        url,
-                        json=request_body,
-                        timeout=(_connect_timeout, _read_timeout),
-                        stream=True,
-                    )
-                    resp.raise_for_status()
-                    for chunk_json in _iter_gemini_sse_chunks(resp):
-                        if _shutdown_ev is not None and _shutdown_ev.is_set():
-                            logger.info(
-                                "🛑 Shutdown event detected during Gemini REST streaming, finalizing partial response",
-                            )
-                            break
-                        processed_chunk = _process_stream_chunk(
-                            chunk_json,
-                            middleware_manager,
-                            model_call_params,
-                        )
-                        if processed_chunk is None:
-                            continue
-                        aggregator.aggregate(cast(GeminiResponse, processed_chunk))
-                except requests.exceptions.ReadTimeout as exc:
-                    raise StreamIdleTimeoutError(
-                        f"Gemini REST stream idle timeout ({_read_timeout}s): {exc}",
-                    ) from exc
-                return cast(dict[str, Any], aggregator.build())
-
-        try:
-            response_json = do_stream_request()
-            return ModelResponse.from_gemini_rest(response_json)
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Gemini REST API streaming call failed: {e}")
-            if e.response is not None:
-                logger.error(f"Response content: {e.response.text}")
-            raise
-        except Exception as e:
-            logger.error(f"Gemini REST API streaming call failed: {e}")
+                        trace_ctx.set_attributes({"time_to_first_token_ms": (first_token_time - start_time) * 1000})
+            return ModelResponse.from_gemini_rest(res)
+        except Exception as exc:
+            wrapped_error = _maybe_wrap_stream_idle_timeout(exc, transport_name="google_genai stream", llm_config=llm_config)
+            if wrapped_error is not None:
+                raise wrapped_error from exc
             raise
 
-    # Non-streaming request path
-    def do_request() -> dict[str, Any]:
-        response = requests.post(
-            url,
-            json=request_body,
-            timeout=(llm_config.get_connect_timeout(), float(llm_config.timeout or 120)),
-        )
-        response.raise_for_status()
-        return response.json()
-
-    # Perform request
+    # Non-streaming path
+    trace_ctx = TraceContext(tracer, "Google GenAI generateContent", SpanType.LLM, inputs=trace_inputs) if should_trace and tracer is not None else None
     try:
-        if should_trace and tracer is not None:
-            trace_ctx = TraceContext(tracer, "Gemini REST generateContent", SpanType.LLM, inputs=request_body)
+        response = client.models.generate_content(
+            model=llm_config.model,
+            contents=contents,
+            config=config,
+        )
+        response_json = response.model_dump(by_alias=True, mode="json", exclude_none=True)
+        if trace_ctx is not None:
             with trace_ctx:
-                response_json = do_request()
-                trace_ctx.set_outputs(_enrich_gemini_trace_outputs(_to_serializable_dict(response_json), model_name))
-        else:
-            response_json = do_request()
-
+                trace_ctx.set_outputs(_enrich_gemini_trace_outputs(_to_serializable_dict(response_json), llm_config.model))
         return ModelResponse.from_gemini_rest(response_json)
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Gemini REST API call failed: {e}")
-        if e.response is not None:
-            logger.error(f"Response content: {e.response.text}")
-        raise
-    except Exception as e:
-        logger.error(f"Gemini REST API call failed: {e}")
+    except Exception as exc:
+        logger.error(f"Google GenAI API call failed: {exc}")
         raise
 
 
-async def _iter_gemini_sse_chunks_async(response: httpx.Response) -> AsyncIterator[dict[str, Any]]:
-    """Async version of _iter_gemini_sse_chunks using httpx.Response.
-
-    P2 async/sync 技术债修复: 异步解析 Gemini 流式响应
-
-    与 sync 版本相同的解析逻辑（SSE 格式 + JSON 数组回退），
-    但使用 httpx.Response.aiter_lines() 异步迭代。
-    """
-    raw_lines: list[str] = []
-    yielded_any = False
-
-    async for line in response.aiter_lines():
-        if not line:
-            continue
-
-        # 1. SSE 格式: 处理 "data:" 前缀行
-        if line.startswith("data:"):
-            json_str = line[5:].lstrip()
-            if not json_str:
-                continue
-            try:
-                chunk = json.loads(json_str)
-                yielded_any = True
-                yield chunk
-            except json.JSONDecodeError:
-                logger.warning("Failed to parse Gemini SSE chunk (async): %s", json_str[:200])
-            continue
-
-        # 2. 非 SSE 行: 收集用于 JSON 数组回退解析
-        raw_lines.append(line)
-
-    # 3. 回退: 如果没有 SSE 数据，尝试将收集的行解析为 JSON 数组
-    if not yielded_any and raw_lines:
-        body = "\n".join(raw_lines)
-        try:
-            parsed = json.loads(body)
-            if isinstance(parsed, list):
-                for item_obj in cast(list[object], parsed):
-                    if isinstance(item_obj, dict):
-                        yield cast(dict[str, object], item_obj)
-            elif isinstance(parsed, dict):
-                yield parsed
-        except json.JSONDecodeError:
-            logger.warning("Failed to parse Gemini streaming response as JSON (async): %s", body[:500])
-
-
-async def call_llm_with_gemini_rest_async(
+async def call_llm_with_google_genai_async(
     kwargs: dict[str, Any],
     *,
     middleware_manager: MiddlewareManager | None = None,
@@ -2898,170 +2833,84 @@ async def call_llm_with_gemini_rest_async(
     llm_config: LLMConfig,
     tracer: BaseTracer | None = None,
 ) -> ModelResponse:
-    """Async version of call_llm_with_gemini_rest using httpx.AsyncClient.
-
-    P2 async/sync 技术债修复: 异步 Gemini REST API 调用
-
-    使用 httpx.AsyncClient 替代 requests.post，在主事件循环上执行
-    Gemini REST API 调用（含流式和非流式），避免阻塞 event loop。
-    """
-    stream_requested = bool(kwargs.pop("stream", False) or getattr(llm_config, "stream", False))
-    tools = kwargs.get("tools")
-
-    # 消息转换
+    """Async version of call_llm_with_google_genai using client.aio."""
     if model_call_params is None:
-        raise ValueError("Gemini REST calls require explicit ModelCallParams with UMP messages")
+        raise ValueError("Google GenAI calls require explicit ModelCallParams with UMP messages")
 
+    from nexau.archs.llm.llm_aggregators.gemini_rest.gemini_rest_event_aggregator import GeminiResponse
     from nexau.core.adapters.gemini_messages import GeminiMessagesAdapter
 
     contents, system_instruction = GeminiMessagesAdapter().to_vendor_format(model_call_params.messages)
+    tools = kwargs.get("tools")
+    gemini_tools = convert_tools_to_gemini(tools) if tools else []
 
-    # URL 构建
-    base_url = llm_config.base_url.rstrip("/") if llm_config.base_url else ""
-    model_name = llm_config.model
-    api_key = llm_config.api_key
+    client = _build_google_genai_client(llm_config, model_call_params)
+    config = _build_google_genai_config(llm_config, system_instruction, gemini_tools)
 
-    if not api_key:
-        raise ValueError("API key is required for Gemini REST API")
-
-    endpoint = "streamGenerateContent" if stream_requested else "generateContent"
-
-    if not base_url or "generativelanguage.googleapis.com" in base_url:
-        if not base_url:
-            base_url = "https://generativelanguage.googleapis.com"
-        url = f"{base_url}/v1beta/models/{model_name}:{endpoint}?key={api_key}"
-    else:
-        url = f"{base_url}/models/{model_name}:{endpoint}?key={api_key}"
-
-    if stream_requested:
-        url += "&alt=sse"
-
-    # 请求体构建
-    generation_config: dict[str, Any] = {
-        "temperature": llm_config.temperature if llm_config.temperature is not None else 0.7,
-    }
-    if llm_config.max_tokens is not None:
-        generation_config["maxOutputTokens"] = llm_config.max_tokens
-    if llm_config.top_p is not None:
-        generation_config["topP"] = llm_config.top_p
-
-    top_k = llm_config.extra_params.get("top_k")
-    if top_k is not None:
-        try:
-            generation_config["topK"] = int(top_k)
-        except (TypeError, ValueError):
-            pass
-
-    request_body: dict[str, Any] = {
-        "contents": contents,
-        "generationConfig": generation_config,
-    }
-    if system_instruction:
-        request_body["systemInstruction"] = system_instruction
-    if tools:
-        gemini_tools = convert_tools_to_gemini(tools)
-        if gemini_tools:
-            request_body["tools"] = [{"functionDeclarations": gemini_tools}]
-
-    thinking_config = llm_config.extra_params.get("thinkingConfig")
-    if thinking_config:
-        generation_config["thinkingConfig"] = thinking_config
-
+    stream_requested = bool(kwargs.pop("stream", False) or getattr(llm_config, "stream", False))
     should_trace = tracer is not None and get_current_span() is not None
-    # stream_idle_timeout → httpx read timeout (每帧超时)
-    _read_timeout = llm_config.get_stream_idle_timeout()
-    _connect_timeout = llm_config.get_connect_timeout()
+    trace_inputs = {"contents": contents, "model": llm_config.model}
 
     if stream_requested:
-        from nexau.archs.llm.llm_aggregators.gemini_rest.gemini_rest_event_aggregator import GeminiResponse  # noqa: PLC0415
-
         run_id = _resolve_run_id(model_call_params)
         emitter = _get_event_emitter(middleware_manager)
         aggregator = GeminiRestEventAggregator(on_event=emitter, run_id=run_id)
-        _shutdown_ev = model_call_params.shutdown_event if model_call_params else None
+        shutdown_ev = model_call_params.shutdown_event if model_call_params else None
+
+        trace_ctx = TraceContext(tracer, "Google GenAI streamGenerateContent (async)", SpanType.LLM, inputs=trace_inputs) if should_trace and tracer is not None else None
+        start_time = time.time()
+        first_token_time = None
 
         try:
-            async with httpx.AsyncClient(timeout=httpx.Timeout(timeout=None, connect=_connect_timeout, read=_read_timeout)) as client:
-                if should_trace and tracer is not None:
-                    trace_ctx = TraceContext(
-                        tracer,
-                        "Gemini REST streamGenerateContent (async)",
-                        SpanType.LLM,
-                        inputs=request_body,
-                    )
-                    with trace_ctx:
-                        start_time = time.time()
-                        first_token_time = None
-                        async with client.stream("POST", url, json=request_body) as resp:
-                            resp.raise_for_status()
-                            async for chunk_json in _iter_gemini_sse_chunks_async(resp):
-                                if _shutdown_ev is not None and _shutdown_ev.is_set():
-                                    logger.info(
-                                        "🛑 Shutdown event detected during Gemini REST streaming (async), finalizing partial response",
-                                    )
-                                    break
-                                if first_token_time is None:
-                                    first_token_time = time.time()
-                                processed_chunk = _process_stream_chunk(
-                                    chunk_json,
-                                    middleware_manager,
-                                    model_call_params,
-                                )
-                                if processed_chunk is None:
-                                    continue
-                                aggregator.aggregate(cast(GeminiResponse, processed_chunk))
-                        result = cast(dict[str, Any], aggregator.build())
-                        trace_ctx.set_outputs(_enrich_gemini_trace_outputs(result, model_name))
-                        if first_token_time is not None:
-                            trace_ctx.set_attributes(
-                                {"time_to_first_token_ms": (first_token_time - start_time) * 1000},
-                            )
-                        return ModelResponse.from_gemini_rest(result)
-                else:
-                    async with client.stream("POST", url, json=request_body) as resp:
-                        resp.raise_for_status()
-                        async for chunk_json in _iter_gemini_sse_chunks_async(resp):
-                            if _shutdown_ev is not None and _shutdown_ev.is_set():
-                                logger.info(
-                                    "🛑 Shutdown event detected during Gemini REST streaming (async), finalizing partial response",
-                                )
-                                break
-                            processed_chunk = _process_stream_chunk(
-                                chunk_json,
-                                middleware_manager,
-                                model_call_params,
-                            )
-                            if processed_chunk is None:
-                                continue
-                            aggregator.aggregate(cast(GeminiResponse, processed_chunk))
-                    return ModelResponse.from_gemini_rest(cast(dict[str, Any], aggregator.build()))
-        except httpx.ReadTimeout as exc:
-            raise StreamIdleTimeoutError(
-                f"Gemini REST stream idle timeout ({_read_timeout}s, async): {exc}",
-            ) from exc
+            stream_or_coro = client.aio.models.generate_content_stream(
+                model=llm_config.model,
+                contents=contents,
+                config=config,
+            )
+            stream = await stream_or_coro if inspect.isawaitable(stream_or_coro) else stream_or_coro
+            async for chunk in stream:
+                if shutdown_ev is not None and shutdown_ev.is_set():
+                    logger.info("🛑 Shutdown event detected during Google GenAI streaming (async)")
+                    break
+                if first_token_time is None:
+                    first_token_time = time.time()
+                chunk_json = chunk.model_dump(by_alias=True, mode="json", exclude_none=True)
+                processed_chunk = _process_stream_chunk(chunk_json, middleware_manager, model_call_params)
+                if processed_chunk is not None:
+                    aggregator.aggregate(cast(GeminiResponse, processed_chunk))
 
-    # Non-streaming async request
-    async with httpx.AsyncClient(
-        timeout=httpx.Timeout(timeout=float(llm_config.timeout or 120), connect=_connect_timeout),
-    ) as client:
-        try:
-            if should_trace and tracer is not None:
-                trace_ctx = TraceContext(tracer, "Gemini REST generateContent (async)", SpanType.LLM, inputs=request_body)
+            res = cast(dict[str, Any], aggregator.build())
+            if trace_ctx is not None:
                 with trace_ctx:
-                    response = await client.post(url, json=request_body)
-                    response.raise_for_status()
-                    response_json = response.json()
-                    trace_ctx.set_outputs(_enrich_gemini_trace_outputs(_to_serializable_dict(response_json), model_name))
-            else:
-                response = await client.post(url, json=request_body)
-                response.raise_for_status()
-                response_json = response.json()
+                    trace_ctx.set_outputs(_enrich_gemini_trace_outputs(res, llm_config.model))
+                    if first_token_time is not None:
+                        trace_ctx.set_attributes({"time_to_first_token_ms": (first_token_time - start_time) * 1000})
+            return ModelResponse.from_gemini_rest(res)
+        except Exception as exc:
+            wrapped_error = _maybe_wrap_stream_idle_timeout(exc, transport_name="google_genai stream (async)", llm_config=llm_config)
+            if wrapped_error is not None:
+                raise wrapped_error from exc
+            raise
 
-            return ModelResponse.from_gemini_rest(response_json)
-        except httpx.HTTPStatusError as e:
-            logger.error(f"Gemini REST API call failed (async): {e}")
-            logger.error(f"Response content: {e.response.text}")
-            raise
-        except Exception as e:
-            logger.error(f"Gemini REST API call failed (async): {e}")
-            raise
+    # Non-streaming async path
+    trace_ctx = TraceContext(tracer, "Google GenAI generateContent (async)", SpanType.LLM, inputs=trace_inputs) if should_trace and tracer is not None else None
+    try:
+        response_or_coro = client.aio.models.generate_content(
+            model=llm_config.model,
+            contents=contents,
+            config=config,
+        )
+        response = await response_or_coro if inspect.isawaitable(response_or_coro) else response_or_coro
+        response_json = response.model_dump(by_alias=True, mode="json", exclude_none=True)
+        if trace_ctx is not None:
+            with trace_ctx:
+                trace_ctx.set_outputs(_enrich_gemini_trace_outputs(_to_serializable_dict(response_json), llm_config.model))
+        return ModelResponse.from_gemini_rest(response_json)
+    except Exception as exc:
+        logger.error(f"Google GenAI API call failed (async): {exc}")
+        raise
+
+
+# Backward compatibility aliases
+call_llm_with_gemini_rest = call_llm_with_google_genai
+call_llm_with_gemini_rest_async = call_llm_with_google_genai_async

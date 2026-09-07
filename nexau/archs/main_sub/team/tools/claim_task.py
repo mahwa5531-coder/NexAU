@@ -14,7 +14,7 @@
 
 """claim_task tool — claim or assign a task from the task board.
 
-RFC-0002: 领取/分配任务
+RFC-0002: /
 """
 
 from __future__ import annotations
@@ -40,27 +40,27 @@ async def claim_task(
 ) -> ClaimTaskResult | ToolError:
     """Claim a task from the shared task board.
 
-    RFC-0002: 领取/分配任务
+    RFC-0002: /
 
-    - task_id 必须显式指定（禁止 claim-next）
-    - assignee_agent_id 为空时 self-claim
-    - assignee_agent_id 非空时为 leader assignment（校验 caller 为 leader）
+    - task_id （ claim-next）
+    - assignee_agent_id  self-claim
+    - assignee_agent_id  leader assignment（ caller  leader）
 
-    Teammate 自助领取流程: list_tasks() → 选择 task_id → claim_task(task_id)
-    若 claim 冲突则重试选择其他任务。
+    Teammate : list_tasks() →  task_id → claim_task(task_id)
+     claim retry。
     """
     ts = require_team_state(agent_state)
     caller_id = agent_state.agent_id
     actual_assignee = assignee_agent_id or caller_id
 
-    # leader assignment 校验
+    # leader assignment 
     if assignee_agent_id is not None and not ts.is_leader:
         return ToolError(
             error="Only leader can assign tasks to others",
             code="permission_denied",
         )
 
-    # 单任务约束：teammate 同时只能持有一个 in_progress 任务
+    # ：teammate  in_progress 
     active_tasks = await ts.task_board.list_tasks(status="in_progress")
     existing = [t for t in active_tasks if t.assignee_agent_id == actual_assignee]
     if existing:
@@ -80,7 +80,7 @@ async def claim_task(
             assignee_agent_id=actual_assignee,
         )
 
-        # leader assignment 时通过 enqueue_message 通知 teammate
+        # leader assignment  enqueue_message  teammate
         if assignee_agent_id is not None:
             ts.team.send_message_to_agent(
                 actual_assignee,
@@ -88,7 +88,7 @@ async def claim_task(
                 agent_state.agent_id,
             )
 
-        # 获取任务信息以返回 deliverable_path
+        # deliverable_path
         task_info = await ts.task_board.get_task_info(task_id)
 
         return ClaimTaskResult(

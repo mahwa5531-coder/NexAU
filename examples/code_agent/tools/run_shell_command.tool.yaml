@@ -2,61 +2,49 @@ type: tool
 name: run_shell_command
 formatter: nexau.archs.tool.formatters.shell:format_run_shell_command_output
 description: >-
-  This tool executes a given shell command through the sandbox's active shell
-  backend. On Windows the default backend is PowerShell/cmd, while Git Bash is
-  used only when explicitly selected; on Unix-like systems the backend is
-  bash-compatible. Use the command syntax for the active backend described in
-  the Runtime Environment section of the system prompt. On Windows PowerShell
-  backends, use PowerShell syntax. PowerShell here-strings are useful for
-  simple multi-line content, but avoid single-quoted here-strings when content
-  may contain a line beginning with `'@`. For exact UTF-8 file content without
-  BOM, prefer .NET `WriteAllText` with `UTF8Encoding($false)`. Do not use Bash
-  heredoc unless Git Bash is explicitly selected. To run a
-  command in the background, set the `is_background` parameter to true. Do NOT
-  use `&` to background commands. On backends that expose a POSIX process group,
-  it can be terminated as `kill -- -PGID` or signaled as
-  `kill -s SIGNAL -- -PGID`.
-
-  The following information is returned:
-
-  Output: Combined stdout/stderr. Can be `(empty)` or partial on error and for
-  any unwaited background processes.
-
-  Exit Code: Only included if non-zero (command failed).
-
-  Error: Only included if a process-level error occurred (e.g., spawn failure).
-
-  Signal: Only included if process was terminated by a signal.
-
-  Background PIDs: Only included if background processes were started.
-
-  Process Group PGID: Only included if available.
+  PROPOSE a command to run on behalf of the user. Operating System: windows. Shell: powershell.
+  **NEVER PROPOSE A cd COMMAND**.
+  If you have this tool, note that you DO have the ability to run commands directly on the USER's system.
+  Make sure to specify CommandLine exactly as it should be run in the shell.
+  If the step doesn't return the command output, it means that the command was sent to the background as a task. You will receive messages with the command's output as it runs. To interact with a running command, use the manage_task tool. Use `send_input` to send stdin, `kill` to terminate the command, and `status` to check current status. IMPORTANT: Do NOT poll or loop on `status` to wait for completion. The system will automatically notify you with a message when the command finishes. Simply proceed with other work or stop calling tools after launching a command.
+  Commands will be run with PAGER=cat. You may want to limit the length of output for commands that usually rely on paging and may contain very long output (e.g. git log, use git log -n <N>).
 input_schema:
   type: object
   properties:
+    CommandLine:
+      type: string
+      description: "The exact command line string to execute."
+    Cwd:
+      type: string
+      description: "The current working directory for the command"
+    WaitMsBeforeAsync:
+      type: integer
+      description: "This specifies the number of milliseconds to wait after starting the command before sending it to the background. If you want the command to complete execution synchronously, set this to a large enough value that you expect the command to complete in that time under ordinary circumstances. If you're starting an interactive or long-running command, set it to a large enough value that it would cause possible failure cases to execute synchronously (e.g. 500ms). Keep the value as small as possible, with a maximum of 10000ms."
+    IsDaemon:
+      type: boolean
+      description: "Set to true for long-running support processes that are meant to keep running in the background indefinitely and are not expected to finish on their own (e.g., dev servers, file watchers, tunnels). Leave false (the default) for normal commands that are expected to terminate."
+    toolAction:
+      type: string
+      description: "Brief 2-5 word summary of what this tool is doing. Capitalize like a sentence. Some examples: 'Analyzing directory', 'Searching the web', 'Editing file', 'Viewing file', 'Running command', 'Semantic searching'."
+    toolSummary:
+      type: string
+      description: "Brief 2-5 word noun phrase describing what this tool call is about. Capitalize like a sentence. Some examples: 'Directory analysis', 'Web search', 'File edit', 'Command execution', 'Semantic search'."
     command:
       type: string
-      description: Exact command to execute with the active shell backend
-    description:
-      type: string
-      description: >-
-        Brief description of the command for the user. Be specific and concise.
-        Ideally a single sentence. Can be up to 3 sentences for clarity. No line
-        breaks.
-    is_background:
-      type: boolean
-      description: >-
-        (OPTIONAL) Set to true if this command should be run in the background
-        (e.g. for long-running servers or watchers). The command will be started,
-        allowed to run for a brief moment to check for immediate errors, and then
-        moved to the background. If not provided, defaults to false.
+      description: "Alias for CommandLine: The exact command line string to execute."
     dir_path:
       type: string
-      description: >-
-        (OPTIONAL) The path of the directory to run the command in. If not
-        provided, the project root directory is used. Must be a directory within
-        the workspace and must already exist.
+      description: "Alias for Cwd: The current working directory for the command."
+    description:
+      type: string
+      description: "Brief description of what this command accomplishes."
+    is_background:
+      type: boolean
+      description: "Alias for IsDaemon / background execution."
   required:
-    - command
+    - CommandLine
+    - Cwd
+    - toolAction
+    - toolSummary
   additionalProperties: false
   $schema: http://json-schema.org/draft-07/schema#

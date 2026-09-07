@@ -123,7 +123,7 @@ def create_team_router(
 ) -> APIRouter:
     """Create team router with registry dependency.
 
-    RFC-0002: 创建 team 路由（注入 TeamRegistry）
+    RFC-0002:  team （ TeamRegistry）
 
     Args:
         registry: TeamRegistry instance for managing team lifecycle.
@@ -136,21 +136,21 @@ def create_team_router(
     """
     router = APIRouter(prefix="/team", tags=["team"])
 
-    # RFC-0002: Team SSE 流式输出
-    # RFC-0014: 运行中自动降级为 enqueue + subscribe
+    # RFC-0002: Team SSE 
+    # RFC-0014: running enqueue + subscribe
     @router.post("/stream")
     async def team_stream(request: TeamRunRequest) -> StreamingResponse:
         """Run team with SSE streaming output.
 
-        RFC-0002: Team SSE 流式输出
-        RFC-0014: 运行中自动降级
+        RFC-0002: Team SSE 
+        RFC-0014: running
 
-        若 team 已在运行，自动将消息 enqueue 到 leader 并返回 subscribe 风格的
-        SSE 重连流，避免重复调用 run() 导致 leader lock 冲突。
+         team ， enqueue  leader  subscribe 
+        SSE ， run()  leader lock 。
         """
         team = registry.get_or_create(request.user_id, request.session_id)
 
-        # RFC-0014: 若 team 已在运行，降级为 enqueue + subscribe
+        # RFC-0014:  team ， enqueue + subscribe
         if team.is_running:
             logger.info(
                 "Team already running for (%s, %s), redirecting to enqueue + subscribe",
@@ -159,7 +159,7 @@ def create_team_router(
             )
             team.enqueue_user_message("leader", request.message)
 
-            # 返回 subscribe 风格的 SSE 流，从当前事件位置开始
+            # subscribe  SSE ，
             current_cursor = 0
             if count_events is not None:
                 current_cursor = count_events(request.user_id, request.session_id)
@@ -214,7 +214,7 @@ def create_team_router(
                 },
             )
 
-        # 创建 per-request on_envelope 回调，用于事件持久化
+        # per-request on_envelope ，
         def _on_envelope(envelope: TeamStreamEnvelope) -> None:
             if on_stream_event is not None:
                 on_stream_event(
@@ -225,7 +225,7 @@ def create_team_router(
 
         envelope_cb = _on_envelope if on_stream_event is not None else None
 
-        # 运行结束后从注册表移除（通过 on_complete 回调，而非 SSE 断连时）
+        # （ on_complete ， SSE ）
         team.set_on_complete(lambda: registry.remove(request.user_id, request.session_id))
 
         async def event_generator() -> AsyncGenerator[str, None]:
@@ -263,12 +263,12 @@ def create_team_router(
             },
         )
 
-    # RFC-0002: Team 同步查询
+    # RFC-0002: Team 
     @router.post("/query")
     async def team_query(request: TeamRunRequest) -> dict[str, str]:
         """Run team synchronously.
 
-        RFC-0002: Team 同步查询
+        RFC-0002: Team 
         """
         team = registry.get_or_create(request.user_id, request.session_id)
         try:
@@ -277,7 +277,7 @@ def create_team_router(
         finally:
             registry.remove(request.user_id, request.session_id)
 
-    # RFC-0002: 列出 Teammates
+    # RFC-0002:  Teammates
     @router.get("/teammates")
     async def list_teammates(
         user_id: str = Query(...),
@@ -285,7 +285,7 @@ def create_team_router(
     ) -> list[dict[str, str]]:
         """List all teammates and their status.
 
-        RFC-0002: 列出 Teammates
+        RFC-0002:  Teammates
         """
         team = registry.get(user_id, session_id)
         if team is None:
@@ -293,34 +293,35 @@ def create_team_router(
         infos = team.get_teammate_info()
         return [asdict(info) for info in infos]
 
-    # RFC-0002: 列出任务
+    # RFC-0002: 
     @router.get("/tasks")
     async def list_tasks(
         user_id: str = Query(...),
         session_id: str = Query(...),
         status: str | None = Query(default=None),
     ) -> list[dict[str, object]]:
+
         """List tasks on the shared task board.
 
-        RFC-0002: 列出任务
+        RFC-0002: 
         """
-        team = registry.get(user_id, session_id)
-        if team is None:
-            return []
+        team = registry.get_or_create(user_id, session_id)
         try:
+            await team.initialize()
             tasks = await team.task_board.list_tasks(status=status)
-        except RuntimeError:
+        except (RuntimeError, ValueError):
             return []
         return [asdict(t) for t in tasks]
 
-    # RFC-0002: 创建任务
+    # RFC-0002: 
     @router.post("/tasks")
     async def create_task(request: CreateTaskRequest) -> dict[str, object]:
         """Create a new task.
 
-        RFC-0002: 创建任务
+        RFC-0002: 
         """
         team = registry.get_or_create(request.user_id, request.session_id)
+        await team.initialize()
         task = await team.task_board.create_task(
             title=request.title,
             description=request.description,
@@ -330,14 +331,15 @@ def create_team_router(
         )
         return asdict(task)
 
-    # RFC-0002: 认领任务
+    # RFC-0002: 
     @router.post("/tasks/claim")
     async def claim_task(request: ClaimTaskRequest) -> dict[str, object]:
         """Claim a task.
 
-        RFC-0002: 认领任务
+        RFC-0002: 
         """
         team = registry.get_or_create(request.user_id, request.session_id)
+        await team.initialize()
         assignee = request.assignee_agent_id or "api"
         try:
             await team.task_board.claim_task(
@@ -348,7 +350,7 @@ def create_team_router(
             raise HTTPException(status_code=409, detail=str(exc))
         return {"task_id": request.task_id, "status": "claimed", "assignee_agent_id": assignee}
 
-    # RFC-0002: 更新任务状态
+    # RFC-0002: 
     @router.patch("/tasks/{task_id}")
     async def update_task(
         task_id: str,
@@ -358,9 +360,10 @@ def create_team_router(
     ) -> dict[str, object]:
         """Update task status.
 
-        RFC-0002: 更新任务状态
+        RFC-0002: 
         """
         team = registry.get_or_create(user_id, session_id)
+        await team.initialize()
         await team.task_board.update_status(
             task_id=task_id,
             status=request.status,
@@ -368,14 +371,15 @@ def create_team_router(
         )
         return {"task_id": task_id, "status": request.status}
 
-    # RFC-0002: 发送队内消息
+    # RFC-0002: 
     @router.post("/message")
     async def send_message(request: SendMessageRequest) -> dict[str, str]:
         """Send an intra-team message.
 
-        RFC-0002: 发送队内消息
+        RFC-0002: 
         """
         team = registry.get_or_create(request.user_id, request.session_id)
+        await team.initialize()
         if request.to_agent_id is not None:
             msg = await team.message_bus.send(
                 from_agent_id=request.from_agent_id,
@@ -390,15 +394,15 @@ def create_team_router(
             )
             return {"message_id": msg.message_id, "status": "broadcast"}
 
-    # RFC-0002: 用户消息注入（stream 期间向 agent 发送后续指令）
+    # RFC-0002: （stream  agent ）
     @router.post("/user-message")
     async def user_message(request: UserMessageRequest) -> dict[str, str]:
         """Enqueue a user message to an agent during streaming.
 
-        RFC-0002: 用户消息注入
+        RFC-0002: 
 
-        在 stream 运行期间，前端可随时向任意 agent 发送 user 消息，
-        通过 enqueue_message 唤醒 agent 的 team_mode 等待循环。
+         stream ， agent  user ，
+         enqueue_message  agent  team_mode 。
         """
         team = registry.get(request.user_id, request.session_id)
         if team is None:
@@ -406,14 +410,14 @@ def create_team_router(
         team.enqueue_user_message(request.to_agent_id, request.content)
         return {"status": "enqueued", "to_agent_id": request.to_agent_id}
 
-    # RFC-0002: 强制停止整个 Team
+    # RFC-0002:  Team
     @router.post("/stop")
     async def stop_team(request: StopTeamRequest) -> dict[str, str]:
         """Force-stop all agents in a team.
 
-        RFC-0002: 强制停止整个 Team
+        RFC-0002:  Team
 
-        前端 Stop 按钮调用，立即中断 leader 和所有 teammate 的执行。
+         Stop ， leader  teammate 。
         """
         team = registry.get(request.user_id, request.session_id)
         if team is None:
@@ -421,7 +425,7 @@ def create_team_router(
         await team.stop_all()
         return {"status": "stopped"}
 
-    # RFC-0002: 查询 Team 运行状态（用于前端刷新后重连）
+    # RFC-0002:  Team （）
     @router.get("/status")
     async def team_status(
         user_id: str = Query(...),
@@ -429,9 +433,9 @@ def create_team_router(
     ) -> dict[str, object]:
         """Check whether a team is currently running.
 
-        RFC-0002: 查询 Team 运行状态
+        RFC-0002:  Team 
 
-        前端刷新后调用此接口判断是否需要重连 SSE 流。
+        interface SSE 。
         """
         team = registry.get(user_id, session_id)
         return {
@@ -439,7 +443,7 @@ def create_team_router(
             "session_id": session_id,
         }
 
-    # RFC-0002: 重连 SSE 流（前端刷新后订阅新事件）
+    # RFC-0002:  SSE （）
     @router.get("/subscribe")
     async def team_subscribe(
         user_id: str = Query(...),
@@ -448,17 +452,17 @@ def create_team_router(
     ) -> StreamingResponse:
         """Subscribe to new team events from EventStore (for reconnection after refresh).
 
-        RFC-0002: 重连 SSE 流
+        RFC-0002:  SSE 
 
-        前端刷新后通过此接口从 EventStore 拉取新事件，
-        `after` 参数指定跳过前 N 条已加载的历史事件。
+        interface EventStore ，
+        `after`  N 。
         """
 
         async def event_generator() -> AsyncGenerator[str, None]:
             cursor = after
             try:
                 while True:
-                    # 1. 拉取新事件
+                    # 1. 
                     if get_history is not None:
                         new_events = get_history(user_id, session_id, cursor)
                         for event in new_events:
@@ -470,10 +474,10 @@ def create_team_router(
                             yield f"data: {response.model_dump_json()}\n\n"
                             cursor += 1
 
-                    # 2. 检查 team 是否仍在运行
+                    # 2.  team 
                     team = registry.get(user_id, session_id)
                     if team is None or not team.is_running:
-                        # 排空剩余事件后退出
+                        # 
                         if get_history is not None:
                             for event in get_history(user_id, session_id, cursor):
                                 response = TeamStreamEnvelopeResponse(

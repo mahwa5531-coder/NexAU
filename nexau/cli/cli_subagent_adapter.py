@@ -229,7 +229,7 @@ class CLIEnabledSubAgentManager(SubAgentManager):
                     "error": str(exc),
                 },
             )
-            # RFC-0015: 无论成功或失败，返回消息都包含 sub_agent_id
+            # RFC-0015: successfailure，package sub_agent_id
             raise RuntimeError(
                 f"[sub_agent_id: {actual_sub_agent_id}] Sub-agent '{sub_agent_name}' (id: {actual_sub_agent_id}) failed: {exc}"
             ) from exc

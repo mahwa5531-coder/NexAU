@@ -366,7 +366,7 @@ class AgentLockService:
     ) -> bool:
         """Force-release a lock regardless of holder.
 
-        用于 stop_all() 等场景，强制释放锁以允许下一次 run 获取。
+         stop_all() ， run 。
 
         Args:
             session_id: Session identifier

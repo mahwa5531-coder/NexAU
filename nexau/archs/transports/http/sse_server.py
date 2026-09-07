@@ -218,7 +218,7 @@ class SSETransportServer(TransportBase[HTTPConfig]):
                 logger.error("POST /query failed (session_id: %s): %s", request.session_id, e)
                 raise HTTPException(status_code=500, detail=str(e))
 
-        # RFC-0001 Phase 4: stop 端点
+        # RFC-0001 Phase 4: stop 
         @app.post("/stop")
         async def stop_agent(request: StopRequest):  # pyright: ignore[reportUnusedFunction]
             """Stop a running agent and persist its state."""
@@ -334,7 +334,7 @@ class SSETransportServer(TransportBase[HTTPConfig]):
     def team_registry(self) -> TeamRegistry | None:
         """Get the team registry for config registration.
 
-        RFC-0002: 获取 team 注册表
+        RFC-0002:  team 
 
         Returns:
             TeamRegistry instance, or None if not initialized.

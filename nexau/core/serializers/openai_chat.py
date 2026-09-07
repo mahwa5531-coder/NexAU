@@ -13,6 +13,7 @@ def serialize_ump_to_openai_chat_payload(
     messages: list[Message],
     *,
     tool_image_policy: ToolImagePolicy = "inject_user_message",
+    use_developer_role: bool = False,
 ) -> list[dict[str, Any]]:
     """Convert UMP messages into OpenAI Chat-Completions-compatible payload dicts.
 
@@ -22,18 +23,48 @@ def serialize_ump_to_openai_chat_payload(
       a tool-role message with text placeholders plus an extra user multimodal message.
     - For downstream Responses input reconstruction, ``tool_image_policy='embed_in_tool_message'``
       preserves tool text/image parts inside the tool message payload.
+    - For OpenAI reasoning models (o1, o3-mini, o4), ``use_developer_role=True`` maps system to developer.
     """
 
     output: list[dict[str, Any]] = []
-    for msg in coalesce_user_shaped_messages(messages or []):
+    coalesced = coalesce_user_shaped_messages(messages or [])
+    total_msgs = len(coalesced)
+    for msg_idx, msg in enumerate(coalesced):
         role = msg.role.value
+        if use_developer_role and role == Role.SYSTEM.value:
+            role = "developer"
+        is_older_turn = (msg_idx < total_msgs - 2)
 
-        def _image_part_to_image_url_obj(img: ImageBlock) -> dict[str, Any]:
+        def _image_part_to_image_parts(img: ImageBlock) -> list[dict[str, Any]]:
+            if img.mime_type == "application/pdf" and img.base64:
+                # OpenAI chat completions API does not accept application/pdf in image_url.
+                # Render PDF pages to JPEG images using fitz so OpenAI/Qwen vision models can see them.
+                try:
+                    import base64 as b64_mod
+                    import fitz
+
+                    raw_bytes = b64_mod.b64decode(img.base64)
+                    doc = fitz.open(stream=raw_bytes, filetype="pdf")
+                    max_p = min(len(doc), 10)  # Bound to avoid payload overflow
+                    rendered: list[dict[str, Any]] = []
+                    for i in range(max_p):
+                        p = doc.load_page(i)
+                        pix = p.get_pixmap(dpi=150)
+                        jpg_b64 = b64_mod.b64encode(pix.tobytes("jpeg")).decode("utf-8")
+                        rendered.append({
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/jpeg;base64,{jpg_b64}", "detail": img.detail if img.detail != "auto" else "auto"},
+                        })
+                    if rendered:
+                        return rendered
+                except Exception:
+                    pass
+
             url = img.url if img.url else f"data:{img.mime_type};base64,{img.base64}"
             image_url_obj: dict[str, Any] = {"url": url}
             if img.detail != "auto":
                 image_url_obj["detail"] = img.detail
-            return image_url_obj
+            return [{"type": "image_url", "image_url": image_url_obj}]
 
         def _emit_tool_result_as_messages(
             *,
@@ -52,8 +83,9 @@ def serialize_ump_to_openai_chat_payload(
                         tool_text_only_parts.append({"type": "text", "text": part.text})
                         text_parts.append(part.text)
                 else:
-                    image_parts.append({"type": "image_url", "image_url": _image_part_to_image_url_obj(part)})
-                    text_parts.append("<image>")
+                    parts = _image_part_to_image_parts(part)
+                    image_parts.extend(parts)
+                    text_parts.append("<image>" if len(parts) == 1 else f"<image x{len(parts)}>")
 
             if tool_image_policy == "embed_in_tool_message":
                 return [{"role": "tool", "tool_call_id": tool_call_id, "content": tool_text_only_parts + image_parts}]
@@ -115,21 +147,25 @@ def serialize_ump_to_openai_chat_payload(
                 if block.redacted_data:
                     reasoning_redacted_data_parts.append(block.redacted_data)
             elif isinstance(block, ToolUseBlock):
+                args_str = (
+                    block.raw_input
+                    if block.raw_input is not None
+                    else json.dumps(block.input, sort_keys=True, ensure_ascii=False)
+                )
                 tool_calls.append(
                     {
                         "id": block.id,
                         "type": "function",
                         "function": {
                             "name": block.name,
-                            "arguments": block.raw_input if block.raw_input is not None else json.dumps(block.input, ensure_ascii=False),
+                            "arguments": args_str,
                         },
                     },
                 )
             elif isinstance(block, ToolResultBlock):
                 output.extend(_emit_tool_result_as_messages(tool_call_id=block.tool_use_id, tool_content=block.content))
             elif isinstance(block, ImageBlock):  # pyright: ignore[reportUnnecessaryIsInstance]
-                image_url_obj = _image_part_to_image_url_obj(block)
-                content_parts.append({"type": "image_url", "image_url": image_url_obj})
+                content_parts.extend(_image_part_to_image_parts(block))
 
         entry["content"] = content_parts if has_images else "".join(text_parts)
         if reasoning_parts:

@@ -1,8 +1,8 @@
 # Tool permission management primitives.
 #
-# RFC-0019: 工具权限管理
+# RFC-0019: 
 #
-# 提供权限异常类型、ToolOutcome 数据类、匹配 helper 函数。
+# exceptiontype、ToolOutcome class、 helper function。
 
 from .helpers import check_path_permission, check_permission, check_shell_permission, check_url_permission
 from .types import (

@@ -1,6 +1,6 @@
-"""Filter Converter 实现
+"""Filter Converter 
 
-将 Filter DSL 转换为 SQLAlchemy ColumnElement、Python 内存评估和 HTTP 查询字符串。
+ Filter DSL  SQLAlchemy ColumnElement、Python  HTTP string。
 """
 
 from __future__ import annotations
@@ -31,17 +31,17 @@ def to_sqlalchemy(
     filter_: Filter,
     model_class: type[SQLModel],
 ) -> ColumnElement[bool]:
-    """将 Filter DSL 转换为 SQLAlchemy ColumnElement.
+    """ Filter DSL  SQLAlchemy ColumnElement.
 
     Args:
-        filter_: Filter DSL 实例
-        model_class: SQLModel 类，用于获取列定义
+        filter_: Filter DSL 
+        model_class: SQLModel class，
 
     Returns:
-        SQLAlchemy ColumnElement[bool] 表达式
+        SQLAlchemy ColumnElement[bool] 
 
     Raises:
-        ValueError: 如果字段名在 model_class 中不存在
+        ValueError:  model_class 
 
     Examples:
         >>> from sqlmodel import SQLModel, Field
@@ -67,19 +67,19 @@ def _get_column(
     model_class: type[SQLModel],
     field_name: str,
 ) -> ColumnElement[object]:
-    """获取 model_class 中指定字段的列对象.
+    """ model_class object.
 
     Args:
-        model_class: SQLModel 类
-        field_name: 字段名
+        model_class: SQLModel class
+        field_name: 
 
     Returns:
-        SQLAlchemy Column 对象
+        SQLAlchemy Column object
 
     Raises:
-        ValueError: 如果字段名在 model_class 中不存在
+        ValueError:  model_class 
     """
-    # 检查字段是否存在于模型中
+    # 
     if not hasattr(model_class, field_name):
         raise ValueError(f"Field '{field_name}' not found in model {model_class.__name__}")
 
@@ -91,14 +91,14 @@ def _convert_comparison_filter(
     filter_: ComparisonFilter,
     model_class: type[SQLModel],
 ) -> ColumnElement[bool]:
-    """将 ComparisonFilter 转换为 SQLAlchemy 表达式.
+    """ ComparisonFilter  SQLAlchemy .
 
     Args:
-        filter_: ComparisonFilter 实例
-        model_class: SQLModel 类
+        filter_: ComparisonFilter 
+        model_class: SQLModel class
 
     Returns:
-        SQLAlchemy ColumnElement[bool] 表达式
+        SQLAlchemy ColumnElement[bool] 
     """
     column = _get_column(model_class, filter_.field)
     op = filter_.op
@@ -136,14 +136,14 @@ def _convert_and_filter(
     filter_: AndFilter,
     model_class: type[SQLModel],
 ) -> ColumnElement[bool]:
-    """将 AndFilter 转换为 SQLAlchemy AND 表达式.
+    """ AndFilter  SQLAlchemy AND .
 
     Args:
-        filter_: AndFilter 实例
-        model_class: SQLModel 类
+        filter_: AndFilter 
+        model_class: SQLModel class
 
     Returns:
-        SQLAlchemy ColumnElement[bool] 表达式
+        SQLAlchemy ColumnElement[bool] 
     """
     if not filter_.filters:
         # Empty AND filter should return True (identity element for AND)
@@ -160,14 +160,14 @@ def _convert_or_filter(
     filter_: OrFilter,
     model_class: type[SQLModel],
 ) -> ColumnElement[bool]:
-    """将 OrFilter 转换为 SQLAlchemy OR 表达式.
+    """ OrFilter  SQLAlchemy OR .
 
     Args:
-        filter_: OrFilter 实例
-        model_class: SQLModel 类
+        filter_: OrFilter 
+        model_class: SQLModel class
 
     Returns:
-        SQLAlchemy ColumnElement[bool] 表达式
+        SQLAlchemy ColumnElement[bool] 
     """
     if not filter_.filters:
         # Empty OR filter should return False (identity element for OR)
@@ -183,21 +183,21 @@ def _convert_not_filter(
     filter_: NotFilter,
     model_class: type[SQLModel],
 ) -> ColumnElement[bool]:
-    """将 NotFilter 转换为 SQLAlchemy NOT 表达式.
+    """ NotFilter  SQLAlchemy NOT .
 
     Args:
-        filter_: NotFilter 实例
-        model_class: SQLModel 类
+        filter_: NotFilter 
+        model_class: SQLModel class
 
     Returns:
-        SQLAlchemy ColumnElement[bool] 表达式
+        SQLAlchemy ColumnElement[bool] 
     """
     sub_expression = to_sqlalchemy(filter_.filter, model_class)
     return not_(sub_expression)
 
 
 # ============================================================================
-# Python 内存评估 (Requirement 3.x)
+# Python  (Requirement 3.x)
 # ============================================================================
 
 
@@ -205,14 +205,14 @@ def evaluate(
     filter_: Filter,
     record: Mapping[str, Any] | BaseModel,
 ) -> bool:
-    """在 Python 中评估 Filter DSL.
+    """ Python  Filter DSL.
 
     Args:
-        filter_: Filter DSL 实例
-        record: 要评估的记录，可以是字典或 Pydantic/SQLModel 实例
+        filter_: Filter DSL 
+        record: ，dictionary Pydantic/SQLModel 
 
     Returns:
-        布尔值，表示记录是否匹配过滤器
+        value，
 
     Examples:
         >>> filter_ = ComparisonFilter.eq("name", "alice")
@@ -221,14 +221,14 @@ def evaluate(
         >>> evaluate(filter_, {"name": "bob", "age": 30})
         False
 
-        >>> # 也支持 Pydantic model
+        >>> #  Pydantic model
         >>> class User(BaseModel):
         ...     name: str
         ...     age: int
         >>> evaluate(filter_, User(name="alice", age=25))
         True
     """
-    # 如果是 Pydantic model，转换为字典
+    # Pydantic model，dictionary
     record_dict: Mapping[str, Any]
     if isinstance(record, BaseModel):
         record_dict = record.model_dump()
@@ -249,30 +249,30 @@ def _get_field_value(
     record: Mapping[str, Any],
     field_name: str,
 ) -> Any:
-    """获取记录中指定字段的值.
+    """value.
 
-    如果字段不存在，返回 None（需求 3.12）。
+    ， None（ 3.12）。
 
     Args:
-        record: 记录字典
-        field_name: 字段名
+        record: dictionary
+        field_name: 
 
     Returns:
-        字段值，如果字段不存在则返回 None
+        value， None
     """
     return record.get(field_name, None)
 
 
 def _safe_compare(a: object, b: object, op: str) -> bool:
-    """安全地比较两个值.
+    """value.
 
     Args:
-        a: 左操作数
-        b: 右操作数
-        op: 比较操作符 ('gt', 'gte', 'lt', 'lte')
+        a: 
+        b: 
+        op:  ('gt', 'gte', 'lt', 'lte')
 
     Returns:
-        比较结果，如果类型不可比较则返回 False
+        ，type False
     """
     try:
         if op == "gt":
@@ -289,20 +289,20 @@ def _safe_compare(a: object, b: object, op: str) -> bool:
 
 
 def _convert_like_pattern_to_regex(pattern: str) -> str:
-    """将 SQL LIKE 模式转换为正则表达式.
+    """ SQL LIKE .
 
-    SQL LIKE 通配符:
-    - % 匹配任意数量的字符（包括零个）
-    - _ 匹配单个字符
+    SQL LIKE :
+    - % （package）
+    - _ 
 
     Args:
-        pattern: SQL LIKE 模式字符串
+        pattern: SQL LIKE string
 
     Returns:
-        等价的正则表达式字符串
+        string
     """
-    # 首先转义所有正则表达式特殊字符
-    # 但保留 % 和 _ 用于后续转换
+    # 
+    # %  _ 
     result = ""
     i = 0
     while i < len(pattern):
@@ -312,13 +312,13 @@ def _convert_like_pattern_to_regex(pattern: str) -> str:
         elif char == "_":
             result += "."
         elif char in r"\^$.|?*+()[]{}":
-            # 转义正则表达式特殊字符
+            # 
             result += "\\" + char
         else:
             result += char
         i += 1
 
-    # 添加锚点以确保完整匹配
+    # 
     return "^" + result + "$"
 
 
@@ -326,53 +326,53 @@ def _evaluate_comparison_filter(
     filter_: ComparisonFilter,
     record: Mapping[str, Any],
 ) -> bool:
-    """评估 ComparisonFilter.
+    """ ComparisonFilter.
 
     Args:
-        filter_: ComparisonFilter 实例
-        record: 记录字典
+        filter_: ComparisonFilter 
+        record: dictionary
 
     Returns:
-        布尔值，表示记录是否匹配过滤器
+        value，
     """
     field_value = _get_field_value(record, filter_.field)
     op = filter_.op
     filter_value = filter_.value
 
     if op == FilterOperator.EQ:
-        # 需求 3.2: eq 操作符返回 record[field] == value
+        # 3.2: eq  record[field] == value
         return field_value == filter_value
 
     elif op == FilterOperator.NEQ:
-        # 需求 3.3: neq 操作符返回 record[field] != value
+        # 3.3: neq  record[field] != value
         return field_value != filter_value
 
     elif op == FilterOperator.GT:
-        # 需求 3.4: gt 操作符返回 record[field] > value
+        # 3.4: gt  record[field] > value
         if field_value is None or filter_value is None:
             return False
         return _safe_compare(field_value, filter_value, "gt")
 
     elif op == FilterOperator.GTE:
-        # 需求 3.4: gte 操作符返回 record[field] >= value
+        # 3.4: gte  record[field] >= value
         if field_value is None or filter_value is None:
             return False
         return _safe_compare(field_value, filter_value, "gte")
 
     elif op == FilterOperator.LT:
-        # 需求 3.4: lt 操作符返回 record[field] < value
+        # 3.4: lt  record[field] < value
         if field_value is None or filter_value is None:
             return False
         return _safe_compare(field_value, filter_value, "lt")
 
     elif op == FilterOperator.LTE:
-        # 需求 3.4: lte 操作符返回 record[field] <= value
+        # 3.4: lte  record[field] <= value
         if field_value is None or filter_value is None:
             return False
         return _safe_compare(field_value, filter_value, "lte")
 
     elif op == FilterOperator.LIKE:
-        # 需求 3.5: like 操作符使用通配符模式匹配（% 匹配任意字符）
+        # 3.5: like （% ）
         if field_value is None or filter_value is None:
             return False
         if not isinstance(field_value, str) or not isinstance(filter_value, str):
@@ -381,7 +381,7 @@ def _evaluate_comparison_filter(
         return bool(re.match(regex_pattern, field_value))
 
     elif op == FilterOperator.ILIKE:
-        # 需求 3.6: ilike 操作符使用大小写不敏感的通配符模式匹配
+        # 3.6: ilike 
         if field_value is None or filter_value is None:
             return False
         if not isinstance(field_value, str) or not isinstance(filter_value, str):
@@ -390,13 +390,13 @@ def _evaluate_comparison_filter(
         return bool(re.match(regex_pattern, field_value, re.IGNORECASE))
 
     elif op == FilterOperator.IN:
-        # 需求 3.7: in 操作符返回 record[field] in value
+        # 3.7: in  record[field] in value
         if not isinstance(filter_value, list):
             raise ValueError(f"Invalid value type for operator {op}: expected list, got {type(filter_value).__name__}")
         return field_value in filter_value
 
     elif op == FilterOperator.IS:
-        # 需求 3.8: is 操作符且值为 null 返回 record[field] is None
+        # 3.8: is value null  record[field] is None
         # IS operator is used for NULL checks
         if filter_value is None:
             return field_value is None
@@ -412,19 +412,19 @@ def _evaluate_and_filter(
     filter_: AndFilter,
     record: Mapping[str, Any],
 ) -> bool:
-    """评估 AndFilter.
+    """ AndFilter.
 
-    需求 3.9: and 逻辑返回所有子过滤器的逻辑与结果。
+     3.9: and 。
 
     Args:
-        filter_: AndFilter 实例
-        record: 记录字典
+        filter_: AndFilter 
+        record: dictionary
 
     Returns:
-        布尔值，表示记录是否匹配所有子过滤器
+        value，
     """
     if not filter_.filters:
-        # 空 AND 过滤器返回 True（AND 的恒等元素）
+        # AND  True（AND ）
         return True
 
     return all(evaluate(sub_filter, record) for sub_filter in filter_.filters)
@@ -434,19 +434,19 @@ def _evaluate_or_filter(
     filter_: OrFilter,
     record: Mapping[str, Any],
 ) -> bool:
-    """评估 OrFilter.
+    """ OrFilter.
 
-    需求 3.10: or 逻辑返回所有子过滤器的逻辑或结果。
+     3.10: or 。
 
     Args:
-        filter_: OrFilter 实例
-        record: 记录字典
+        filter_: OrFilter 
+        record: dictionary
 
     Returns:
-        布尔值，表示记录是否匹配任一子过滤器
+        value，
     """
     if not filter_.filters:
-        # 空 OR 过滤器返回 False（OR 的恒等元素）
+        # OR  False（OR ）
         return False
 
     return any(evaluate(sub_filter, record) for sub_filter in filter_.filters)
@@ -456,33 +456,33 @@ def _evaluate_not_filter(
     filter_: NotFilter,
     record: Mapping[str, Any],
 ) -> bool:
-    """评估 NotFilter.
+    """ NotFilter.
 
-    需求 3.11: not 逻辑返回子过滤器的逻辑非结果。
+     3.11: not 。
 
     Args:
-        filter_: NotFilter 实例
-        record: 记录字典
+        filter_: NotFilter 
+        record: dictionary
 
     Returns:
-        布尔值，表示记录是否不匹配子过滤器
+        value，
     """
     return not evaluate(filter_.filter, record)
 
 
 # ============================================================================
-# HTTP 查询字符串序列化 (Requirement 4.x)
+# HTTP string (Requirement 4.x)
 # ============================================================================
 
 
 def _url_encode_single_value(value: str | int | float | bool | list[str | int | float] | None) -> str:
-    """URL 编码单个值（非列表）.
+    """URL value（list）.
 
     Args:
-        value: 要编码的值
+        value: value
 
     Returns:
-        URL 编码后的字符串
+        URL string
     """
     if value is None:
         return "null"
@@ -491,22 +491,22 @@ def _url_encode_single_value(value: str | int | float | bool | list[str | int | 
     if isinstance(value, (int, float)):
         return str(value)
     if isinstance(value, list):
-        # 列表值不应该直接编码，应该使用 IN 操作符的特殊格式
+        # listvalue， IN 
         raise ValueError("List values should be encoded using IN operator format")
-    # 对字符串值进行 URL 编码
+    # stringvalue URL 
     return quote(str(value), safe="")
 
 
 def _format_filter_for_nested(filter_: Filter) -> str:
-    """将 Filter 格式化为嵌套格式（用于 and/or 内部）.
+    """ Filter （ and/or ）.
 
-    嵌套格式: field.op.value（不带等号）
+    : field.op.value（）
 
     Args:
-        filter_: Filter DSL 实例
+        filter_: Filter DSL 
 
     Returns:
-        嵌套格式的字符串
+        string
     """
     if isinstance(filter_, ComparisonFilter):
         return _format_comparison_filter_nested(filter_)
@@ -519,42 +519,42 @@ def _format_filter_for_nested(filter_: Filter) -> str:
 
 
 def _format_comparison_filter_nested(filter_: ComparisonFilter) -> str:
-    """将 ComparisonFilter 格式化为嵌套格式.
+    """ ComparisonFilter .
 
-    格式: field.op.value
+    : field.op.value
 
     Args:
-        filter_: ComparisonFilter 实例
+        filter_: ComparisonFilter 
 
     Returns:
-        嵌套格式的字符串
+        string
     """
     field = filter_.field
     op = filter_.op.value
     value = filter_.value
 
     if filter_.op == FilterOperator.IN:
-        # 需求 4.3: in 操作符格式为 field.in.(v1,v2,...)
+        # 4.3: in  field.in.(v1,v2,...)
         if not isinstance(value, list):
             raise ValueError(f"Invalid value type for operator {op}: expected list, got {type(value).__name__}")
         encoded_values = [_url_encode_single_value(v) for v in value]
         return f"{field}.{op}.({','.join(encoded_values)})"
     else:
-        # 需求 4.2: 其他操作符格式为 field.op.value
+        # 4.2:  field.op.value
         encoded_value = _url_encode_single_value(value)
         return f"{field}.{op}.{encoded_value}"
 
 
 def _format_and_filter_nested(filter_: AndFilter) -> str:
-    """将 AndFilter 格式化为嵌套格式.
+    """ AndFilter .
 
-    格式: and(f1,f2,...)
+    : and(f1,f2,...)
 
     Args:
-        filter_: AndFilter 实例
+        filter_: AndFilter 
 
     Returns:
-        嵌套格式的字符串
+        string
     """
     if not filter_.filters:
         return "and()"
@@ -564,15 +564,15 @@ def _format_and_filter_nested(filter_: AndFilter) -> str:
 
 
 def _format_or_filter_nested(filter_: OrFilter) -> str:
-    """将 OrFilter 格式化为嵌套格式.
+    """ OrFilter .
 
-    格式: or(f1,f2,...)
+    : or(f1,f2,...)
 
     Args:
-        filter_: OrFilter 实例
+        filter_: OrFilter 
 
     Returns:
-        嵌套格式的字符串
+        string
     """
     if not filter_.filters:
         return "or()"
@@ -582,20 +582,20 @@ def _format_or_filter_nested(filter_: OrFilter) -> str:
 
 
 def _format_not_filter_nested(filter_: NotFilter) -> str:
-    """将 NotFilter 格式化为嵌套格式.
+    """ NotFilter .
 
-    需求 4.6: not 逻辑格式为 not.filter
+     4.6: not  not.filter
 
     Args:
-        filter_: NotFilter 实例
+        filter_: NotFilter 
 
     Returns:
-        嵌套格式的字符串
+        string
     """
     inner = filter_.filter
 
     if isinstance(inner, ComparisonFilter):
-        # 对于 ComparisonFilter，格式为 field.not.op.value
+        # ComparisonFilter， field.not.op.value
         field = inner.field
         op = inner.op.value
         value = inner.value
@@ -609,21 +609,21 @@ def _format_not_filter_nested(filter_: NotFilter) -> str:
             encoded_value = _url_encode_single_value(value)
             return f"{field}.not.{op}.{encoded_value}"
     else:
-        # 对于逻辑过滤器，格式为 not.filter
+        # ， not.filter
         inner_str = _format_filter_for_nested(inner)
         return f"not.{inner_str}"
 
 
 def to_query_string(filter_: Filter) -> str:
-    """将 Filter DSL 序列化为 PostgREST 风格的查询字符串.
+    """ Filter DSL  PostgREST string.
 
-    需求 4.1: 提供 to_query_string(filter: Filter_DSL) -> str 方法
+     4.1:  to_query_string(filter: Filter_DSL) -> str method
 
     Args:
-        filter_: Filter DSL 实例
+        filter_: Filter DSL 
 
     Returns:
-        PostgREST 风格的查询字符串
+        PostgREST string
 
     Examples:
         >>> filter_ = ComparisonFilter.eq("name", "alice")
@@ -653,43 +653,43 @@ def to_query_string(filter_: Filter) -> str:
 
 
 def _to_query_string_comparison(filter_: ComparisonFilter) -> str:
-    """将 ComparisonFilter 序列化为查询字符串.
+    """ ComparisonFilter string.
 
-    需求 4.2: ComparisonFilter 序列化为 "field=op.value" 格式
-    需求 4.3: in 操作符序列化为 "field=in.(value1,value2,...)" 格式
+     4.2: ComparisonFilter  "field=op.value" 
+     4.3: in  "field=in.(value1,value2,...)" 
 
     Args:
-        filter_: ComparisonFilter 实例
+        filter_: ComparisonFilter 
 
     Returns:
-        查询字符串
+        string
     """
     field = filter_.field
     op = filter_.op.value
     value = filter_.value
 
     if filter_.op == FilterOperator.IN:
-        # 需求 4.3: in 操作符格式为 field=in.(v1,v2,...)
+        # 4.3: in  field=in.(v1,v2,...)
         if not isinstance(value, list):
             raise ValueError(f"Invalid value type for operator {op}: expected list, got {type(value).__name__}")
         encoded_values = [_url_encode_single_value(v) for v in value]
         return f"{field}={op}.({','.join(encoded_values)})"
     else:
-        # 需求 4.2: 其他操作符格式为 field=op.value
+        # 4.2:  field=op.value
         encoded_value = _url_encode_single_value(value)
         return f"{field}={op}.{encoded_value}"
 
 
 def _to_query_string_and(filter_: AndFilter) -> str:
-    """将 AndFilter 序列化为查询字符串.
+    """ AndFilter string.
 
-    需求 4.4: AndFilter 序列化为 "and=(filter1,filter2,...)" 格式
+     4.4: AndFilter  "and=(filter1,filter2,...)" 
 
     Args:
-        filter_: AndFilter 实例
+        filter_: AndFilter 
 
     Returns:
-        查询字符串
+        string
     """
     if not filter_.filters:
         return "and=()"
@@ -699,15 +699,15 @@ def _to_query_string_and(filter_: AndFilter) -> str:
 
 
 def _to_query_string_or(filter_: OrFilter) -> str:
-    """将 OrFilter 序列化为查询字符串.
+    """ OrFilter string.
 
-    需求 4.5: OrFilter 序列化为 "or=(filter1,filter2,...)" 格式
+     4.5: OrFilter  "or=(filter1,filter2,...)" 
 
     Args:
-        filter_: OrFilter 实例
+        filter_: OrFilter 
 
     Returns:
-        查询字符串
+        string
     """
     if not filter_.filters:
         return "or=()"
@@ -717,21 +717,21 @@ def _to_query_string_or(filter_: OrFilter) -> str:
 
 
 def _to_query_string_not(filter_: NotFilter) -> str:
-    """将 NotFilter 序列化为查询字符串.
+    """ NotFilter string.
 
-    需求 4.6: NotFilter 序列化为 "not.filter" 格式
-    对于 ComparisonFilter，格式为 "field=not.op.value"
+     4.6: NotFilter  "not.filter" 
+     ComparisonFilter， "field=not.op.value"
 
     Args:
-        filter_: NotFilter 实例
+        filter_: NotFilter 
 
     Returns:
-        查询字符串
+        string
     """
     inner = filter_.filter
 
     if isinstance(inner, ComparisonFilter):
-        # 对于 ComparisonFilter，格式为 field=not.op.value
+        # ComparisonFilter， field=not.op.value
         field = inner.field
         op = inner.op.value
         value = inner.value
@@ -745,33 +745,33 @@ def _to_query_string_not(filter_: NotFilter) -> str:
             encoded_value = _url_encode_single_value(value)
             return f"{field}=not.{op}.{encoded_value}"
     else:
-        # 对于逻辑过滤器，格式为 not.filter
+        # ， not.filter
         inner_str = _format_filter_for_nested(inner)
         return f"not={inner_str}"
 
 
 # ============================================================================
-# HTTP 查询字符串反序列化 (Requirement 4.8)
+# HTTP string (Requirement 4.8)
 # ============================================================================
 
 
-# 有效的操作符集合
+# set
 _VALID_OPERATORS = {op.value for op in FilterOperator}
 
 
 def _url_decode_value(encoded: str) -> str | int | float | bool | None:
-    """URL 解码并转换值类型.
+    """URL valuetype.
 
     Args:
-        encoded: URL 编码的字符串值
+        encoded: URL stringvalue
 
     Returns:
-        解码并转换类型后的值
+        typevalue
     """
-    # URL 解码
+    # URL 
     decoded = unquote(encoded)
 
-    # 处理特殊值
+    # value
     if decoded == "null":
         return None
     if decoded == "true":
@@ -779,34 +779,34 @@ def _url_decode_value(encoded: str) -> str | int | float | bool | None:
     if decoded == "false":
         return False
 
-    # 尝试转换为数字
+    # 
     try:
-        # 尝试整数
+        # integer
         if "." not in decoded and "e" not in decoded.lower():
             return int(decoded)
     except ValueError:
         pass
 
     try:
-        # 尝试浮点数
+        # float
         return float(decoded)
     except ValueError:
         pass
 
-    # 返回字符串
+    # string
     return decoded
 
 
 def _split_by_comma_at_depth_zero(s: str) -> list[str]:
-    """在深度为 0 的位置按逗号分割字符串.
+    """ 0 string.
 
-    只在括号外的逗号处分割，保持括号内的内容完整。
+    ，。
 
     Args:
-        s: 要分割的字符串
+        s: string
 
     Returns:
-        分割后的字符串列表
+        stringlist
     """
     result: list[str] = []
     current: list[str] = []
@@ -832,9 +832,9 @@ def _split_by_comma_at_depth_zero(s: str) -> list[str]:
 
 
 def _parse_nested_filter(nested: str) -> Filter:
-    """解析嵌套格式的过滤器.
+    """.
 
-    嵌套格式示例:
+    :
     - field.op.value (ComparisonFilter)
     - field.op.(v1,v2,...) (ComparisonFilter with IN)
     - field.not.op.value (NotFilter with ComparisonFilter)
@@ -843,67 +843,67 @@ def _parse_nested_filter(nested: str) -> Filter:
     - not.filter (NotFilter)
 
     Args:
-        nested: 嵌套格式的字符串
+        nested: string
 
     Returns:
-        解析后的 Filter 实例
+         Filter 
 
     Raises:
-        ValueError: 如果格式无效
+        ValueError: 
     """
     nested = nested.strip()
 
     if not nested:
         raise ValueError("Invalid query string format: empty filter")
 
-    # 处理 and(...) 格式
+    # and(...) 
     if nested.startswith("and(") and nested.endswith(")"):
-        inner = nested[4:-1]  # 去掉 "and(" 和 ")"
+        inner = nested[4:-1]  #  "and("  ")"
         if not inner:
             return AndFilter(filters=[])
         parts = _split_by_comma_at_depth_zero(inner)
         filters = [_parse_nested_filter(p) for p in parts]
         return AndFilter(filters=filters)
 
-    # 处理 or(...) 格式
+    # or(...) 
     if nested.startswith("or(") and nested.endswith(")"):
-        inner = nested[3:-1]  # 去掉 "or(" 和 ")"
+        inner = nested[3:-1]  #  "or("  ")"
         if not inner:
             return OrFilter(filters=[])
         parts = _split_by_comma_at_depth_zero(inner)
         filters = [_parse_nested_filter(p) for p in parts]
         return OrFilter(filters=filters)
 
-    # 处理 not.filter 格式（逻辑过滤器的 NOT）
+    # not.filter （ NOT）
     if nested.startswith("not."):
-        inner = nested[4:]  # 去掉 "not."
+        inner = nested[4:]  #  "not."
         inner_filter = _parse_nested_filter(inner)
         return NotFilter(filter=inner_filter)
 
-    # 处理 field.not.op.value 格式（ComparisonFilter 的 NOT）
-    # 和 field.op.value 格式
+    # field.not.op.value （ComparisonFilter  NOT）
+    # field.op.value 
     return _parse_comparison_nested(nested)
 
 
 def _parse_comparison_nested(nested: str) -> Filter:
-    """解析嵌套格式的 ComparisonFilter.
+    """ ComparisonFilter.
 
-    格式:
+    :
     - field.op.value
     - field.op.(v1,v2,...)
     - field.not.op.value
     - field.not.op.(v1,v2,...)
 
     Args:
-        nested: 嵌套格式的字符串
+        nested: string
 
     Returns:
-        解析后的 Filter 实例
+         Filter 
 
     Raises:
-        ValueError: 如果格式无效
+        ValueError: 
     """
-    # 找到第一个点的位置（字段名后面）
+    # （）
     first_dot = nested.find(".")
     if first_dot == -1:
         raise ValueError(f"Invalid query string format: {nested}")
@@ -911,13 +911,13 @@ def _parse_comparison_nested(nested: str) -> Filter:
     field = nested[:first_dot]
     rest = nested[first_dot + 1 :]
 
-    # 检查是否是 NOT 格式
+    # NOT 
     is_not = False
     if rest.startswith("not."):
         is_not = True
-        rest = rest[4:]  # 去掉 "not."
+        rest = rest[4:]  #  "not."
 
-    # 找到操作符
+    # 
     second_dot = rest.find(".")
     if second_dot == -1:
         raise ValueError(f"Invalid query string format: {nested}")
@@ -925,18 +925,18 @@ def _parse_comparison_nested(nested: str) -> Filter:
     op_str = rest[:second_dot]
     value_str = rest[second_dot + 1 :]
 
-    # 验证操作符
+    # 
     if op_str not in _VALID_OPERATORS:
         raise ValueError(f"Unknown operator in query string: {op_str}")
 
     op = FilterOperator(op_str)
 
-    # 解析值
+    # value
     if op == FilterOperator.IN:
-        # IN 操作符的值格式为 (v1,v2,...)
+        # IN value (v1,v2,...)
         if not value_str.startswith("(") or not value_str.endswith(")"):
             raise ValueError(f"Invalid query string format: {nested}")
-        inner = value_str[1:-1]  # 去掉括号
+        inner = value_str[1:-1]  # 
         if not inner:
             values: list[str | int | float] = []
         else:
@@ -944,7 +944,7 @@ def _parse_comparison_nested(nested: str) -> Filter:
             values = []
             for p in parts:
                 decoded = _url_decode_value(p)
-                # IN 操作符只支持 str, int, float 类型
+                # IN  str, int, float type
                 if decoded is None or isinstance(decoded, bool):
                     values.append(str(decoded) if decoded is not None else "null")
                 else:
@@ -960,11 +960,11 @@ def _parse_comparison_nested(nested: str) -> Filter:
 
 
 def from_query_string(query: str) -> Filter:
-    """从 PostgREST 风格的查询字符串解析 Filter DSL.
+    """ PostgREST string Filter DSL.
 
-    需求 4.8: 提供 from_query_string(query: str) -> Filter_DSL 方法进行反向解析
+     4.8:  from_query_string(query: str) -> Filter_DSL method
 
-    支持的格式:
+    :
     - field=op.value (ComparisonFilter)
     - field=in.(v1,v2,...) (ComparisonFilter with IN)
     - field=not.op.value (NotFilter with ComparisonFilter)
@@ -973,13 +973,13 @@ def from_query_string(query: str) -> Filter:
     - not=filter (NotFilter with logical filter)
 
     Args:
-        query: PostgREST 风格的查询字符串
+        query: PostgREST string
 
     Returns:
-        解析后的 Filter DSL 实例
+         Filter DSL 
 
     Raises:
-        ValueError: 如果查询字符串格式无效、操作符不识别或括号不匹配
+        ValueError: string、
 
     Examples:
         >>> from_query_string("name=eq.alice")
@@ -999,7 +999,7 @@ def from_query_string(query: str) -> Filter:
     if not query:
         raise ValueError("Invalid query string format: empty query")
 
-    # 找到等号位置
+    # 
     eq_pos = query.find("=")
     if eq_pos == -1:
         raise ValueError(f"Invalid query string format: {query}")
@@ -1007,37 +1007,37 @@ def from_query_string(query: str) -> Filter:
     left = query[:eq_pos]
     right = query[eq_pos + 1 :]
 
-    # 处理 and=(...) 格式
+    # and=(...) 
     if left == "and":
         if right.startswith("("):
             if not right.endswith(")"):
                 raise ValueError(f"Invalid query string format: {query}")
-            inner = right[1:-1]  # 去掉括号
+            inner = right[1:-1]  # 
             if not inner:
                 return AndFilter(filters=[])
             parts = _split_by_comma_at_depth_zero(inner)
             filters = [_parse_nested_filter(p) for p in parts]
             return AndFilter(filters=filters)
-        # 如果 right 不以有效操作符或 "not." 开头，则不是合法的 field=op.value 格式
+        # right  "not." ， field=op.value 
         if not right.startswith("not.") and not any(right.startswith(f"{op}.") for op in _VALID_OPERATORS):
             raise ValueError(f"Invalid query string format: {query}")
 
-    # 处理 or=(...) 格式
+    # or=(...) 
     if left == "or":
         if right.startswith("("):
             if not right.endswith(")"):
                 raise ValueError(f"Invalid query string format: {query}")
-            inner = right[1:-1]  # 去掉括号
+            inner = right[1:-1]  # 
             if not inner:
                 return OrFilter(filters=[])
             parts = _split_by_comma_at_depth_zero(inner)
             filters = [_parse_nested_filter(p) for p in parts]
             return OrFilter(filters=filters)
-        # 如果 right 不以有效操作符或 "not." 开头，则不是合法的 field=op.value 格式
+        # right  "not." ， field=op.value 
         if not right.startswith("not.") and not any(right.startswith(f"{op}.") for op in _VALID_OPERATORS):
             raise ValueError(f"Invalid query string format: {query}")
 
-    # 处理 not=filter 格式（逻辑过滤器的 NOT）
+    # not=filter （ NOT）
     if left == "not":
         try:
             inner_filter = _parse_nested_filter(right)
@@ -1046,16 +1046,16 @@ def from_query_string(query: str) -> Filter:
         if inner_filter is not None:
             return NotFilter(filter=inner_filter)
 
-    # 处理 field=op.value 或 field=not.op.value 格式
+    # field=op.value  field=not.op.value 
     field = left
 
-    # 检查是否是 NOT 格式
+    # NOT 
     is_not = False
     if right.startswith("not."):
         is_not = True
-        right = right[4:]  # 去掉 "not."
+        right = right[4:]  #  "not."
 
-    # 找到操作符
+    # 
     dot_pos = right.find(".")
     if dot_pos == -1:
         raise ValueError(f"Invalid query string format: {query}")
@@ -1063,18 +1063,18 @@ def from_query_string(query: str) -> Filter:
     op_str = right[:dot_pos]
     value_str = right[dot_pos + 1 :]
 
-    # 验证操作符
+    # 
     if op_str not in _VALID_OPERATORS:
         raise ValueError(f"Unknown operator in query string: {op_str}")
 
     op = FilterOperator(op_str)
 
-    # 解析值
+    # value
     if op == FilterOperator.IN:
-        # IN 操作符的值格式为 (v1,v2,...)
+        # IN value (v1,v2,...)
         if not value_str.startswith("(") or not value_str.endswith(")"):
             raise ValueError(f"Invalid query string format: {query}")
-        inner = value_str[1:-1]  # 去掉括号
+        inner = value_str[1:-1]  # 
         if not inner:
             values_list: list[str | int | float] = []
         else:
@@ -1082,7 +1082,7 @@ def from_query_string(query: str) -> Filter:
             values_list = []
             for p in parts:
                 decoded = _url_decode_value(p)
-                # IN 操作符只支持 str, int, float 类型
+                # IN  str, int, float type
                 if decoded is None or isinstance(decoded, bool):
                     values_list.append(str(decoded) if decoded is not None else "null")
                 else:

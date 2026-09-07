@@ -14,9 +14,9 @@
 
 """Time-based trigger strategy for micro-compact.
 
-micro-compact: 基于 Message 时间戳触发压缩。当最后一条 assistant 消息的 created_at
-距当前时间超过阈值（默认 5 分钟，对齐 Anthropic prompt cache 标准 TTL）时触发。
-Trigger 本身无状态，判断完全基于 messages 数据。
+micro-compact:  Message 。 assistant  created_at
+value（default 5 ， Anthropic prompt cache  TTL）。
+Trigger ， messages 。
 """
 
 import logging
@@ -30,8 +30,8 @@ logger = logging.getLogger(__name__)
 class TimeBasedTrigger:
     """Trigger compaction when the gap since last assistant message exceeds a threshold.
 
-    micro-compact: 无状态触发器，从 messages 中读取最后一条 assistant 消息的 created_at，
-    与当前时间比较。超过 gap_threshold_minutes 即触发。
+    micro-compact: ， messages  assistant  created_at，
+    。 gap_threshold_minutes 。
     """
 
     def __init__(self, gap_threshold_minutes: float = 5):
@@ -55,21 +55,21 @@ class TimeBasedTrigger:
     ) -> tuple[bool, str]:
         """Check if compaction should be triggered based on time gap.
 
-        micro-compact: 找到 messages 中最后一条 assistant 消息的 created_at，
-        计算 now - created_at，超过阈值即触发。无 assistant 消息或 created_at 为 None 时不触发。
+        micro-compact:  messages  assistant  created_at，
+         now - created_at，value。 assistant  created_at  None 。
         """
-        # 1. 从后往前找最后一条 assistant 消息
+        # 1.  assistant 
         last_assistant_created_at: datetime | None = None
         for msg in reversed(messages):
             if msg.role == Role.ASSISTANT:
                 last_assistant_created_at = msg.created_at
                 break
 
-        # 2. 无 assistant 消息（新会话）或 created_at 为 None → 不触发
+        # 2.  assistant （） created_at  None → 
         if last_assistant_created_at is None:
             return False, ""
 
-        # 3. 确保 timezone-aware 比较
+        # 3.  timezone-aware 
         now = datetime.now(UTC)
         if last_assistant_created_at.tzinfo is None:
             last_assistant_created_at = last_assistant_created_at.replace(tzinfo=UTC)

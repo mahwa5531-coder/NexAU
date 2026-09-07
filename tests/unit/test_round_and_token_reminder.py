@@ -169,3 +169,35 @@ def test_token_limit_hint_variants():
     )
     assert "5000 tokens left" in hint_high
     assert "continue your response" in hint_high.lower()
+
+
+def test_enable_routine_reminders_false_silences_normal_turns(agent_state: AgentState, base_messages):
+    """When routine reminders are disabled, normal turns have zero reminder noise."""
+    middleware = RoundAndTokenReminderMiddleware(
+        max_context_tokens=100000,
+        desired_max_tokens=1000,
+        enable_routine_reminders=False,
+    )
+    # Routine turn: 8 iterations remaining, plenty of tokens
+    hook_input = BeforeModelHookInput(
+        agent_state=agent_state,
+        max_iterations=10,
+        current_iteration=2,
+        messages=base_messages,
+    )
+    result = middleware.before_model(hook_input)
+    # Must produce NO changes on normal turns
+    assert result.messages is None
+
+    # Urgent turn: 1 iteration remaining
+    urgent_hook_input = BeforeModelHookInput(
+        agent_state=agent_state,
+        max_iterations=5,
+        current_iteration=4,
+        messages=base_messages,
+    )
+    urgent_result = middleware.before_model(urgent_hook_input)
+    assert urgent_result.messages is not None
+    assert urgent_result.messages[-1].role == Role.FRAMEWORK
+    assert "iteration 4/5" in urgent_result.messages[-1].get_text_content().lower()
+

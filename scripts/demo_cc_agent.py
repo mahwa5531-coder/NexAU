@@ -190,7 +190,7 @@ def _build_tools() -> list[Tool]:
     tools.append(Tool.from_yaml(str(TOOLS_DIR / "ask_user.tool.yaml"), binding=ask_user))
 
     # NOTE: sub_agent (call_sub_agent), tool_search, skill_tool
-    # 由框架根据 AgentConfig 自动注册。
+    #  AgentConfig 。
 
     return tools
 
@@ -201,7 +201,7 @@ def _build_tools() -> list[Tool]:
 
 
 def _build_mcp_servers(work_dir: str) -> list[dict[str, object]]:
-    """Build MCP server configs (CC-aligned: server 级 always-ask)."""
+    """Build MCP server configs (CC-aligned: server  always-ask)."""
     return [
         {
             "name": "filesystem",
@@ -324,14 +324,14 @@ async def main() -> None:
     work_dir = sandbox_config.work_dir
     print()
     print("Suggested tests:")
-    print(f"  1. 列出 {work_dir} 目录                        (readonly → auto)")
-    print(f"  2. 创建 {work_dir}/hello.py 写 print('hi')    (write → ask)")
-    print("  3. 用 run_code_tool 执行 print(1+1)           (code → ask)")
-    print(f"  4. 执行 ls -la {work_dir}                      (shell readonly → auto)")
-    print(f"  5. 执行 rm {work_dir}/hello.py                 (shell → ask)")
-    print("  6. 执行 python hello.py                        (shell → ask)")
-    print("  7. 抓取 https://example.com                    (web → ask)")
-    print("  8. 同时: 读文件 + 写文件 + rm 文件             (parallel mixed)")
+    print(f"  1.  {work_dir}                         (readonly → auto)")
+    print(f"  2.  {work_dir}/hello.py  print('hi')    (write → ask)")
+    print("  3.  run_code_tool  print(1+1)           (code → ask)")
+    print(f"  4.  ls -la {work_dir}                      (shell readonly → auto)")
+    print(f"  5.  rm {work_dir}/hello.py                 (shell → ask)")
+    print("  6.  python hello.py                        (shell → ask)")
+    print("  7.  https://example.com                    (web → ask)")
+    print("  8. :  +  + rm              (parallel mixed)")
     print()
     print("Type 'quit' to exit.")
     print("=" * 60)

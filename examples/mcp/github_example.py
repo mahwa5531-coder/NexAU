@@ -106,7 +106,7 @@ Explain what you're doing and provide context for the results.""",
             print("\n⚠️  No tools available")
 
         response = agent.run(
-            message="https://github.com/nex-agi/NexAU/tree/main 的代码结构是什么样的？",
+            message="https://github.com/nex-agi/NexAU/tree/main ？",
         )
         print(response)
 

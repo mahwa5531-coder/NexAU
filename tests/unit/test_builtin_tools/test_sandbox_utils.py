@@ -34,17 +34,19 @@ class TestGetSandbox:
         agent_state.get_sandbox.return_value = mock_sandbox
         assert get_sandbox(agent_state) is mock_sandbox
 
-    def test_raises_when_agent_state_is_none(self):
-        """Should raise SandboxError when agent_state is None."""
-        with pytest.raises(SandboxError, match="Sandbox not found"):
-            get_sandbox(None)
+    def test_falls_back_to_local_sandbox_when_agent_state_is_none(self):
+        """Should fall back to LocalSandbox when agent_state is None."""
+        from nexau.archs.sandbox.local_sandbox import LocalSandbox
+        sandbox = get_sandbox(None)
+        assert isinstance(sandbox, LocalSandbox)
 
-    def test_raises_when_get_sandbox_returns_none(self):
-        """Should raise SandboxError when get_sandbox returns None."""
+    def test_falls_back_to_local_sandbox_when_get_sandbox_returns_none(self):
+        """Should fall back to LocalSandbox when get_sandbox returns None."""
+        from nexau.archs.sandbox.local_sandbox import LocalSandbox
         agent_state = Mock()
         agent_state.get_sandbox.return_value = None
-        with pytest.raises(SandboxError, match="Sandbox not found"):
-            get_sandbox(agent_state)
+        sandbox = get_sandbox(agent_state)
+        assert isinstance(sandbox, LocalSandbox)
 
 
 class TestResolvePath:

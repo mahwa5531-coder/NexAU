@@ -89,12 +89,12 @@ def _has_env_var(value: str) -> bool:
 def _validate_schema(yaml_path: str, issues: list[Issue]) -> None:
     """Use the framework's own Pydantic validation."""
     try:
-        # from_yaml 内部会 traceback.print_exc()，这里抑制 stderr 输出
+        # from_yaml  traceback.print_exc()， stderr 
         with redirect_stderr(StringIO()):
             AgentConfigSchema.from_yaml(yaml_path)
     except ConfigError as exc:
         msg = str(exc)
-        # 环境变量未设置时降级为 WARNING（验证场景下通常不会设置）
+        #  WARNING（）
         if "is not set" in msg and "Environment variable" in msg:
             issues.append(Issue("WARNING", "schema", msg))
         else:
@@ -204,7 +204,7 @@ def _check_tool_yaml_content(
             )
         return None
 
-    # input_schema 中的保留属性
+    # input_schema 
     props = schema.input_schema.get("properties", {})
     if isinstance(props, dict):
         props_dict = cast(dict[str, Any], props)
@@ -274,10 +274,10 @@ def _check_tools(
             )
             continue
 
-        # 验证 tool YAML 内容
+        #  tool YAML 
         tool_binding = _check_tool_yaml_content(resolved, idx, issues)
 
-        # binding 检查
+        # binding 
         agent_binding = entry_dict.get("binding")
         if not agent_binding and not tool_binding:
             label = f" ({name})" if name else ""
@@ -290,7 +290,7 @@ def _check_tools(
                 )
             )
 
-        # extra_kwargs 保留 key
+        # extra_kwargs  key
         extra = entry_dict.get("extra_kwargs", {})
         if isinstance(extra, dict):
             extra_dict = cast(dict[str, Any], extra)

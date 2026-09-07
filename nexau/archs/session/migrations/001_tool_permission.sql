@@ -1,5 +1,5 @@
--- RFC-0019: 工具权限管理
--- 幂等：使用 IF NOT EXISTS，可重复执行
+-- RFC-0019: 
+-- ： IF NOT EXISTS，
 
 CREATE TABLE IF NOT EXISTS permission_rules (
     user_id     TEXT NOT NULL,
@@ -12,6 +12,6 @@ CREATE TABLE IF NOT EXISTS permission_rules (
     PRIMARY KEY (user_id, session_id, tool_name, rule_content, behavior)
 );
 
--- SQLite 不支持 ADD COLUMN IF NOT EXISTS，用 PRAGMA 检测后条件执行。
--- 框架层用 Python 检测列是否存在，不存在时执行：
+-- SQLite  ADD COLUMN IF NOT EXISTS， PRAGMA 。
+--  Python ，：
 -- ALTER TABLE sessions ADD COLUMN pending_tool_calls JSON DEFAULT NULL;

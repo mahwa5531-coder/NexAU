@@ -1,15 +1,15 @@
-# RFC-0001 验证脚本: Agent 中断时状态持久化
+# RFC-0001 : Agent 
 #
-# 场景：
-#   1. 创建一个带 sleep_tool 的 Agent（流式输出）
-#   2. 让模型调用 sleep_tool 20 次
-#   3. 在第 5 次工具调用完成后发送 stop
-#   4. 中断后，用新指令问模型已经调用了多少次
+# ：
+#   1.  sleep_tool  Agent（）
+#   2.  sleep_tool 20 
+#   3.  5  stop
+#   4. ，
 #
-# 用法：
-#   uv run python examples/test_interrupt.py          # 直接调用 agent.stop()
-#   uv run python examples/test_interrupt.py direct    # 同上
-#   uv run python examples/test_interrupt.py http      # 通过 HTTP transport POST /stop
+# ：
+#   uv run python examples/test_interrupt.py          #  agent.stop()
+#   uv run python examples/test_interrupt.py direct    # 
+#   uv run python examples/test_interrupt.py http      #  HTTP transport POST /stop
 
 import asyncio
 import json
@@ -33,7 +33,7 @@ from nexau.archs.transports.http import HTTPConfig, SSETransportServer
 
 logging.basicConfig(level=logging.WARNING)
 
-# ── 工具定义 ──────────────────────────────────────────────
+# ──  ──────────────────────────────────────────────
 
 tool_call_count = 0
 
@@ -43,7 +43,7 @@ def sleep_tool(seconds: int = 1) -> str:
     global tool_call_count
     tool_call_count += 1
     current = tool_call_count
-    print(f"  🔧 sleep_tool 第 {current} 次调用，休眠 {seconds}s ...")
+    print(f"  🔧 sleep_tool  {current} ， {seconds}s ...")
     time.sleep(seconds)
     return f"Slept for {seconds} second(s). This is call #{current}."
 
@@ -79,12 +79,12 @@ SYSTEM_PROMPT = (
     "Calling multiple tools in a single response is STRICTLY FORBIDDEN."
 )
 
-USER_MESSAGE = "请帮我调用 sleep_tool 共 20 次，每次休眠 1 秒。规则：每次回复只能调用一次 sleep_tool，等收到结果后再调用下一次。"
+USER_MESSAGE = " sleep_tool  20 ， 1 。： sleep_tool，。"
 
-FOLLOWUP_MESSAGE = "你之前调用了多少次 sleep_tool？请回顾对话历史并告诉我具体次数。"
+FOLLOWUP_MESSAGE = " sleep_tool？。"
 
 
-# ── Mode 1: 直接调用 agent.stop() ─────────────────────────
+# ── Mode 1:  agent.stop() ─────────────────────────
 
 
 async def main_direct() -> None:
@@ -92,10 +92,9 @@ async def main_direct() -> None:
     global tool_call_count
 
     print("=" * 60)
-    print("RFC-0001 验证: Agent 中断时状态持久化 (direct mode)")
+    print("RFC-0001 : Agent  (direct mode)")
     print("=" * 60)
 
-    # 事件回调
     tool_result_count = 0
     interrupt_triggered = threading.Event()
 
@@ -103,12 +102,12 @@ async def main_direct() -> None:
         nonlocal tool_result_count
         if isinstance(event, ToolCallResultEvent):
             tool_result_count += 1
-            print(f"  📩 收到第 {tool_result_count} 次工具调用结果")
+            print(f"  📩  {tool_result_count} ")
             if tool_result_count >= 5:
-                print("  ⚡ 达到 5 次，准备发送 stop ...")
+                print("  ⚡  5 ， stop ...")
                 interrupt_triggered.set()
 
-    # 1. 创建 Agent（流式输出）
+    # 1.  Agent（）
     middleware = AgentEventsMiddleware(
         session_id="interrupt_test",
         on_event=on_event,
@@ -125,8 +124,8 @@ async def main_direct() -> None:
 
     agent = Agent(config=config)
 
-    # 2. 第一轮：让模型调用 sleep_tool 20 次
-    print("\n📤 第一轮指令: 请调用 sleep_tool 20 次，每次休眠 1 秒")
+    # 2. ： sleep_tool 20 
+    print("\n📤 :  sleep_tool 20 ， 1 ")
     print("-" * 60)
 
     async def run_agent() -> str:
@@ -135,43 +134,42 @@ async def main_direct() -> None:
 
     agent_task = asyncio.create_task(run_agent())
 
-    # 等待第 5 次工具调用完成
+    #  5 
     while not interrupt_triggered.is_set():
         await asyncio.sleep(0.2)
     await asyncio.sleep(0.5)
 
-    # 3. 发送 stop
-    print("\n🛑 发送 stop(force=True) ...")
+    # 3.  stop
+    print("\n🛑  stop(force=True) ...")
     result = await agent.stop(force=True)
-    print(f"  ✅ stop 完成")
+    print(f"  ✅ stop ")
     print(f"  📊 stop_reason = {result.stop_reason.name}")
-    print(f"  📊 历史消息数 = {len(result.messages)}")
-    print(f"  📊 实际工具调用次数 = {tool_call_count}")
+    print(f"  📊  = {len(result.messages)}")
+    print(f"  📊  = {tool_call_count}")
 
-    # 等待 agent_task 完成
+    #  agent_task 
     try:
         response = await asyncio.wait_for(agent_task, timeout=5.0)
-        print(f"\n📥 第一轮响应: {response[:200]}...")
+        print(f"\n📥 : {response[:200]}...")
     except (asyncio.TimeoutError, asyncio.CancelledError, Exception) as e:
-        print(f"\n📥 第一轮因中断结束: {type(e).__name__}")
+        print(f"\n📥 : {type(e).__name__}")
 
-    # 4. 第二轮：问模型已经调用了多少次
+    # 4. ：
     print("\n" + "=" * 60)
-    print("📤 第二轮指令: 你之前调用了多少次 sleep_tool？")
+    print("📤 :  sleep_tool？")
     print("-" * 60)
 
     response2_raw = await agent.run_async(message=FOLLOWUP_MESSAGE)
     response2 = response2_raw if isinstance(response2_raw, str) else response2_raw[0]
-    print(f"\n📥 第二轮响应:\n{response2}")
+    print(f"\n📥 :\n{response2}")
 
-    # 5. 验证结果
+    # 5. 
     _print_summary(tool_call_count, tool_result_count, len(result.messages), response2)
 
-    # 清理
     await agent.stop(force=True)
 
 
-# ── Mode 2: 通过 HTTP transport POST /stop ────────────────
+# ── Mode 2:  HTTP transport POST /stop ────────────────
 
 HTTP_PORT = 18765
 BASE_URL = f"http://127.0.0.1:{HTTP_PORT}"
@@ -184,10 +182,10 @@ async def main_http() -> None:
     global tool_call_count
 
     print("=" * 60)
-    print("RFC-0001 验证: Agent 中断时状态持久化 (http mode)")
+    print("RFC-0001 : Agent  (http mode)")
     print("=" * 60)
 
-    # 1. 创建 SSE Transport Server
+    # 1.  SSE Transport Server
     engine = InMemoryDatabaseEngine()
     agent_config = AgentConfig(
         name="interrupt_test_agent",
@@ -203,7 +201,7 @@ async def main_http() -> None:
         default_agent_config=agent_config,
     )
 
-    # 2. 启动 uvicorn 后台线程
+    # 2.  uvicorn 
     import uvicorn
 
     server_thread = threading.Thread(
@@ -217,16 +215,15 @@ async def main_http() -> None:
     )
     server_thread.start()
 
-    # 等待服务器就绪
     await _wait_for_server(BASE_URL)
-    print("✅ HTTP 服务器已启动")
+    print("✅ HTTP ")
 
-    # 3. 发送流式请求并在第 5 次工具调用后 stop
+    # 3.  5  stop
     tool_result_count = 0
     stop_result_data: dict[str, Any] | None = None
 
     async with httpx.AsyncClient(base_url=BASE_URL, timeout=120.0) as client:
-        # 启动流式请求（后台任务）
+        # （）
         stream_done = asyncio.Event()
 
         async def consume_stream() -> None:
@@ -251,29 +248,29 @@ async def main_http() -> None:
                         event_type = data.get("type", "")
                         if event_type == "TOOL_CALL_RESULT":
                             tool_result_count += 1
-                            print(f"  📩 [SSE] 收到第 {tool_result_count} 次工具调用结果")
+                            print(f"  📩 [SSE]  {tool_result_count} ")
             except httpx.RemoteProtocolError:
-                # 服务端因 stop 关闭连接
+                #  stop 
                 pass
             except Exception as e:
-                print(f"  ⚠️ 流式请求异常: {type(e).__name__}: {e}")
+                print(f"  ⚠️ : {type(e).__name__}: {e}")
             finally:
                 stream_done.set()
 
         stream_task = asyncio.create_task(consume_stream())
 
-        # 等待第 5 次工具调用完成
-        print("\n📤 第一轮指令 (via POST /stream): 请调用 sleep_tool 20 次")
+        #  5 
+        print("\n📤  (via POST /stream):  sleep_tool 20 ")
         print("-" * 60)
 
         while tool_result_count < 5 and not stream_done.is_set():
             await asyncio.sleep(0.2)
 
         if tool_result_count >= 5:
-            await asyncio.sleep(0.5)  # 确保第 5 次结果已处理
+            await asyncio.sleep(0.5)  #  5 
 
-            # 4. 发送 POST /stop
-            print(f"\n🛑 发送 POST /stop (force=True) ...")
+            # 4.  POST /stop
+            print(f"\n🛑  POST /stop (force=True) ...")
             stop_resp = await client.post(
                 "/stop",
                 json={
@@ -284,16 +281,15 @@ async def main_http() -> None:
                 },
             )
             stop_result_data = stop_resp.json()
-            print(f"  ✅ /stop 响应: {stop_result_data}")
+            print(f"  ✅ /stop : {stop_result_data}")
         else:
-            print("  ⚠️ 流式请求提前结束，未达到 5 次工具调用")
+            print("  ⚠️ ， 5 ")
 
-        # 等待流式请求结束
         await asyncio.wait_for(stream_task, timeout=10.0)
 
-        # 5. 第二轮：通过 POST /query 验证上下文恢复
+        # 5. ： POST /query 
         print("\n" + "=" * 60)
-        print("📤 第二轮指令 (via POST /query): 你之前调用了多少次 sleep_tool？")
+        print("📤  (via POST /query):  sleep_tool？")
         print("-" * 60)
 
         query_resp = await client.post(
@@ -306,14 +302,14 @@ async def main_http() -> None:
         )
         query_data = query_resp.json()
         response2 = query_data.get("response", "")
-        print(f"\n📥 第二轮响应:\n{response2}")
+        print(f"\n📥 :\n{response2}")
 
-    # 6. 验证结果
+    # 6. 
     message_count = int(stop_result_data.get("message_count", 0)) if stop_result_data else 0
     _print_summary(tool_call_count, tool_result_count, message_count, response2)
 
 
-# ── 辅助函数 ──────────────────────────────────────────────
+# ──  ──────────────────────────────────────────────
 
 
 async def _wait_for_server(base_url: str, retries: int = 20) -> None:
@@ -333,15 +329,15 @@ async def _wait_for_server(base_url: str, retries: int = 20) -> None:
 def _print_summary(calls: int, results: int, message_count: int, response2: str) -> None:
     """Print verification summary."""
     print("\n" + "=" * 60)
-    print("📊 验证结果:")
-    print(f"  - 实际工具调用次数: {calls}")
-    print(f"  - 工具结果事件数: {results}")
-    print(f"  - 中断后历史消息数: {message_count}")
-    print(f"  - 第二轮能恢复上下文: {'是' if response2 else '否'}")
+    print("📊 :")
+    print(f"  - : {calls}")
+    print(f"  - : {results}")
+    print(f"  - : {message_count}")
+    print(f"  - : {'' if response2 else ''}")
     print("=" * 60)
 
 
-# ── 入口 ──────────────────────────────────────────────────
+# ──  ──────────────────────────────────────────────────
 
 if __name__ == "__main__":
     mode = sys.argv[1] if len(sys.argv) > 1 else "direct"

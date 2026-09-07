@@ -37,9 +37,9 @@ class CompactionConfig(BaseModel):
     emergency_compact_enabled: bool = True
     threshold: float = 0.75
 
-    # Trigger Selection (micro-compact: 新增 time_based 触发器)
+    # Trigger Selection (micro-compact:  time_based )
     trigger: Literal["token_threshold", "time_based"] = "token_threshold"
-    gap_threshold_minutes: float = 5  # micro-compact: time_based trigger 专用
+    gap_threshold_minutes: float = 5  # micro-compact: time_based trigger 
 
     # Strategy Selection
     compaction_strategy: Literal["llm_summary", "sliding_window", "tool_result_compaction"] = "tool_result_compaction"
@@ -48,7 +48,7 @@ class CompactionConfig(BaseModel):
     keep_iterations: int = 3  # Number of recent iterations to keep uncompacted
     keep_user_rounds: int = 0  # Number of recent user rounds to keep uncompacted (0 = disabled)
 
-    # micro-compact: tool_result_compaction 工具类型过滤
+    # micro-compact: tool_result_compaction type
     compactable_tools: list[str] | None = None
 
     # Summary LLM overrides
@@ -62,21 +62,21 @@ class CompactionConfig(BaseModel):
     compact_prompt_path: str | None = None
     retry_attempts: int = 3
 
-    # RFC-0021: 压缩时归档被移除的原始消息到 sandbox
+    # RFC-0021:  sandbox
     save_history: bool = True
-    """开启历史消息文件归档（Opt-out: 启用压缩即归档）。
+    """（Opt-out: ）。
 
-    归档目录位置固定为 ``{sandbox.get_temp_dir()}/.nexau_history_archive/<namespace>/``,
-    不写入当前工作目录, 也不暴露成 config —— 避免用户输入路径穿越。
+     ``{sandbox.get_temp_dir()}/.nexau_history_archive/<namespace>/``,
+    ,  config —— 。
 
-    启用归档时, summary 末尾会自动注入"如何用 search_file_content / read_file
-    召回"的提示文本, 让 agent 知道归档存在并能使用 —— 这是归档的关键价值,
-    不再单独提供 opt-out 开关 (没有"归档但不告诉 agent"的真实用例)。
+    , summary " search_file_content / read_file
+    ",  agent  —— keyvalue,
+     opt-out  (" agent")。
 
-    命名说明: 对外字段叫 ``save_history`` (用户视角: 是否保存历史), 内部模块
-    用 ``archive`` 词汇 (``HistoryArchiveWriter`` / ``ARCHIVE_SUBDIR`` /
-    ``.nexau_history_archive/`` / ``_boundary``) —— 因为内部强调"归档"语义
-    (write-once + per-round + grep-friendly), 而对外只是"开关历史是否落盘"。
+    :  ``save_history`` (: ), module
+     ``archive``  (``HistoryArchiveWriter`` / ``ARCHIVE_SUBDIR`` /
+    ``.nexau_history_archive/`` / ``_boundary``) —— ""
+    (write-once + per-round + grep-friendly), ""。
     """
 
     @model_validator(mode="after")

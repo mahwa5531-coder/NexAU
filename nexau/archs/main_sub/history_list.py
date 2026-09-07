@@ -45,11 +45,11 @@ logger = logging.getLogger(__name__)
 
 
 def _resize_image_block(block: ImageBlock) -> None:
-    """就地把一个超预算 ImageBlock 降采样到面积封顶内。
+    """ ImageBlock 。
 
-    url-only（``base64`` 为空）图跳过 —— 没有本地字节可处理。界内小图、
-    解码/降采样失败都是 no-op（``resize_base64_image_if_oversized`` 返回 None），
-    原样保留。
+    url-only（``base64`` ） —— 。、
+    /failure no-op（``resize_base64_image_if_oversized``  None），
+    。
     """
     if not block.base64:
         return
@@ -60,13 +60,13 @@ def _resize_image_block(block: ImageBlock) -> None:
 
 
 def _omit_or_resize_image_block(block: ImageBlock) -> TextBlock | None:
-    """超大图 → 返回占位 ``TextBlock``（调用方用它替换该 ``ImageBlock``）；否则就地
-    降采样该图并返回 ``None``（原位置的 block 不动）。
+    """ →  ``TextBlock``（ ``ImageBlock``）；
+     ``None``（ block ）。
 
-    ``image_exceeds_hard_limit`` 必须在 ``_resize_image_block`` 之前判：后者会全解码，
-    而硬 gate 正是要在解码前拦下 decode 炸弹 + 巨大 payload。url-only（``base64``
-    为空）图既不触发硬 gate（无字节可测）也没有本地字节可 resize，返回 ``None`` 原样
-    保留。
+    ``image_exceeds_hard_limit``  ``_resize_image_block`` ：，
+     gate  decode  +  payload。url-only（``base64``
+    ） gate（） resize， ``None`` 
+    。
     """
     if block.base64 and image_exceeds_hard_limit(block.base64):
         return TextBlock(text=OVERSIZED_IMAGE_PLACEHOLDER)
@@ -74,12 +74,12 @@ def _omit_or_resize_image_block(block: ImageBlock) -> TextBlock | None:
     return None
 
 
-# 设计边界(#601):持久化闸只处理**用户直传**的顶层 ImageBlock。工具产出
-# (ToolResultBlock.content 嵌套图与 raw_output 副本)一律不碰 —— builtin 读
-# 工具的图已被读路径强制压缩到界内;用户自定义工具/MCP 返回什么、多大、要不
-# 要压缩,是工具作者自己的责任,框架不做任何限制或改写(此前的无差别
-# resize/omit 曾误杀 >20MiB 的非图 base64、并使 image_token_budget=0 的
-# escape hatch 形同虚设)。
+# (#601):**** ImageBlock。
+# (ToolResultBlock.content  raw_output ) —— builtin 
+# ;/MCP 、、
+# ,,(
+# resize/omit  >20MiB  base64、 image_token_budget=0 
+# escape hatch )。
 
 
 class HistoryList(list[Message]):
@@ -146,8 +146,8 @@ class HistoryList(list[Message]):
         self._pending_messages: list[Message] = []
         self._baseline_fingerprints: list[str] = self._compute_fingerprints([m for m in self if m.role != Role.SYSTEM])
 
-        # 保持对 fire-and-forget persistence tasks 的引用，防止 GC 在
-        # task 完成前回收它们（回收后 done-callback 不会触发）。
+        # fire-and-forget persistence tasks ， GC 
+        # task completed（ done-callback ）。
         self._background_tasks: set[asyncio.Task[None]] = set()
 
     def update_history_key(self, history_key: AgentRunActionKey) -> None:
@@ -164,25 +164,25 @@ class HistoryList(list[Message]):
         return bool(self._pending_messages)
 
     def _resize_oversized_images(self, messages: Iterable[Message]) -> None:
-        """就地把超预算图片降采样到 ``DEFAULT_IMAGE_MAX_PIXELS`` 面积封顶内，超大图
-        （``image_exceeds_hard_limit``：base64 > 20 MiB 或像素 > 60 MP）则直接 omit
-        成占位（不 resize、不全解码，避免 decode 炸弹 + 巨大 payload）。
+        """ ``DEFAULT_IMAGE_MAX_PIXELS`` ，
+        （``image_exceeds_hard_limit``：base64 > 20 MiB  > 60 MP） omit
+        （ resize、， decode  +  payload）。
 
-        在 append / extend / replace_all 把消息落到 ``_pending_messages`` 之前
-        调用 —— 这是生产代码唯一的 persist 汇聚点，用户消息、工具结果、权限恢复
-        重跑、压缩 REPLACE 都经此，但本闸只处理用户直传的顶层 ``ImageBlock``。
-        #599 只在 ``read_visual_file`` 把图返回给 LLM 时降采样；这里补上用户直传
-        图片的持久化兜底，避免原图 base64 进入 SQL / JSONL / memory / remote
-        backend。自定义工具/MCP 输出保持框架透明，由工具作者治理：
+         append / extend / replace_all  ``_pending_messages`` 
+         ——  persist ，、tool result、
+        、 REPLACE ， ``ImageBlock``。
+        #599  ``read_visual_file``  LLM ；
+        ， base64  SQL / JSONL / memory / remote
+        backend。/MCP ，：
 
-        只处理 ``content`` 里**顶层** ``ImageBlock``(用户直传;超硬限 → 占位,
-        超预算 → 就地 resize)。工具产出(``ToolResultBlock`` 的嵌套图与
-        ``raw_output``)刻意不碰:builtin 读工具已在读路径压缩,自定义工具/
-        MCP 的输出由工具作者自己负责。
+         ``content`` **** ``ImageBlock``(; → ,
+         →  resize)。(``ToolResultBlock`` 
+        ``raw_output``):builtin ,/
+        MCP 。
 
-        原地改同一份对象 —— 既缩小落库体积，也让下一轮喂给 LLM 的历史省 token。
-        graceful：逐条消息 try/except，任何异常吞掉并记日志，绝不让历史写入因
-        图片处理失败而失败（与 read_visual_file 降采样“降级不 fail”一致）。
+        object —— ， LLM  token。
+        graceful： try/except，exception，
+        failurefailure（ read_visual_file “ fail”）。
         """
         for message in messages:
             try:
@@ -196,9 +196,9 @@ class HistoryList(list[Message]):
 
     @staticmethod
     def _resize_message_images(message: Message) -> None:
-        # 顶层 block：超大 ImageBlock → 就地按索引换成 TextBlock 占位（TextBlock 是
-        # DiscriminatedBlock 的合法成员，类型安全）；界内超预算图就地 resize。只替换
-        # 当前索引、不增删元素，因此边遍历边改是安全的。
+        # block： ImageBlock →  TextBlock （TextBlock 
+        # DiscriminatedBlock ，type）； resize。
+        # 、，。
         for index, block in enumerate(message.content):
             if isinstance(block, ImageBlock):
                 placeholder = _omit_or_resize_image_block(block)
@@ -352,37 +352,37 @@ class HistoryList(list[Message]):
         - Different thread (e.g. executor worker) → run_coroutine_threadsafe
         - No owner loop → best-effort asyncio.run (sync-only entry points)
 
-        所有 create_task / run_coroutine_threadsafe 返回的 task/future 都通过
-        done-callback 记录错误，避免持久化失败被静默吞掉。
+         create_task / run_coroutine_threadsafe  task/future 
+        done-callback error，failure。
 
         Args:
             coro: Coroutine to schedule
         """
         owner = self._owner_loop
 
-        # 1. 尝试获取当前线程的 running loop
+        # 1.  running loop
         try:
             running = asyncio.get_running_loop()
         except RuntimeError:
             running = None
 
         if running is not None and running is owner:
-            # 同一事件循环线程，直接 create_task（最快路径）
+            # ， create_task（）
             task = asyncio.create_task(coro)  # type: ignore[arg-type]
             task.add_done_callback(self._on_task_done)
             self._background_tasks.add(task)
         elif owner is not None and owner.is_running():
-            # 跨线程：通过 run_coroutine_threadsafe 调度到主循环
+            # ： run_coroutine_threadsafe 
             future = asyncio.run_coroutine_threadsafe(coro, owner)  # type: ignore[arg-type]
             future.add_done_callback(self._on_task_done)
         elif running is not None:
-            # 在不同的事件循环线程上（不是 owner），用当前循环的 create_task
+            # （ owner）， create_task
             task = asyncio.create_task(coro)  # type: ignore[arg-type]
             task.add_done_callback(self._on_task_done)
             self._background_tasks.add(task)
         else:
-            # 无任何 running loop（纯 sync 入口，如 CLI 脚本）
-            # asyncio.run() 创建临时 loop 执行一次性持久化
+            # running loop（ sync ， CLI ）
+            # asyncio.run()  loop 
             try:
                 asyncio.run(coro)  # type: ignore[arg-type]
             except RuntimeError:
@@ -394,8 +394,8 @@ class HistoryList(list[Message]):
     def _on_task_done(self, task: asyncio.Task[object] | asyncio.Future[object] | ConcurrentFuture[object]) -> None:
         """Done-callback for fire-and-forget persistence tasks.
 
-        记录持久化失败，避免异常被静默吞掉（Python 仅在 Task 被 GC 时
-        打印 'Task exception was never retrieved' 警告，很容易遗漏）。
+        failure，exception（Python  Task  GC 
+         'Task exception was never retrieved' ，）。
         """
         self._background_tasks.discard(task)  # type: ignore[arg-type]
         try:

@@ -1,6 +1,6 @@
 """Server-side snapshot reducer for team SSE events.
 
-RFC-0045: 服务端状态快照压缩
+RFC-0045: 
 
 Mirrors the frontend applyEnvelope() logic in Python so the backend can
 maintain a running compacted state snapshot.  When the frontend loads
@@ -34,7 +34,7 @@ SnapshotState = dict[str, AgentSnapshot]
 def apply_envelope(state: SnapshotState, envelope: dict[str, Any]) -> SnapshotState:
     """Apply a single TeamStreamEnvelope dict to the snapshot state.
 
-    RFC-0045: 将单条事件增量合并到快照状态
+    RFC-0045: 
 
     This is the Python equivalent of the frontend's applyEnvelope() function.
     The state is mutated in-place for performance (caller should not assume
@@ -57,7 +57,7 @@ def apply_envelope(state: SnapshotState, envelope: dict[str, Any]) -> SnapshotSt
 
     effective_role = role_name if (role_name and role_name != "user") else None
 
-    # 1. 获取或创建 agent 快照
+    # 1.  agent 
     if agent_id not in state:
         state[agent_id] = {
             "agentId": agent_id,
@@ -74,7 +74,7 @@ def apply_envelope(state: SnapshotState, envelope: dict[str, Any]) -> SnapshotSt
 
     event_type: str = event.get("type", "")
 
-    # 2. 按事件类型更新 blocks（与前端 applyEnvelope 完全对应）
+    # 2.  blocks（ applyEnvelope ）
     if event_type == "THINKING_TEXT_MESSAGE_CONTENT" and event.get("delta"):
         last = blocks[-1] if blocks else None
         if last and last.get("kind") == "thinking":
@@ -188,7 +188,7 @@ def apply_envelope(state: SnapshotState, envelope: dict[str, Any]) -> SnapshotSt
 def snapshot_deep_copy(state: SnapshotState) -> SnapshotState:
     """Return a deep copy of the snapshot state for safe serialization.
 
-    RFC-0045: 深拷贝快照以避免序列化时的并发修改
+    RFC-0045: 
 
     The internal snapshot is mutated in-place, so a deep copy is needed
     before serializing to JSON for the HTTP response.

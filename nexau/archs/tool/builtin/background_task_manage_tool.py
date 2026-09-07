@@ -43,9 +43,10 @@ class BackgroundTaskManageResult(TypedDict):
 
 
 def background_task_manage_tool(
-    action: Literal["status", "kill", "list"],
+    action: Literal["status", "kill", "list"] = "list",
     pid: int | None = None,
     agent_state: AgentState | None = None,
+    **kwargs: object,
 ) -> BackgroundTaskManageResult:
     """
     Manage background tasks started by run_shell_command with background=True.
@@ -64,6 +65,21 @@ def background_task_manage_tool(
     assert agent_state is not None, "background_task_tool invoked, but agent_state is not passed."
     sandbox: BaseSandbox | None = agent_state.get_sandbox()
     assert sandbox is not None, "background_task_tool invoked, but sandbox is not initialized."
+
+    # Normalize action and pid aliases
+    if "Action" in kwargs and kwargs["Action"]:
+        action = str(kwargs["Action"]).lower()  # type: ignore
+    elif action:
+        action = str(action).lower()  # type: ignore
+
+    if pid is None:
+        for alias in ("TaskId", "task_id", "id"):
+            if alias in kwargs and kwargs[alias] is not None:
+                try:
+                    pid = int(str(kwargs[alias]))
+                    break
+                except (ValueError, TypeError):
+                    pass
 
     bg_tasks = sandbox.list_background_tasks()
     logger.info(f"background_task_tool: action={action}, pid={pid}, sandbox={id(sandbox)}, tasks={list(bg_tasks.keys())}")

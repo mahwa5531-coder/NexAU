@@ -14,7 +14,7 @@
 
 """Team SSE multiplexer.
 
-RFC-0002: 多 Agent 事件聚合器
+RFC-0002:  Agent event aggregator
 
 # Thread Safety
 
@@ -48,12 +48,12 @@ logger = logging.getLogger(__name__)
 class TeamSSEMultiplexer:
     """Multiplexes events from multiple agents into a single SSE stream.
 
-    RFC-0002: 多 Agent 事件聚合器
+    RFC-0002:  Agent event aggregator
 
-    每个 agent 通过 create_event_handler 获取独立的事件回调，
-    所有事件汇聚到同一个 asyncio.Queue，由 stream() 统一输出。
+     agent  create_event_handler ，
+     asyncio.Queue， stream() 。
 
-    所有入队操作通过 ``_put`` 保证线程安全。
+     ``_put`` 。
     """
 
     def __init__(
@@ -66,26 +66,26 @@ class TeamSSEMultiplexer:
         self._queue: asyncio.Queue[TeamStreamEnvelope | None] = asyncio.Queue()
         self._on_envelope = on_envelope
 
-        # 记录创建时所在的事件循环，用于跨线程安全入队
+        # ，
         try:
             self._loop: asyncio.AbstractEventLoop | None = asyncio.get_running_loop()
         except RuntimeError:
             self._loop = None
 
     # ------------------------------------------------------------------
-    # 线程安全入队
+    # 
     # ------------------------------------------------------------------
 
     def _put(self, item: TeamStreamEnvelope | None) -> None:
         """Thread-safe put into the async queue.
 
-        当调用线程不是事件循环所在线程时（如 ThreadPoolExecutor 中的 tool
-        通过 asyncio.run() 执行），使用 call_soon_threadsafe 调度到主循环。
-        如果 owner loop 已关闭，回退到直接 put_nowait（尽力而为）。
+        （ ThreadPoolExecutor  tool
+         asyncio.run() ）， call_soon_threadsafe 。
+         owner loop ， put_nowait（）。
         """
         loop = self._loop
         if loop is None or loop.is_closed():
-            # 无 owner loop 或 loop 已关闭 — 直接入队（尽力而为）
+            # owner loop  loop  — （）
             self._queue.put_nowait(item)
             return
 
@@ -95,14 +95,14 @@ class TeamSSEMultiplexer:
             running = None
 
         if running is loop:
-            # 同一事件循环线程，直接入队
+            # ，
             self._queue.put_nowait(item)
         else:
-            # 跨线程，调度到主事件循环
+            # ，
             try:
                 loop.call_soon_threadsafe(self._queue.put_nowait, item)
             except RuntimeError:
-                # loop 在竞态中被关闭，回退到直接入队
+                # loop ，
                 logger.warning("TeamSSEMultiplexer: owner loop closed during _put, using fallback")
                 self._queue.put_nowait(item)
 
@@ -111,9 +111,9 @@ class TeamSSEMultiplexer:
     def create_event_handler(self, agent_id: str, role_name: str) -> Callable[[Event], None]:
         """Create an on_event callback for a specific agent.
 
-        RFC-0002: 为指定 agent 创建事件回调
+        RFC-0002:  agent 
 
-        返回的回调函数将事件包装为 TeamStreamEnvelope 后放入队列。
+        functionpackage TeamStreamEnvelope 。
         """
 
         def handler(event: Event) -> None:
@@ -132,7 +132,7 @@ class TeamSSEMultiplexer:
     def emit(self, agent_id: str, event: Event, *, role_name: str | None = None) -> None:
         """Emit a custom event to the SSE stream.
 
-        RFC-0002: 向 SSE 流发送自定义事件（如用户消息、Agent 间消息）
+        RFC-0002:  SSE （、Agent ）
         """
         envelope = TeamStreamEnvelope(
             team_id=self._team_id,
@@ -147,9 +147,9 @@ class TeamSSEMultiplexer:
     async def stream(self) -> AsyncGenerator[TeamStreamEnvelope, None]:
         """Yield envelopes as they arrive from any agent.
 
-        RFC-0002: 统一输出所有 agent 的事件流
+        RFC-0002:  agent 
 
-        收到 None 哨兵值时结束迭代。
+         None value。
         """
         while True:
             envelope = await self._queue.get()
@@ -160,9 +160,9 @@ class TeamSSEMultiplexer:
     def close(self) -> None:
         """Signal end of stream.
 
-        RFC-0002: 发送流结束信号
+        RFC-0002: 
 
-        向队列放入 None 哨兵值，通知 stream() 停止迭代。
-        close() 始终从主事件循环调用，故直接 put_nowait。
+         None value， stream() 。
+        close() ， put_nowait。
         """
         self._put(None)

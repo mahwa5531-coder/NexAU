@@ -22,9 +22,11 @@ from typing import NamedTuple
 from sqlalchemy.exc import IntegrityError
 
 from nexau.core.messages import (
+    ImageBlock,
     Message,
     ReasoningBlock,
     Role,
+    TextBlock,
     ToolResultBlock,
     ToolUseBlock,
 )
@@ -45,18 +47,24 @@ logger = logging.getLogger(__name__)
 
 
 def _is_reasoning_only_assistant(msg: Message) -> bool:
-    """True if ``msg`` is an assistant message whose content is ALL reasoning.
+    """True if ``msg`` is an assistant message with no semantic text or tool calls.
 
     Such messages come from LLM streams that produced reasoning chunks but
-    were interrupted before any text/tool_use was emitted. They have no
-    semantic value — feeding them back to the LLM produces nonsense.
+    were interrupted before any text/tool_use was emitted, or were cancelled
+    leaving an empty content list. Feeding them back to cloud LLM providers
+    causes fatal 400 errors (e.g. Gemini 'contents[1].parts must not be empty').
     """
     if msg.role != Role.ASSISTANT:
         return False
     content = msg.content or []
     if not content:
-        return False
-    return all(isinstance(b, ReasoningBlock) for b in content)
+        return True
+    has_substantive = any(
+        isinstance(b, (ToolUseBlock, ImageBlock))
+        or (isinstance(b, TextBlock) and bool(b.text and b.text.strip()))
+        for b in content
+    )
+    return not has_substantive
 
 
 _ORPHAN_TOOL_RESULT_PLACEHOLDER = (
@@ -257,6 +265,14 @@ class AgentRunActionService:
             )
 
         if not messages:
+            if before > 0:
+                logger.info(
+                    "persist_append: all %d message(s) were stream-interrupted artifacts; skipping append for key=%s run_id=%s",
+                    before,
+                    key,
+                    run_id,
+                )
+                return None
             raise ValueError("Cannot persist APPEND action with no messages")
 
         logger.debug(
@@ -289,7 +305,51 @@ class AgentRunActionService:
             idempotency_key=idempotency_key,
         )
         try:
-            return await self._engine.create(record)
+            res = await self._engine.create(record)
+            # Dual-write to physical transcript.jsonl for agent self-inspection
+            try:
+                from nexau.archs.platform.path_helpers import get_session_brain_dir
+                import json as _json
+                brain_dir = get_session_brain_dir(key.session_id, None)
+                logs_dir = brain_dir / ".system_generated" / "logs"
+                logs_dir.mkdir(parents=True, exist_ok=True)
+                
+                t_file = logs_dir / "transcript.jsonl"
+                t_full_file = logs_dir / "transcript_full.jsonl"
+                
+                if record.append_messages:
+                    with open(t_full_file, "a", encoding="utf-8") as f_full, open(t_file, "a", encoding="utf-8") as f_compact:
+                        for msg in record.append_messages:
+                            if isinstance(msg, dict):
+                                role_val = msg.get("role")
+                                content_val = msg.get("content")
+                                tc_val = msg.get("tool_calls")
+                            else:
+                                role_attr = getattr(msg, "role", None)
+                                role_val = role_attr.value if hasattr(role_attr, "value") else str(role_attr) if role_attr else None
+                                cnt_attr = getattr(msg, "content", None)
+                                content_val = [b.model_dump() if hasattr(b, "model_dump") else str(b) for b in cnt_attr] if isinstance(cnt_attr, list) else str(cnt_attr or "")
+                                tc_val = getattr(msg, "tool_calls", None)
+
+                            step_obj = {
+                                "action_id": record.action_id,
+                                "run_id": record.run_id,
+                                "agent_name": record.agent_name,
+                                "role": role_val,
+                                "content": content_val,
+                                "tool_calls": tc_val,
+                                "created_at": record.created_at.isoformat() if record.created_at else None,
+                            }
+                            f_full.write(_json.dumps(step_obj) + "\n")
+                            
+                            compact_step = dict(step_obj)
+                            if isinstance(compact_step.get("content"), str) and len(compact_step["content"]) > 1500:
+                                compact_step["content"] = compact_step["content"][:1500] + "... [TRUNCATED]"
+                                compact_step["is_truncated"] = True
+                            f_compact.write(_json.dumps(compact_step) + "\n")
+            except Exception as ex:
+                logger.debug("Dual-write transcript error: %s", ex)
+            return res
         except IntegrityError:
             # Idempotent collapse: a row with the same idempotency_key already
             # exists (caller-side retry, Consumer Group redelivery, or the
@@ -433,13 +493,13 @@ class AgentRunActionService:
     ) -> AgentRunActionModel | None:
         """Persist a RUN_START lifecycle marker (RFC-0022 Phase 2).
 
-        RFC-0022: 在 run iteration 开始时写入 RUN_START 边界标记。
+        RFC-0022:  run iteration  RUN_START 。
 
-        RUN_START 是 **Class A** (Reader-NOOP) action — 它不改变 messages
-        状态，只携带 ``trace_id`` 用于 observability 串联（RFC-0024）。
+        RUN_START  **Class A** (Reader-NOOP) action —  messages
+        ， ``trace_id``  observability （RFC-0024）。
 
-        ``idempotency_key=f"{run_id}:start"`` 保证重试 / 双写场景下只落一行
-        （DB 唯一约束）；冲突时静默吞掉返回 None，调用方按已存在处理。
+        ``idempotency_key=f"{run_id}:start"`` retry / 
+        （DB ）； None，。
 
         Returns:
             The created action record, or ``None`` if the row already exists
@@ -549,7 +609,7 @@ class AgentRunActionService:
     ) -> list[Message]:
         """Reconstruct the messages state by folding the action stream.
 
-        Algorithm (RFC-0022 §Reduction 算法):
+        Algorithm (RFC-0022 §Reduction ):
 
         - DESC scan paginated by ``created_at_ns``
         - REPLACE = self-contained anchor → record + early stop
@@ -563,7 +623,7 @@ class AgentRunActionService:
         - APPEND collected, then re-applied in chronological order at the end
         - RUN_START / RUN_END are reader-NOOPs (Class A)
         - Missing UNDO target → silent no-op (no cutoff update)
-          (NOTE: RFC-0022 §不变量 #2 says fail-loud; production silently
+          (NOTE: RFC-0022 § #2 says fail-loud; production silently
           tolerates. To resolve in a follow-up.)
         """
         cursor: int | None = None

@@ -24,12 +24,42 @@ from nexau.archs.tracer.core import BaseTracer, Span, SpanType
 
 
 class InMemoryTracer(BaseTracer):
-    """Tracer that records spans locally and can dump a nested structure."""
+    """Tracer that records spans locally with bounded memory retention."""
 
-    def __init__(self) -> None:
+    DEFAULT_MAX_SPANS = 500
+    MAX_OUTPUT_STRING_CHARS = 4000
+
+    def __init__(self, max_spans: int = DEFAULT_MAX_SPANS) -> None:
+        self.max_spans = max_spans
         self.spans: dict[str, Span] = {}
         self.children: dict[str, list[str]] = {}
         self.root_spans: list[str] = []
+
+    def _evict_oldest_if_needed(self) -> None:
+        """Evict oldest root spans and their descendants if capacity is exceeded."""
+        while len(self.spans) > self.max_spans and self.root_spans:
+            oldest_root_id = self.root_spans.pop(0)
+            self._recursive_evict(oldest_root_id)
+
+    def _recursive_evict(self, span_id: str) -> None:
+        """Recursively remove a span and its children from memory."""
+        child_ids = self.children.pop(span_id, [])
+        for cid in child_ids:
+            self._recursive_evict(cid)
+        self.spans.pop(span_id, None)
+
+    @classmethod
+    def _sanitize_payload(cls, data: Any) -> Any:
+        """Cap excessively large strings in trace payloads to avoid memory bloat."""
+        if isinstance(data, str):
+            if len(data) > cls.MAX_OUTPUT_STRING_CHARS:
+                return data[: cls.MAX_OUTPUT_STRING_CHARS] + f"... [truncated {len(data)} chars for memory efficiency]"
+            return data
+        if isinstance(data, dict):
+            return {k: cls._sanitize_payload(v) for k, v in data.items()}
+        if isinstance(data, list):
+            return [cls._sanitize_payload(v) for v in data]
+        return data
 
     def start_span(
         self,
@@ -39,11 +69,15 @@ class InMemoryTracer(BaseTracer):
         parent_span: Span | None = None,
         attributes: dict[str, Any] | None = None,
     ) -> Span:
+        self._evict_oldest_if_needed()
+
         span_id = str(uuid.uuid4())
         now = datetime.now().timestamp()
         parent_id = None
         if parent_span is not None:
             parent_id = str(parent_span.vendor_obj) if parent_span.vendor_obj else parent_span.id
+
+        sanitized_inputs = self._sanitize_payload(inputs) if inputs else {}
 
         span = Span(
             id=span_id,
@@ -51,7 +85,7 @@ class InMemoryTracer(BaseTracer):
             type=span_type,
             parent_id=parent_id,
             start_time=now,
-            inputs=inputs or {},
+            inputs=sanitized_inputs or {},
             attributes=attributes or {},
             vendor_obj=span_id,
         )
@@ -75,7 +109,8 @@ class InMemoryTracer(BaseTracer):
         stored_span.end_time = datetime.now().timestamp()
 
         if outputs is not None:
-            stored_span.outputs = outputs if isinstance(outputs, dict) else {"result": outputs}
+            sanitized = self._sanitize_payload(outputs)
+            stored_span.outputs = sanitized if isinstance(sanitized, dict) else {"result": sanitized}
 
         if error is not None:
             stored_span.error = str(error)

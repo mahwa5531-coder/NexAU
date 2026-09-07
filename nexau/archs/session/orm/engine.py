@@ -137,29 +137,29 @@ class DatabaseEngine(ABC):
 _BRIDGE_TIMEOUT_SECONDS: float = 60.0
 """Timeout for cross-loop bridge calls (future.result).
 
-桥接操作的超时时间。当 worker 线程通过 run_coroutine_threadsafe
-将操作调度回 owner loop 后，调用 future.result(timeout=...) 等待结果。
-如果主 loop 卡住超过此时间，worker 线程将收到 TimeoutError 而非永远挂起。
+timeout。 worker  run_coroutine_threadsafe
+ owner loop ， future.result(timeout=...) 。
+ loop ，worker  TimeoutError pending。
 """
 
 
 class LoopSafeDatabaseEngine(DatabaseEngine):
     """Transparent wrapper ensuring all DB operations run on the owner event loop.
 
-    Cross-loop 安全包装器，用于保护 loop-bound 的 async DB 驱动（asyncpg, aiomysql）。
+    Cross-loop package， loop-bound  async DB （asyncpg, aiomysql）。
 
-    在 setup_models() 时记录 owner event loop。当后续 DB 操作从不同的
-    event loop 调用时（例如 worker 线程通过 asyncio.run() 创建的临时 loop），
-    通过 run_coroutine_threadsafe 将操作调度回 owner loop，阻塞调用方线程直到完成。
+     setup_models()  owner event loop。 DB 
+    event loop （ worker  asyncio.run()  loop），
+     run_coroutine_threadsafe  owner loop，completed。
 
-    阻塞调用方线程在 worker 线程场景下是安全的，因为：
-    - worker 线程的临时 event loop 只运行一个任务
-    - 主 event loop 保持运行以处理被调度的协程
+     worker ，：
+    - worker  event loop 
+    -  event loop 
 
-    所有 bridge 路径使用 future.result(timeout=_BRIDGE_TIMEOUT_SECONDS)，
-    防止主 loop 卡住时 worker 线程永远挂起。
+     bridge  future.result(timeout=_BRIDGE_TIMEOUT_SECONDS)，
+     loop  worker pending。
 
-    对调用方和内部 engine 实现完全透明。
+     engine 。
     """
 
     def __init__(self, inner: DatabaseEngine) -> None:
@@ -169,17 +169,17 @@ class LoopSafeDatabaseEngine(DatabaseEngine):
     def _get_bridge_loop(self) -> asyncio.AbstractEventLoop | None:
         """Return the owner loop if bridging is needed, else None.
 
-        返回值非 None 表示当前调用来自非 owner loop 的线程，
-        需要通过 run_coroutine_threadsafe 桥接。
+        value None  owner loop ，
+         run_coroutine_threadsafe 。
 
-        仅在 owner loop 仍在运行时才进行桥接。如果 owner loop 已关闭
-        （例如 asyncio.run() 的顺序调用场景），则跳过桥接，让操作
-        直接在当前 loop 上执行。
+         owner loop 。 owner loop 
+        （ asyncio.run() ），，
+         loop 。
         """
         owner = self._owner_loop
         if owner is None:
             return None
-        # owner loop 已关闭或未运行时，无法桥接
+        # owner loop ，
         if not owner.is_running():
             return None
         try:
@@ -194,8 +194,8 @@ class LoopSafeDatabaseEngine(DatabaseEngine):
 
     async def setup_models(self, model_classes: list[type[SQLModel]]) -> None:
         """Initialize models and capture the owner event loop."""
-        # 每次调用都更新 owner loop，确保跟踪当前活跃的循环。
-        # _get_bridge_loop() 中的 is_running() 检查防止桥接到已关闭的旧循环。
+        # owner loop，。
+        # _get_bridge_loop()  is_running() 。
         self._owner_loop = asyncio.get_running_loop()
         await self._inner.setup_models(model_classes)
 

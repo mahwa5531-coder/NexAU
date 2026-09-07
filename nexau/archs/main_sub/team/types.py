@@ -14,7 +14,7 @@
 
 """Team collaboration types and exceptions.
 
-RFC-0002: AgentTeam 协作类型定义
+RFC-0002: AgentTeam type
 
 Provides strongly-typed result dataclasses for Team Tools
 and custom exceptions for team operations.
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 def require_team_state(agent_state: AgentState) -> AgentTeamState:
     """Extract team_state or raise if not in a team context.
 
-    RFC-0002: Team 上下文校验辅助函数
+    RFC-0002: Team function
     """
     ts = agent_state.team_state
     if ts is None:
@@ -61,7 +61,7 @@ class TaskBlockedError(Exception):
 class TeammateInfo:
     """Teammate instance info.
 
-    RFC-0002: Teammate 状态信息
+    RFC-0002: Teammate 
     """
 
     agent_id: str
@@ -73,7 +73,7 @@ class TeammateInfo:
 class TaskInfo:
     """Task board entry.
 
-    RFC-0002: 任务信息
+    RFC-0002: 
     """
 
     task_id: str
@@ -93,7 +93,7 @@ class TaskInfo:
 class SpawnResult:
     """spawn_teammate return value.
 
-    RFC-0002: Teammate 实例化结果
+    RFC-0002: Teammate 
     """
 
     agent_id: str
@@ -104,7 +104,7 @@ class SpawnResult:
 class RemoveTeammateResult:
     """remove_teammate return value.
 
-    RFC-0002: Teammate 移除结果
+    RFC-0002: Teammate 
     """
 
     agent_id: str
@@ -115,7 +115,7 @@ class RemoveTeammateResult:
 class CreateTaskResult:
     """create_task return value.
 
-    RFC-0002: 任务创建结果
+    RFC-0002: 
     """
 
     task_id: str
@@ -130,7 +130,7 @@ class CreateTaskResult:
 class ClaimTaskResult:
     """claim_task return value.
 
-    RFC-0002: 任务领取结果
+    RFC-0002: 
     """
 
     task_id: str
@@ -144,7 +144,7 @@ class ClaimTaskResult:
 class UpdateTaskStatusResult:
     """update_task_status return value.
 
-    RFC-0002: 任务状态更新结果
+    RFC-0002: 
     """
 
     task_id: str
@@ -157,7 +157,7 @@ class UpdateTaskStatusResult:
 class ReleaseTaskResult:
     """release_task return value.
 
-    RFC-0002: 任务释放结果
+    RFC-0002: 
     """
 
     task_id: str
@@ -169,7 +169,7 @@ class ReleaseTaskResult:
 class MessageResult:
     """message / broadcast return value.
 
-    RFC-0002: 消息发送结果
+    RFC-0002: 
     """
 
     message_id: str
@@ -180,7 +180,7 @@ class MessageResult:
 class FinishTeamResult:
     """finish_team return value.
 
-    RFC-0002: 团队结束结果
+    RFC-0002: 
     """
 
     summary: str
@@ -192,12 +192,12 @@ class FinishTeamResult:
 class ToolError:
     """Tool operation error return.
 
-    RFC-0002: 工具操作错误
+    RFC-0002: error
 
     Codes: permission_denied | conflict | blocked | not_found | invalid_state
 
-    ``status`` 固定为 ``"error"``，用于 executor 的 stop-tool 守卫：
-    当 stop tool 返回 error 时，executor 不会退出循环。
+    ``status``  ``"error"``， executor  stop-tool ：
+     stop tool  error ，executor 。
     """
 
     error: str

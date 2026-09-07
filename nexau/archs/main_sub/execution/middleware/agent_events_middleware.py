@@ -50,7 +50,7 @@ def _noop_event_handler(_: Event) -> None:
 class AgentEventsMiddleware(Middleware):
     """Middleware that surfaces aggregator events to the user's callback.
 
-    RFC-0023 §阶段 ③ end state — Set A aggregators now live inside
+    RFC-0023 § ③ end state — Set A aggregators now live inside
     ``llm_caller`` (one instance per stream call); they pull this
     middleware's ``on_event`` via ``Middleware.get_event_handler`` and
     drive emission directly. This middleware no longer instantiates or
@@ -177,7 +177,7 @@ class AgentEventsMiddleware(Middleware):
         """Emit a usage update event after each completed LLM call.
 
         ``llm_caller`` produces ``ModelResponse.usage`` from the Set A
-        aggregator's ``build()`` output (RFC-0023 §阶段 ③). The event we
+        aggregator's ``build()`` output (RFC-0023 § ③). The event we
         emit here mirrors that field; downstream consumers of
         ``UsageUpdateEvent`` see the same numbers Set A would surface
         via ``ModelCallFinishedEvent``.

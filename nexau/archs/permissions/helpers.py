@@ -1,9 +1,9 @@
 # Permission matching helpers (reference implementations).
 #
-# RFC-0019: 工具权限管理
+# RFC-0019: 
 #
-# 框架附带的内置 tool 匹配 helper 函数。封装了"匹配规则 + raise 异常"的
-# 常见模式。开发者可以直接使用，也可以参考其实现编写自己的判断逻辑。
+# tool  helper function。" + raise exception"
+# 。，。
 
 from __future__ import annotations
 
@@ -20,16 +20,16 @@ from .types import AskPermission, PermissionDenied
 if TYPE_CHECKING:
     from nexau.archs.main_sub.framework_context import FrameworkContext
 
-# RFC-0019: "**" 通配符约定
+# RFC-0019: "**" 
 _WILDCARD = "**"
 
-# CC 对齐: Bash 只读命令白名单
-# CC 文档明确列出: ls, cat, head, tail, grep, find, wc, diff, stat, du, cd
-# 以下扩展命令为纯信息查询/文本处理，不修改文件系统，等同只读语义。
-# 注意: sed、awk 可通过 -i / 重定向修改文件，CC 不视为只读，故不纳入。
+# CC : Bash read-only
+# CC : ls, cat, head, tail, grep, find, wc, diff, stat, du, cd
+# /，，read-only。
+# : sed、awk  -i / ，CC read-only，。
 _READONLY_COMMANDS: frozenset[str] = frozenset(
     {
-        # CC 文档: 核心只读
+        # CC : read-only
         "ls",
         "cat",
         "head",
@@ -41,7 +41,7 @@ _READONLY_COMMANDS: frozenset[str] = frozenset(
         "stat",
         "du",
         "cd",
-        # 扩展: 纯信息查询
+        # : 
         "file",
         "which",
         "whereis",
@@ -56,15 +56,15 @@ _READONLY_COMMANDS: frozenset[str] = frozenset(
         "hostname",
         "id",
         "uptime",
-        # 扩展: 路径工具
+        # : 
         "basename",
         "dirname",
         "realpath",
         "readlink",
-        # 扩展: 校验/哈希
+        # : /
         "md5sum",
         "sha256sum",
-        # 扩展: 纯 stdout 文本处理（不含 sed/awk）
+        # :  stdout （ sed/awk）
         "sort",
         "uniq",
         "tr",
@@ -81,20 +81,20 @@ _READONLY_COMMANDS: frozenset[str] = frozenset(
         "seq",
         "strings",
         "xxd",
-        # 扩展: 搜索/过滤
+        # : /
         "egrep",
         "fgrep",
         "rg",
         "ag",
-        # 扩展: 分页/导航
+        # : /
         "less",
         "more",
         "tree",
-        # 扩展: 帮助/类型
+        # : /type
         "type",
         "man",
         "help",
-        # 扩展: shell 内建
+        # : shell 
         "test",
         "true",
         "false",
@@ -102,7 +102,7 @@ _READONLY_COMMANDS: frozenset[str] = frozenset(
     }
 )
 
-# CC 对齐: git 只读子命令白名单
+# CC : git read-only
 _READONLY_GIT_SUBCOMMANDS: frozenset[str] = frozenset(
     {
         "log",
@@ -134,8 +134,8 @@ _READONLY_GIT_SUBCOMMANDS: frozenset[str] = frozenset(
     }
 )
 
-# CC 对齐: 进程包装器 — 权限判定前自动剥离，让规则匹配内部实际命令
-# 例: timeout 30 git push → 按 "git push" 判定
+# CC : package — ，
+# : timeout 30 git push →  "git push" 
 _PROCESS_WRAPPERS: frozenset[str] = frozenset(
     {
         "timeout",
@@ -146,15 +146,15 @@ _PROCESS_WRAPPERS: frozenset[str] = frozenset(
     }
 )
 
-# CC 对齐: 写文件保护路径 — 即使目录已 allow 也强制 ask
+# CC :  —  allow  ask
 #
-# 暂时清空：原"保护路径强制 ask"机制与 RFC-0019 的"无 permissions 字段 = 行为与
-# 当前一致（`"**"` 无条件放行）"承诺冲突——未声明 permissions 的 tool 走到
-# check_path_permission 时，本应被 `"**"` 短路，却因保护路径检查再被拦下 ask。
-# 在更细的策略（按 tool opt-in 启用保护、仅 workspace root 生效等）落地前，
-# 先把两个集合清空以恢复向后兼容承诺。
+# ：" ask" RFC-0019 " permissions  = 
+# （`"**"` ）"—— permissions  tool 
+# check_path_permission ， `"**"` ， ask。
+# strategy（ tool opt-in 、 workspace root ），
+# setbackward compatibility。
 #
-# 原内容保留为注释以便日后恢复：
+# ：
 # _PROTECTED_DIRS = {".git", ".vscode", ".idea", ".husky", ".claude"}
 # _PROTECTED_FILES = {
 #     ".gitconfig", ".gitmodules",
@@ -170,37 +170,37 @@ def check_permission(
     permission_key: str,
     prompt: str,
 ) -> None:
-    """通用三态检查（参考实现）。
+    """（）。
 
-    RFC-0019: 内置 tool 的匹配 helper
+    RFC-0019:  tool  helper
 
-    对 permission_key 与 allow/deny rules 做精确匹配：
-    命中 allow → 返回、命中 deny → raise PermissionDenied、无命中 → raise AskPermission。
+     permission_key  allow/deny rules ：
+     allow → 、 deny → raise PermissionDenied、 → raise AskPermission。
     """
-    # 1. "**" 通配符 = 无条件放行
+    # 1. "**"  = 
     if _WILDCARD in ctx.allow_rules:
         return
 
-    # 2. deny 优先
+    # 2. deny 
     if permission_key in ctx.deny_rules:
         raise PermissionDenied(
-            reason=f"{permission_key} 被禁止",
+            reason=f"{permission_key} ",
             permission_key=permission_key,
         )
 
-    # 3. allow 精确匹配
+    # 3. allow 
     if permission_key in ctx.allow_rules:
         return
 
-    # 4. 无命中 → ask
+    # 4.  → ask
     raise AskPermission(prompt=prompt, permission_key=permission_key)
 
 
 def _path_to_dir_glob(path: str) -> str:
-    """将文件路径转为目录级 glob 规则。
+    """ glob 。
 
-    CC 对齐: allow 一个文件后，同目录下所有文件都自动放行。
-    例如 /Users/pcj/project/foo.py → /Users/pcj/project/**
+    CC : allow ，。
+     /Users/pcj/project/foo.py → /Users/pcj/project/**
     """
     from pathlib import PurePosixPath
 
@@ -211,9 +211,9 @@ def _path_to_dir_glob(path: str) -> str:
 
 
 def _is_protected_path(path: str) -> bool:
-    """判断是否为 CC 保护路径。
+    """ CC 。
 
-    CC 对齐: 这些路径即使目录已 allow 也强制 ask。
+    CC :  allow  ask。
     """
     from pathlib import PurePosixPath
 
@@ -231,52 +231,52 @@ def _is_protected_path(path: str) -> bool:
 
 
 def check_path_permission(ctx: FrameworkContext, path: str) -> None:
-    """路径专用三态检查。
+    """。
 
-    RFC-0019: 内置 filesystem helper
+    RFC-0019:  filesystem helper
 
-    使用 pathspec 库（gitignore 语义）做模式匹配。
-    CC 对齐: permission_key 为目录级 glob，allow 后同目录文件自动放行。
-    CC 对齐: 保护路径（.git, .bashrc 等）即使目录已 allow 也强制 ask。
-    供 write_file / replace / apply_patch / multiedit_tool 使用。
+     pathspec （gitignore ）。
+    CC : permission_key  glob，allow 。
+    CC : （.git, .bashrc ） allow  ask。
+     write_file / replace / apply_patch / multiedit_tool 。
     """
-    # 1. "**" 通配符 = 无条件放行（但保护路径仍然 ask）
+    # 1. "**"  = （ ask）
     if _WILDCARD in ctx.allow_rules and not _is_protected_path(path):
         return
 
-    # 2. deny 匹配（gitignore 语义）
+    # 2. deny （gitignore ）
     if ctx.deny_rules:
         deny_spec = pathspec.PathSpec.from_lines("gitwildmatch", ctx.deny_rules)
         if deny_spec.match_file(path):
             raise PermissionDenied(
-                reason=f"路径 {path} 被禁止",
+                reason=f" {path} ",
                 permission_key=path,
             )
 
-    # 3. allow 匹配（gitignore 语义）
+    # 3. allow （gitignore ）
     if ctx.allow_rules:
         allow_spec = pathspec.PathSpec.from_lines("gitwildmatch", ctx.allow_rules)
         if allow_spec.match_file(path):
-            # CC 对齐: 保护路径即使 allow 也强制 ask
+            # CC :  allow  ask
             if _is_protected_path(path):
                 raise AskPermission(
-                    prompt=f"允许访问受保护路径 {path} 吗?",
+                    prompt=f" {path} ?",
                     permission_key=path,
                 )
             return
 
-    # 4. 无命中 → ask（CC 对齐: permission_key 为目录级 glob）
+    # 4.  → ask（CC : permission_key  glob）
     dir_glob = _path_to_dir_glob(path)
     raise AskPermission(
-        prompt=f"允许访问 {path} 吗?",
+        prompt=f" {path} ?",
         permission_key=dir_glob,
     )
 
 
 def _split_shell_commands(command: str) -> list[str]:
-    """按管道/链式操作符拆分命令，尊重引号。
+    """/，。
 
-    CC 对齐: 引号内的 ``|``, ``&&``, ``||``, ``;`` 不作为操作符。
+    CC :  ``|``, ``&&``, ``||``, ``;`` 。
     """
     parts: list[str] = []
     current: list[str] = []
@@ -323,10 +323,10 @@ def _split_shell_commands(command: str) -> list[str]:
     return parts
 
 
-# CC 对齐: 输出重定向检测 — 即使命令头只读，重定向意味着文件写入
+# CC :  — read-only，
 _OUTPUT_REDIRECT_RE = re.compile(r"^[0-9]*>{1,2}")
 
-# CC 对齐: shell 解释器 — 检测 shell -c 模式并递归检查内部命令
+# CC : shell  —  shell -c 
 _SHELL_INTERPRETERS: frozenset[str] = frozenset(
     {
         "sh",
@@ -340,7 +340,7 @@ _SHELL_INTERPRETERS: frozenset[str] = frozenset(
 
 
 def _is_numeric_arg(s: str) -> bool:
-    """判断是否为数字参数（如 timeout 的持续时间）。"""
+    """（ timeout ）。"""
     try:
         float(s)
         return True
@@ -349,10 +349,10 @@ def _is_numeric_arg(s: str) -> bool:
 
 
 def _strip_process_wrappers(tokens: list[str]) -> list[str]:
-    """剥离进程包装器前缀，返回实际命令的 tokens。
+    """package， tokens。
 
-    CC 对齐: ``timeout 30 git push`` → 按 ``git push`` 判定权限。
-    支持: timeout, time, nice, nohup, stdbuf, 裸 xargs。
+    CC : ``timeout 30 git push`` →  ``git push`` 。
+    : timeout, time, nice, nohup, stdbuf,  xargs。
     """
     i = 0
     while i < len(tokens):
@@ -361,7 +361,7 @@ def _strip_process_wrappers(tokens: list[str]) -> list[str]:
             while i < len(tokens) and (tokens[i].startswith("-") or _is_numeric_arg(tokens[i])):
                 i += 1
         elif tokens[i] == "env":
-            # CC 对齐: env VAR=val command → 剥离 env 和赋值，检查内部命令
+            # CC : env VAR=val command →  env value，
             j = i + 1
             while j < len(tokens) and tokens[j].startswith("-"):
                 j += 1
@@ -370,7 +370,7 @@ def _strip_process_wrappers(tokens: list[str]) -> list[str]:
             if j < len(tokens):
                 i = j
             else:
-                break  # standalone env → 保留（只读）
+                break  # standalone env → （read-only）
         elif tokens[i] == "xargs" and i + 1 < len(tokens) and not tokens[i + 1].startswith("-"):
             i += 1
         else:
@@ -378,9 +378,9 @@ def _strip_process_wrappers(tokens: list[str]) -> list[str]:
     return tokens[i:] if i < len(tokens) else tokens
 
 
-# CC 对齐: 有子命令结构的命令集合
-# 这些命令的 permission_key 为 "command subcommand"（如 "npm install"），
-# 其他命令的 key 为命令头（如 "python"）。
+# CC : set
+# permission_key  "command subcommand"（ "npm install"），
+# key （ "python"）。
 _COMMANDS_WITH_SUBCOMMANDS: frozenset[str] = frozenset(
     {
         # VCS
@@ -435,10 +435,10 @@ _COMMANDS_WITH_SUBCOMMANDS: frozenset[str] = frozenset(
 
 
 def _command_permission_key(tokens: list[str]) -> str:
-    """提取命令的 permission_key。
+    """ permission_key。
 
-    CC 对齐: 有子命令的工具用 "command subcommand" 粒度（如 "npm install"），
-    其他命令用命令头粒度（如 "python"）。
+    CC :  "command subcommand" （ "npm install"），
+    （ "python"）。
     """
     head = tokens[0]
     if head in _COMMANDS_WITH_SUBCOMMANDS and len(tokens) > 1 and not tokens[1].startswith("-"):
@@ -447,10 +447,10 @@ def _command_permission_key(tokens: list[str]) -> str:
 
 
 def _has_output_redirect(tokens: list[str]) -> bool:
-    """检测 tokens 中是否包含输出重定向操作符。
+    """ tokens package。
 
-    CC 对齐: 即使命令头是只读的，输出重定向意味着文件写入，需要 ask。
-    检测: ``>``, ``>>``, ``2>``, ``&>``, ``>&`` 等模式。
+    CC : read-only，， ask。
+    : ``>``, ``>>``, ``2>``, ``&>``, ``>&`` 。
     """
     for token in tokens[1:]:
         if token == "&>" or token.startswith(">&"):
@@ -464,9 +464,9 @@ def _check_shell_c_inner(
     ctx: FrameworkContext,
     inner_cmd: str,
 ) -> tuple[str | None, str]:
-    """递归检查 shell -c 内部命令。
+    """ shell -c 。
 
-    CC 对齐: ``bash -c "git push"`` → 按内部 ``git push`` 判定权限。
+    CC : ``bash -c "git push"`` →  ``git push`` 。
     """
     sub_commands = _split_shell_commands(inner_cmd)
     first_ask_key = ""
@@ -498,57 +498,57 @@ def _check_single_command(
     if not tokens or not tokens[0]:
         return None, ""
 
-    # CC 对齐: 剥离进程包装器
+    # CC : package
     tokens = _strip_process_wrappers(tokens)
     if not tokens:
         return None, ""
 
     head = tokens[0]
 
-    # CC 对齐: shell -c 递归 — bash -c "inner" → 按内部命令判定
+    # CC : shell -c  — bash -c "inner" → 
     if head in _SHELL_INTERPRETERS:
         try:
             c_idx = tokens.index("-c")
             if c_idx + 1 < len(tokens):
                 return _check_shell_c_inner(ctx, tokens[c_idx + 1])
         except ValueError:
-            pass  # 无 -c，按普通命令判定
+            pass  #  -c，
 
     perm_key = _command_permission_key(tokens)
 
-    # deny 优先（检查命令头和完整 key）
+    # deny （ key）
     if head in ctx.deny_rules or perm_key in ctx.deny_rules:
         raise PermissionDenied(
-            reason=f"命令 {perm_key} 被禁止",
+            reason=f" {perm_key} ",
             permission_key=perm_key,
         )
-    # 只读白名单（CC 对齐: 有输出重定向则不视为只读）
+    # read-only（CC : read-only）
     if head in _READONLY_COMMANDS and not _has_output_redirect(tokens):
         return None, perm_key
     if head == "git" and len(tokens) > 1 and tokens[1] in _READONLY_GIT_SUBCOMMANDS and not _has_output_redirect(tokens):
         return None, perm_key
-    # allow 规则（检查命令头和完整 key）
+    # allow （ key）
     if head in ctx.allow_rules or perm_key in ctx.allow_rules:
         return None, perm_key
-    # 无命中 → ask
+    # → ask
     return "ask", perm_key
 
 
 def check_shell_permission(ctx: FrameworkContext, command: str) -> None:
-    """命令专用三态检查。
+    """。
 
-    RFC-0019: 内置 shell helper
+    RFC-0019:  shell helper
 
-    CC 对齐: 按 ``|``, ``&&``, ``||``, ``;`` 分割命令链，对每个子命令
-    分别做 deny → 只读白名单 → allow → ask 检查。任何一个子命令触发
-    deny 则整条拒绝，任何一个触发 ask 则整条 ask。
-    供 run_shell_command 使用。
+    CC :  ``|``, ``&&``, ``||``, ``;`` ，
+     deny → read-only → allow → ask 。
+    deny ， ask  ask。
+     run_shell_command 。
     """
-    # "**" 通配符 = 无条件放行
+    # "**"  = 
     if _WILDCARD in ctx.allow_rules:
         return
 
-    # 按管道/链式操作符拆分子命令
+    # /
     sub_commands = _split_shell_commands(command)
 
     need_ask = False
@@ -565,7 +565,7 @@ def check_shell_permission(ctx: FrameworkContext, command: str) -> None:
         if not tokens:
             continue
 
-        # _check_single_command 内部会 raise PermissionDenied
+        # _check_single_command  raise PermissionDenied
         result, perm_key = _check_single_command(ctx, tokens)
         if result == "ask" and not need_ask:
             need_ask = True
@@ -573,77 +573,77 @@ def check_shell_permission(ctx: FrameworkContext, command: str) -> None:
 
     if need_ask:
         raise AskPermission(
-            prompt=f"允许执行 {command} 吗?",
+            prompt=f" {command} ?",
             permission_key=first_ask_key,
         )
 
 
 def check_url_permission(ctx: FrameworkContext, url: str) -> None:
-    """域名级三态检查。
+    """。
 
-    CC 对齐: WebFetch 按域名控制
+    CC : WebFetch 
 
-    从 URL 中提取 hostname，与 allow/deny 规则做匹配。
-    deny/allow 规则支持 fnmatch 通配（如 ``*.github.com``）。
-    供 web_fetch 使用。
+     URL  hostname， allow/deny 。
+    deny/allow  fnmatch （ ``*.github.com``）。
+     web_fetch 。
     """
-    # 1. "**" 通配符 = 无条件放行
+    # 1. "**"  = 
     if _WILDCARD in ctx.allow_rules:
         return
 
-    # 2. 提取域名
+    # 2. 
     hostname = urlparse(url).hostname or url
 
-    # 3. deny 匹配（支持 *.example.com 通配）
+    # 3. deny （ *.example.com ）
     for pattern in ctx.deny_rules:
         if fnmatch.fnmatch(hostname, pattern):
             raise PermissionDenied(
-                reason=f"域名 {hostname} 被禁止",
+                reason=f" {hostname} ",
                 permission_key=hostname,
             )
 
-    # 4. allow 匹配
+    # 4. allow 
     for pattern in ctx.allow_rules:
         if fnmatch.fnmatch(hostname, pattern):
             return
 
-    # 5. 无命中 → ask
+    # 5.  → ask
     raise AskPermission(
-        prompt=f"允许访问 {url} 吗?",
+        prompt=f" {url} ?",
         permission_key=hostname,
     )
 
 
 def check_mcp_permission(ctx: FrameworkContext, server_name: str, tool_name: str) -> None:
-    """MCP 工具三态权限检查。
+    """MCP permission check。
 
-    RFC-0019: 内置 MCP helper
+    RFC-0019:  MCP helper
 
-    CC 对齐: MCP 工具默认 always-ask，权限键为 ``mcp__{server}__{tool}``。
-    支持 server 级通配——allow/deny ``mcp__{server}`` 匹配该 server 下所有工具。
-    与 shell 的 head/subcommand 双层匹配模式相同。
-    供 MCPTool 使用。
+    CC : MCP default always-ask，key ``mcp__{server}__{tool}``。
+     server ——allow/deny ``mcp__{server}``  server 。
+     shell  head/subcommand 。
+     MCPTool 。
     """
-    # 1. "**" 通配符 = 无条件放行
+    # 1. "**"  = 
     if _WILDCARD in ctx.allow_rules:
         return
 
     server_key = f"mcp__{server_name}"
     tool_key = f"mcp__{server_name}__{tool_name}"
 
-    # 2. deny 优先（server 级 + tool 级）
+    # 2. deny （server  + tool ）
     if server_key in ctx.deny_rules or tool_key in ctx.deny_rules:
         raise PermissionDenied(
-            reason=f"MCP 工具 {tool_key} 被禁止",
+            reason=f"MCP  {tool_key} ",
             permission_key=tool_key,
         )
 
-    # 3. allow（server 级 + tool 级）
+    # 3. allow（server  + tool ）
     if server_key in ctx.allow_rules or tool_key in ctx.allow_rules:
         return
 
-    # 4. 无命中 → ask
+    # 4.  → ask
     raise AskPermission(
-        prompt=f"允许调用 MCP 工具 {tool_key} 吗?",
+        prompt=f" MCP  {tool_key} ?",
         permission_key=tool_key,
     )

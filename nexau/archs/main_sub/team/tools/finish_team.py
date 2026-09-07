@@ -14,7 +14,7 @@
 
 """finish_team tool — end the team collaboration session.
 
-RFC-0002: 结束团队协作会话
+RFC-0002: 
 """
 
 from __future__ import annotations
@@ -37,10 +37,10 @@ async def finish_team(
 ) -> FinishTeamResult | ToolError:
     """Finish the team collaboration session.
 
-    RFC-0002: 结束团队协作会话
+    RFC-0002: 
 
-    仅 leader 可调用。统计任务完成情况并返回摘要。
-    作为 stop tool 注册，调用后 leader 的 executor 循环退出。
+     leader 。completed。
+     stop tool ， leader  executor 。
     """
     ts = require_team_state(agent_state)
 
@@ -50,18 +50,18 @@ async def finish_team(
             code="permission_denied",
         )
 
-    # 1. 统计任务完成情况
+    # 1. completed
     all_tasks = await ts.task_board.list_tasks()
     completed = [t for t in all_tasks if t.status == "completed"]
     incomplete = [t for t in all_tasks if t.status != "completed"]
 
-    # 2. 强制停止仍在运行的 teammate（leader 决定收工即可终止 worker）
+    # 2.  teammate（leader  worker）
     teammates = ts.team.get_teammate_info()
     running_teammates = [t for t in teammates if t.status == "running"]
     if running_teammates:
         await ts.team.stop_all_teammates()
 
-    # 3. 阻止结束：存在未完成任务
+    # 3. ：completed
     if incomplete:
         task_details = ", ".join(f"{t.title}({t.status})" for t in incomplete)
         return ToolError(

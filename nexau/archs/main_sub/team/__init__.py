@@ -14,7 +14,7 @@
 
 """Team collaboration module.
 
-RFC-0002: Agent Team 协作系统
+RFC-0002: Agent Team 
 
 Uses lazy imports to avoid circular dependency with session module.
 """

@@ -14,7 +14,7 @@
 
 """Team message data models.
 
-RFC-0002: Agent Team 协作系统
+RFC-0002: Agent Team 
 
 Stores inter-agent messages within a team, including
 direct messages and broadcasts.
@@ -30,7 +30,7 @@ from sqlmodel import Field, SQLModel
 class TeamMessageModel(SQLModel, table=True):
     """Team message model for inter-agent communication.
 
-    RFC-0002: 团队消息模型
+    RFC-0002: 
 
     Attributes:
         user_id: User identifier (primary key).

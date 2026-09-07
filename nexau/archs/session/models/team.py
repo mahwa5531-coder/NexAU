@@ -14,7 +14,7 @@
 
 """Team data models.
 
-RFC-0002: Agent Team 协作系统
+RFC-0002: Agent Team 
 
 Stores team configuration including leader, candidate roles,
 and max teammate limits.
@@ -31,7 +31,7 @@ from sqlmodel import Column, Field, SQLModel
 class TeamModel(SQLModel, table=True):
     """Team model for agent team collaboration.
 
-    RFC-0002: 团队配置模型
+    RFC-0002: configuration
 
     Attributes:
         user_id: User identifier (primary key).

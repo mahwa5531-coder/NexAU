@@ -14,11 +14,11 @@
 
 """Tool implementation plus neutral structured-tool helpers.
 
-RFC-0006: 中性 Structured Tool Definitions
+RFC-0006:  Structured Tool Definitions
 
-在 structured tool calling 路径中，Tool/SubAgent 先统一归一化为中性
-structured definition，再由边界 adapter 延迟转换为 OpenAI / Anthropic /
-Gemini 所需的 provider schema。
+ structured tool calling ，Tool/SubAgent 
+structured definition， adapter  OpenAI / Anthropic /
+Gemini  provider schema。
 """
 
 from __future__ import annotations
@@ -87,10 +87,10 @@ def build_structured_tool_definition(
 ) -> StructuredToolDefinition:
     """Build a vendor-neutral structured tool definition.
 
-    RFC-0006: 中性 Structured Tool Definitions
+    RFC-0006:  Structured Tool Definitions
 
-    统一 Tool 与 SubAgent 在 structured 模式下的上游表示，避免在 Agent /
-    Executor 主状态中提前持有 vendor-specific schema。
+     Tool  SubAgent  structured ， Agent /
+    Executor  vendor-specific schema。
     """
 
     return {
@@ -106,10 +106,10 @@ def normalize_structured_tool_definition(
 ) -> StructuredToolDefinition:
     """Normalize a neutral or provider-specific tool definition.
 
-    RFC-0006: 中性 Structured Tool Definitions
+    RFC-0006:  Structured Tool Definitions
 
-    接受中性 definition，以及 OpenAI / Anthropic 兼容形状，并统一收敛到
-    runtime 使用的 neutral structured definition。
+     definition， OpenAI / Anthropic ，
+    runtime  neutral structured definition。
     """
 
     if tool_definition.get("type") == "function":
@@ -153,25 +153,67 @@ def normalize_structured_tool_definition(
     raise ValueError(f"Unsupported structured tool definition: {tool_definition}")
 
 
+def normalize_schema_for_strict(schema: Mapping[str, Any]) -> dict[str, Any]:
+    """Normalize a JSON schema to comply with OpenAI Structured Outputs (strict: true).
+
+    ponytail: ensures additionalProperties: false, all properties in required, and optional fields nullable.
+    """
+    res = dict(schema)
+    schema_type = res.get("type")
+
+    if schema_type == "object" or "properties" in res:
+        res["type"] = "object"
+        res["additionalProperties"] = False
+        props = res.get("properties")
+        if isinstance(props, Mapping):
+            old_req = set(res.get("required") or [])
+            new_props: dict[str, Any] = {}
+            for prop_name, prop_val in props.items():
+                if isinstance(prop_val, Mapping):
+                    sub_schema = normalize_schema_for_strict(prop_val)
+                    if prop_name not in old_req:
+                        if "type" in sub_schema:
+                            t = sub_schema["type"]
+                            if isinstance(t, str) and t != "null":
+                                sub_schema["type"] = [t, "null"]
+                            elif isinstance(t, list) and "null" not in t:
+                                sub_schema["type"] = list(t) + ["null"]
+                        elif "anyOf" in sub_schema:
+                            if not any(item.get("type") == "null" for item in sub_schema["anyOf"] if isinstance(item, dict)):
+                                sub_schema["anyOf"] = list(sub_schema["anyOf"]) + [{"type": "null"}]
+                    new_props[prop_name] = sub_schema
+                else:
+                    new_props[prop_name] = prop_val
+            res["properties"] = new_props
+            res["required"] = list(props.keys())
+    elif schema_type == "array" and "items" in res and isinstance(res["items"], Mapping):
+        res["items"] = normalize_schema_for_strict(res["items"])
+
+    return res
+
+
 def structured_tool_definition_to_openai(
     tool_definition: StructuredToolDefinitionLike,
+    *,
+    strict: bool = False,
 ) -> ChatCompletionToolParam:
-    """Convert a neutral or compatible tool definition into OpenAI schema.
-
-    RFC-0006: Provider 延迟适配
-
-    OpenAI family schema 只在真正发请求前生成；上游继续传递 neutral
-    definition 以避免 provider 耦合泄漏到 runtime 主状态。
-    """
+    """Convert a neutral or compatible tool definition into OpenAI schema."""
 
     normalized = normalize_structured_tool_definition(tool_definition)
+    params = normalize_input_schema(normalized["input_schema"])
+    func_def: dict[str, Any] = {
+        "name": normalized["name"],
+        "description": normalized["description"],
+    }
+    if strict:
+        func_def["strict"] = True
+        func_def["parameters"] = normalize_schema_for_strict(params)
+    else:
+        func_def["parameters"] = params
+
     return {
         "type": "function",
-        "function": {
-            "name": normalized["name"],
-            "description": normalized["description"],
-            "parameters": normalize_input_schema(normalized["input_schema"]),
-        },
+        "function": func_def,
     }
 
 
@@ -182,10 +224,10 @@ def structured_tool_definition_to_anthropic(
 ) -> ToolParam:
     """Convert a neutral or compatible tool definition into Anthropic schema.
 
-    RFC-0006: Provider 延迟适配
+    RFC-0006: Provider 
 
-    Anthropic tool schema 仅在 provider 边界生成，保持 Agent / Executor 内部
-    仍以 neutral structured definition 作为唯一上游表示。
+    Anthropic tool schema  provider ， Agent / Executor 
+     neutral structured definition 。
 
     Parameters
     ----------
@@ -206,8 +248,8 @@ def structured_tool_definition_to_anthropic(
         "input_schema": normalize_input_schema(normalized["input_schema"]),
     }
     if tool_streaming:
-        # 启用 fine-grained tool streaming，减少大参数（如写入长文件）的首 token 延迟，
-        # 避免 SSE 超时断联。
+        # fine-grained tool streaming，（） token ，
+        # SSE timeout。
         result["eager_input_streaming"] = True
     return result
 
@@ -287,6 +329,21 @@ class Tool:
         self.template_override = template_override
         self.formatter = formatter
         self._resolved_formatter: ToolFormatter | None = None
+        # Auto-serialize mutating/state-modifying tools to prevent file corruption
+        # while keeping read-only/search tools parallelizable
+        mutating_tools = {
+            "write_file",
+            "write_to_file",
+            "replace",
+            "replace_file_content",
+            "apply_patch",
+            "multiedit_tool",
+            "run_shell_command",
+            "run_code_tool",
+            "kill_background_task",
+        }
+        if name in mutating_tools:
+            disable_parallel = True
         self.disable_parallel = disable_parallel
         reserved_keys = {"agent_state", "global_storage", "ctx"}
         extra_kwargs = extra_kwargs or {}
@@ -297,12 +354,12 @@ class Tool:
             )
         self.extra_kwargs = extra_kwargs
 
-        # RFC-0019: 权限规则配置
+        # RFC-0019: configuration
         self.permissions = permissions
 
-        # 子类（如 MCPTool）可重写此属性为 True，表示其 execute_async()
-        # 有独立的原生 async 实现，executor 应直接 await 而非走
-        # to_thread → sync execute → asyncio.run 的间接路径。
+        # class（ MCPTool）property True， execute_async()
+        # async ，executor  await 
+        # to_thread → sync execute → asyncio.run 。
         self._has_native_async_execute: bool = False
 
         # Validate schema
@@ -400,7 +457,7 @@ class Tool:
 
         RFC-0017: formatter resolver
 
-        未显式配置时自动回退到 builtin `markdown` formatter。
+        configuration builtin `markdown` formatter。
         """
 
         if self._resolved_formatter is None:
@@ -419,8 +476,8 @@ class Tool:
 
         RFC-0017: tool output flattening
 
-        先执行 formatter，再进入 after_tool middleware，保证后续截断与最终
-        模型输入始终作用于同一份 llm-facing output。
+         formatter， after_tool middleware，
+         llm-facing output。
         """
 
         formatter_context = ToolFormatterContext(
@@ -522,10 +579,10 @@ class Tool:
     def has_native_async_execute(self) -> bool:
         """Whether this tool has a native async execute_async() override.
 
-        子类（如 MCPTool）重写 execute_async() 为原生 async 实现时，
-        应在 __init__ 中设置 ``_has_native_async_execute = True``。
-        executor 据此决定直接 await execute_async() 还是走
-        to_thread → sync execute 路径。
+        class（ MCPTool） execute_async()  async ，
+         __init__  ``_has_native_async_execute = True``。
+        executor  await execute_async() 
+        to_thread → sync execute 。
         """
         return self._has_native_async_execute
 
@@ -544,7 +601,7 @@ class Tool:
             else:
                 raise ValueError(f"Tool '{self.name}' has no implementation")
 
-        # RFC-0006: 参数注入 — ctx 优先，agent_state 向后兼容
+        # RFC-0006:  — ctx ，agent_state backward compatibility
         merged_params = {**self.extra_kwargs, **params}
         filtered_params = merged_params.copy()
 
@@ -552,11 +609,11 @@ class Tool:
         if impl is not None:
             sig = inspect.signature(impl)
 
-            # RFC-0006: ctx (FrameworkContext) 注入
+            # RFC-0006: ctx (FrameworkContext) 
             if "ctx" not in sig.parameters:
                 filtered_params.pop("ctx", None)
 
-            # 向后兼容: agent_state 注入
+            # backward compatibility: agent_state 
             if "agent_state" in merged_params:
                 if "agent_state" not in sig.parameters:
                     filtered_params.pop("agent_state", None)
@@ -569,6 +626,7 @@ class Tool:
                     filtered_params.pop("sandbox", None)
 
         # Validate parameters (excluding framework-injected params for schema validation)
+        filtered_params = self._normalize_common_aliases(filtered_params)
         validation_params = {k: v for k, v in filtered_params.items() if k not in _INJECTED_PARAM_KEYS}
         self.validate_params(validation_params)
 
@@ -579,17 +637,17 @@ class Tool:
             raw_result: Any = impl(**filtered_params)
 
             # Support async tool implementations.
-            # 当 impl 返回 coroutine 时，根据调用上下文分发：
-            # - 无 running loop（ThreadPoolExecutor worker / CLI / 脚本）→ asyncio.run() 安全
-            # - 有 running loop（async context 误调 execute()）→ 报错，引导用 execute_async()
+            # impl  coroutine ，：
+            # -  running loop（ThreadPoolExecutor worker / CLI / ）→ asyncio.run() 
+            # -  running loop（async context  execute()）→ ， execute_async()
             if inspect.iscoroutine(raw_result):
                 try:
                     asyncio.get_running_loop()
                 except RuntimeError:
-                    # 无 running loop — sync 入口（ThreadPoolExecutor worker / CLI）
-                    # 警告开发者: async tool 将在隔离的 event loop 中执行，
-                    # 无法访问主 loop 的共享 async 状态（如 task group、shared lock 等）。
-                    # 如需复用主 loop，应通过 executor async 路径调用 execute_async()。
+                    # running loop — sync （ThreadPoolExecutor worker / CLI）
+                    # : async tool  event loop ，
+                    # loop  async （ task group、shared lock ）。
+                    # loop， executor async  execute_async()。
                     logger.warning(
                         "Tool '%s' is async but invoked via sync execute() — running in an "
                         "isolated event loop. Use execute_async() to run on the main loop.",
@@ -597,7 +655,7 @@ class Tool:
                     )
                     raw_result = asyncio.run(raw_result)
                 else:
-                    # 关闭未 await 的 coroutine 以避免 RuntimeWarning
+                    # await  coroutine  RuntimeWarning
                     raw_result.close()
                     raise RuntimeError(
                         f"Tool '{self.name}' returned a coroutine but execute() was called "
@@ -624,7 +682,7 @@ class Tool:
             return final_result
 
         except (AskPermission, PermissionDenied):
-            # RFC-0019: 权限异常不拦截，直接传播给 Executor 处理
+            # RFC-0019: exception， Executor 
             raise
         except Exception as e:
             # Return error information
@@ -638,11 +696,11 @@ class Tool:
     async def execute_async(self, **params: Any) -> dict[str, Any]:
         """Execute the tool asynchronously.
 
-        P1 async/sync 技术债修复: 消除 asyncio.run() 嵌套
+        P1 async/sync :  asyncio.run() 
 
-        对 async tool 实现直接 await（避免 asyncio.run() 创建嵌套 event loop），
-        对 sync tool 实现通过 asyncio.to_thread() 在线程池中执行（避免阻塞 event loop）。
-        现有 execute() 方法保持不变，供 sync 调用方（如 ThreadPoolExecutor workers）使用。
+         async tool  await（ asyncio.run()  event loop），
+         sync tool  asyncio.to_thread() （ event loop）。
+         execute() method， sync （ ThreadPoolExecutor workers）。
         """
         if self.implementation is None:
             if self.implementation_import_path:
@@ -656,7 +714,7 @@ class Tool:
             else:
                 raise ValueError(f"Tool '{self.name}' has no implementation")
 
-        # RFC-0006: 参数注入 — ctx 优先，agent_state 向后兼容
+        # RFC-0006:  — ctx ，agent_state backward compatibility
         merged_params = {**self.extra_kwargs, **params}
         filtered_params = merged_params.copy()
 
@@ -664,11 +722,11 @@ class Tool:
         if impl is not None:
             sig = inspect.signature(impl)
 
-            # RFC-0006: ctx (FrameworkContext) 注入
+            # RFC-0006: ctx (FrameworkContext) 
             if "ctx" not in sig.parameters:
                 filtered_params.pop("ctx", None)
 
-            # 向后兼容: agent_state 注入
+            # backward compatibility: agent_state 
             if "agent_state" in merged_params:
                 if "agent_state" not in sig.parameters:
                     filtered_params.pop("agent_state", None)
@@ -681,6 +739,7 @@ class Tool:
                     filtered_params.pop("sandbox", None)
 
         # Validate parameters (excluding framework-injected params for schema validation)
+        filtered_params = self._normalize_common_aliases(filtered_params)
         validation_params = {k: v for k, v in filtered_params.items() if k not in _INJECTED_PARAM_KEYS}
         self.validate_params(validation_params)
 
@@ -688,13 +747,13 @@ class Tool:
             if impl is None:
                 raise ValueError(f"Tool '{self.name}' has no implementation")
 
-            # 根据实现类型分发：async 直接 await，sync 走 to_thread
+            # type：async  await，sync  to_thread
             if inspect.iscoroutinefunction(impl):
                 raw_result: Any = await impl(**filtered_params)
             else:
-                # asyncio.to_thread (Python 3.12+) 会自动将当前 contextvars
-                # 复制到 worker 线程，因此 TraceContext 等 contextvar 能正确传播。
-                # 无需手动 copy_context()。
+                # asyncio.to_thread (Python 3.12+)  contextvars
+                # worker ， TraceContext  contextvar 。
+                # copy_context()。
                 raw_result = await asyncio.to_thread(impl, **filtered_params)
 
             # Ensure result is a dictionary
@@ -717,7 +776,7 @@ class Tool:
             return final_result
 
         except (AskPermission, PermissionDenied):
-            # RFC-0019: 权限异常不拦截，直接传播给 Executor 处理
+            # RFC-0019: exception， Executor 
             raise
         except Exception as e:
             # Return error information
@@ -728,17 +787,113 @@ class Tool:
                 "tool_name": self.name,
             }
 
+    def _normalize_common_aliases(self, params: dict[str, Any]) -> dict[str, Any]:
+        """Normalize common parameter aliases so models don't fail schema validation on synonymous names."""
+        props = (self.input_schema or {}).get("properties", {})
+
+        # CommandLine / command / cmd aliases
+        cmd_val = params.get("CommandLine") or params.get("command") or params.get("cmd")
+        if cmd_val is not None:
+            if "CommandLine" in props:
+                params["CommandLine"] = cmd_val
+            if "command" in props:
+                params["command"] = cmd_val
+
+        # File path aliases: AbsolutePath / file_path / TargetFile / target_file / path
+        path_val = params.get("AbsolutePath") or params.get("file_path") or params.get("TargetFile") or params.get("target_file") or params.get("path")
+        if path_val is not None:
+            if "AbsolutePath" in props:
+                params["AbsolutePath"] = path_val
+            if "file_path" in props:
+                params["file_path"] = path_val
+            if "TargetFile" in props:
+                params["TargetFile"] = path_val
+            if "target_file" in props:
+                params["target_file"] = path_val
+
+        # Content / CodeContent aliases
+        content_val = params.get("content") or params.get("CodeContent") or params.get("code_content")
+        if content_val is not None:
+            if "content" in props:
+                params["content"] = content_val
+            if "CodeContent" in props:
+                params["CodeContent"] = content_val
+
+        # Cwd / dir_path aliases
+        cwd_val = params.get("Cwd") or params.get("dir_path") or params.get("cwd")
+        if cwd_val is not None:
+            if "Cwd" in props:
+                params["Cwd"] = cwd_val
+            if "dir_path" in props:
+                params["dir_path"] = cwd_val
+
+        # Action aliases: action / Action
+        action_val = params.get("action") or params.get("Action")
+        if action_val is not None:
+            if "action" in props:
+                params["action"] = str(action_val).lower()
+            if "Action" in props:
+                params["Action"] = action_val
+
+        # pid / TaskId / task_id aliases
+        pid_val = params.get("pid") if params.get("pid") is not None else (
+            params.get("TaskId") or params.get("task_id")
+        )
+        if pid_val is not None:
+            if "pid" in props:
+                try:
+                    params["pid"] = int(pid_val)
+                except (ValueError, TypeError):
+                    params["pid"] = pid_val
+            if "TaskId" in props:
+                params["TaskId"] = str(pid_val)
+            if "task_id" in props:
+                params["task_id"] = str(pid_val)
+
+        if self.name == "run_shell_command":
+            if "Cwd" not in params:
+                params["Cwd"] = "."
+            if "toolAction" not in params:
+                params["toolAction"] = "Running shell command"
+            if "toolSummary" not in params:
+                params["toolSummary"] = "Execute shell command"
+            if "WaitMsBeforeAsync" not in params:
+                params["WaitMsBeforeAsync"] = 5000
+
+        if self.name in ("view_file", "write_file", "replace_file_content"):
+            if "toolAction" not in params and "toolAction" in props:
+                params["toolAction"] = "File operation"
+            if "toolSummary" not in params and "toolSummary" in props:
+                params["toolSummary"] = "File operation"
+            if "description" not in params and "description" in props:
+                params["description"] = "File operation"
+            if "Description" not in params and "Description" in props:
+                params["Description"] = "File operation"
+
+        # Strip tracking metadata if not declared in the tool's schema properties
+        for meta_key in ("toolAction", "toolSummary", "description", "Description", "tool_call_id"):
+            if meta_key in params and meta_key not in props:
+                params.pop(meta_key, None)
+
+        return params
+
     def validate_params(self, params: dict[str, Any]) -> None:
         """Validate parameters against schema.
 
         Raises:
             ValueError: If parameters fail schema validation, with detailed error message.
         """
+        self._normalize_common_aliases(params)
         try:
             jsonschema.validate(params, self.input_schema)
         except jsonschema.ValidationError as e:
+            # ponytail: truncate huge parameter values (e.g. 25KB file code) to prevent prompt pollution
+            safe_params = {
+                k: (f"{str(v)[:100]}... [truncated {len(str(v))} chars]" if len(str(v)) > 200 else v)
+                for k, v in params.items()
+            }
             raise ValueError(
-                f"Invalid parameters for tool '{self.name}': {e.message}. params={params}",
+                f"Invalid parameters for tool '{self.name}': {e.message}. params={safe_params}",
             ) from e
 
     def _validate_schema(self):
@@ -797,10 +952,10 @@ class Tool:
     ) -> StructuredToolDefinition:
         """Return the vendor-neutral structured tool definition.
 
-        RFC-0006: 中性 Structured Tool Definitions
+        RFC-0006:  Structured Tool Definitions
 
-        structured 模式下，Tool 先产出 neutral definition；provider-specific
-        schema 在后续 LLM adapter 中按 ``api_type`` 再做延迟转换。
+        structured ，Tool  neutral definition；provider-specific
+        schema  LLM adapter  ``api_type`` 。
         """
 
         return build_structured_tool_definition(
@@ -813,10 +968,10 @@ class Tool:
     def to_openai(self) -> ChatCompletionToolParam:
         """Return the OpenAI-compatible function tool schema.
 
-        RFC-0006: Provider 延迟适配兼容包装
+        RFC-0006: Provider package
 
-        该方法保留为兼容入口，内部委托 neutral structured definition →
-        OpenAI adapter，而不是把 OpenAI schema 当作 runtime 主表示。
+        method， neutral structured definition →
+        OpenAI adapter， OpenAI schema  runtime 。
         """
 
         return structured_tool_definition_to_openai(self.to_structured_definition())
@@ -824,10 +979,10 @@ class Tool:
     def to_anthropic(self, *, tool_streaming: bool = True) -> ToolParam:
         """Return the Anthropic-compatible tool schema.
 
-        RFC-0006: Provider 延迟适配兼容包装
+        RFC-0006: Provider package
 
-        该方法保留为兼容入口，内部委托 neutral structured definition →
-        Anthropic adapter，而不是在 Tool 层直接持有 Anthropic 主形状。
+        method， neutral structured definition →
+        Anthropic adapter， Tool  Anthropic 。
 
         Parameters
         ----------

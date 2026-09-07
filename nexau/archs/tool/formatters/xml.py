@@ -25,15 +25,15 @@ def format_tool_output_as_xml(context: ToolFormatterContext) -> object:
 
     RFC-0017: XML formatter
 
-    1. 字符串输出直接透传，避免无意义包裹
-    2. 图片 / multimodal 输出绕过 XML，保留既有多模态链路
-    3. 其他 Dict / List / 标量输出统一转成稳定 XML 文本
+    1. string，package
+    2.  / multimodal  XML，
+    3.  Dict / List /  XML 
     """
 
     sanitized_output = _strip_display_only_fields(context.tool_output)
-    # RFC-0017: 单字段正文快捷路径。
-    # 当工具输出在剥离 returnDisplay 后只剩一个正文键时，直接把值交给 LLM，
-    # 避免多余 XML 包裹；这同样适用于 multimodal/image 值。
+    # RFC-0017: 。
+    # returnDisplay key，value LLM，
+    # XML package； multimodal/image value。
     direct_content = _unwrap_single_content_field(sanitized_output)
     if direct_content is not None:
         return direct_content
@@ -50,10 +50,10 @@ def format_tool_output_as_xml(context: ToolFormatterContext) -> object:
 def _unwrap_single_content_field(value: object) -> object | None:
     """Return the bare value for the single-body-field fast path.
 
-    RFC-0017: 单字段直通捷径
+    RFC-0017: 
 
-    当剥离 display-only 字段后只剩 ``{"content": ...}`` 或
-    ``{"result": ...}`` 时，直接返回其值，避免无意义 XML 外壳。
+     display-only  ``{"content": ...}`` 
+    ``{"result": ...}`` ，value， XML 。
     """
 
     if not isinstance(value, dict):

@@ -282,7 +282,7 @@ class LongToolOutputMiddleware(Middleware):
                 f"\n\n⚠️ [LongToolOutputMiddleware] The full output ({total_chars:,} chars, ~{total_lines} lines) "
                 f"has been truncated. The complete output has been saved to:\n"
                 f"  {saved_path}\n"
-                f"Use the read file tool to view the full content if needed."
+                f"Use `view_file` with StartLine and EndLine (or ContentOffset) to view specific sections if needed."
             )
         else:
             hint = f"\n\n⚠️ [LongToolOutputMiddleware] The full output ({total_chars:,} chars, ~{total_lines} lines) has been truncated."
@@ -424,9 +424,15 @@ class LongToolOutputMiddleware(Middleware):
         short_id = tool_call_id[-8:] if len(tool_call_id) > 8 else tool_call_id
         filename = f"{safe_tool}_{short_id}_{timestamp}.txt"
         if sandbox is None:
-            raise RuntimeError(
-                "[LongToolOutputMiddleware] No sandbox available to write temp file. The middleware requires a sandbox to be configured."
-            )
+            # ponytail: fallback to host temporary directory when sandbox is None to prevent truncation crashes
+            import tempfile
+            filepath = os.path.join(tempfile.gettempdir(), filename)
+            try:
+                with open(filepath, "w", encoding="utf-8") as f:
+                    f.write(full_text)
+                return filepath
+            except Exception:
+                return None
 
         filepath = sandbox.join_path(temp_dir, filename)
 

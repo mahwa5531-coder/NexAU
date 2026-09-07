@@ -73,9 +73,9 @@ def run_code_tool(
             agent_state=agent_state
         )
     """
-    # CC 对齐: 代码执行等同于 shell，需要权限检查
+    # CC :  shell，permission check
     if ctx is not None:
-        check_permission(ctx, "code_execution", "允许执行代码吗?")
+        check_permission(ctx, "code_execution", "?")
 
     start_time = time.time()
 

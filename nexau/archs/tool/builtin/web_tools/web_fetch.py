@@ -96,7 +96,7 @@ def web_fetch(
                 target_url = valid_urls[0]
                 prompt_text = prompt
 
-        # CC 对齐: 域名级权限检查（在任何网络请求之前）
+        # CC : permission check（）
         if ctx is not None and target_url:
             check_url_permission(ctx, target_url)
 

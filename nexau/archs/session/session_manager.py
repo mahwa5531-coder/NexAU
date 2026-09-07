@@ -67,8 +67,8 @@ class SessionManager:
             lock_ttl: Lock time-to-live in seconds (default: 30s)
             heartbeat_interval: Heartbeat interval in seconds (default: 10s)
         """
-        # 包装 engine 以确保所有 DB 操作在 owner event loop 上执行，
-        # 防止 worker 线程的临时 loop 访问 loop-bound 的 async DB 驱动
+        # package engine  DB  owner event loop ，
+        # worker  loop  loop-bound  async DB 
         safe_engine: DatabaseEngine = LoopSafeDatabaseEngine(engine)
         self._engine: DatabaseEngine = safe_engine
         self._agent_service = AgentService(engine=safe_engine)
@@ -265,18 +265,21 @@ class SessionManager:
         session_id: str,
         context: dict[str, Any],
     ) -> SessionModel:
-        """Update session context (full replacement).
+        """Update session context (non-destructive merge).
 
         Args:
             user_id: User identifier
             session_id: Session identifier
-            context: Context data to store (replaces existing context entirely)
+            context: Context data to store (merged with existing context)
 
         Returns:
             Updated SessionModel
         """
         session = await self._get_or_create_session(user_id=user_id, session_id=session_id)
-        session.context = context
+        # ponytail: non-destructive merge so UI metadata (title, custom_title, workspace_uri) is preserved
+        merged_context = dict(session.context or {})
+        merged_context.update(context)
+        session.context = merged_context
         session.updated_at = datetime.now()
         return await self._update_session(session)
 
@@ -330,14 +333,17 @@ class SessionManager:
         Args:
             user_id: User identifier
             session_id: Session identifier
-            context: Context data to store (replaces existing context entirely)
+            context: Context data to store (merged with existing context)
             storage: GlobalStorage to persist (will be serialized automatically)
 
         Returns:
             Updated SessionModel
         """
         session = await self._get_or_create_session(user_id=user_id, session_id=session_id)
-        session.context = context
+        # ponytail: non-destructive merge so UI metadata (title, custom_title, workspace_uri) is preserved
+        merged_context = dict(session.context or {})
+        merged_context.update(context)
+        session.context = merged_context
         session.storage = storage
         session.updated_at = datetime.now()
         return await self._update_session(session)
@@ -355,7 +361,7 @@ class SessionManager:
     ) -> tuple[list[str], list[str]]:
         """Load allow/deny rules for a tool in a session.
 
-        RFC-0019: FrameworkContext 构造时读取规则
+        RFC-0019: FrameworkContext 
 
         Returns:
             (allow_rules, deny_rules) tuple of rule content lists
@@ -384,7 +390,7 @@ class SessionManager:
     ) -> PermissionRuleModel:
         """Save a permission rule.
 
-        RFC-0019: 用户 allow 决策追加规则
+        RFC-0019:  allow 
 
         Uses upsert to avoid duplicate key errors.
         """
@@ -408,11 +414,11 @@ class SessionManager:
     ) -> None:
         """Initialize permission rules from tool YAML config.
 
-        RFC-0019: Session 创建时初始化规则
+        RFC-0019: Session 
 
-        遍历 agent 的 tool 列表，将 YAML 中 permissions 字段的
-        allow/deny 规则写入 source=config 的规则行。
-        没有 permissions 的 tool 不写入规则。
+         agent  tool list， YAML  permissions 
+        allow/deny  source=config 。
+         permissions  tool 。
         """
         for tool in tools:
             permissions = getattr(tool, "permissions", None)
@@ -445,7 +451,7 @@ class SessionManager:
     ) -> dict[str, Any] | None:
         """Read pending_tool_calls from session.
 
-        RFC-0019: 读取 Ask 状态
+        RFC-0019:  Ask 
         """
         session = await self.get_session(user_id=user_id, session_id=session_id)
         if session is None:
@@ -461,9 +467,9 @@ class SessionManager:
     ) -> SessionModel:
         """Update pending_tool_calls on session.
 
-        RFC-0019: 写入/清除 Ask 状态
+        RFC-0019: / Ask 
 
-        Set to None to clear (resume 完毕后)。
+        Set to None to clear (resume )。
         """
         session = await self._get_or_create_session(user_id=user_id, session_id=session_id)
         session.pending_tool_calls = pending_tool_calls

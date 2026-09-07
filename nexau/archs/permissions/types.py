@@ -1,10 +1,10 @@
 # Permission types for tool permission management.
 #
-# RFC-0019: 工具权限管理
+# RFC-0019: 
 #
-# 定义权限系统的异常类型和 ToolOutcome 数据类。
-# Tool 函数通过 raise AskPermission / PermissionDenied 与框架通信，
-# Executor 将异常收集为 ToolOutcome 后统一处理。
+# exceptiontype ToolOutcome class。
+# Tool function raise AskPermission / PermissionDenied ，
+# Executor exception ToolOutcome 。
 
 from __future__ import annotations
 
@@ -16,12 +16,12 @@ if TYPE_CHECKING:
 
 
 class AskPermission(Exception):  # noqa: N818 — signal, not error
-    """Tool 函数在匹配不到 allow/deny 规则时 raise。
+    """Tool function allow/deny  raise。
 
-    RFC-0019: Ask 触发异常
+    RFC-0019: Ask exception
 
-    携带 prompt（展示给用户的描述）和 permission_key（用于写 allow 规则）。
-    tool_call_id / tool_name 由 executor 从调用上下文补充。
+     prompt（） permission_key（ allow ）。
+    tool_call_id / tool_name  executor 。
     """
 
     def __init__(self, *, prompt: str, permission_key: str) -> None:
@@ -31,9 +31,9 @@ class AskPermission(Exception):  # noqa: N818 — signal, not error
 
 
 class PermissionDenied(Exception):  # noqa: N818 — signal, not error
-    """Tool 函数在命中 deny 规则时 raise。
+    """Tool function deny  raise。
 
-    RFC-0019: Deny 触发异常
+    RFC-0019: Deny exception
     """
 
     def __init__(self, *, reason: str, permission_key: str) -> None:
@@ -43,11 +43,11 @@ class PermissionDenied(Exception):  # noqa: N818 — signal, not error
 
 
 class PendingPermissionsError(Exception):
-    """agent.run() 检测到未决 pending_tool_calls 时 raise。
+    """agent.run()  pending_tool_calls  raise。
 
-    RFC-0019: 硬拦规则
+    RFC-0019: 
 
-    防止在有未决权限请求时启动新 run。
+     run。
     """
 
     def __init__(self, *, session_id: str, pending: dict[str, Any]) -> None:
@@ -59,15 +59,15 @@ class PendingPermissionsError(Exception):
 
 
 # ---------------------------------------------------------------------------
-# ToolOutcome: Executor 将 tool 执行结果统一收集为 ToolOutcome
+# ToolOutcome: Executor  tool  ToolOutcome
 # ---------------------------------------------------------------------------
 
 
 @dataclass
 class AllowOutcome:
-    """Tool 正常执行完毕。
+    """Tool 。
 
-    RFC-0019: 三态之一 — Allow
+    RFC-0019:  — Allow
     """
 
     tool_call_id: str
@@ -76,9 +76,9 @@ class AllowOutcome:
 
 @dataclass
 class DenyOutcome:
-    """Tool 命中 deny 规则被拒绝。
+    """Tool  deny 。
 
-    RFC-0019: 三态之一 — Deny
+    RFC-0019:  — Deny
     """
 
     tool_call_id: str
@@ -88,11 +88,11 @@ class DenyOutcome:
 
 @dataclass
 class AskOutcome:
-    """Tool 需要用户确认权限。
+    """Tool 。
 
-    RFC-0019: 三态之一 — Ask
+    RFC-0019:  — Ask
 
-    携带原始调用参数，以便 resume 时重新调用 tool。
+    ， resume  tool。
     """
 
     tool_call_id: str

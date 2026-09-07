@@ -53,7 +53,7 @@ def create_compaction_strategy(config: CompactionConfig) -> CompactionStrategy:
         )
 
     if config.compaction_strategy == "tool_result_compaction":
-        # micro-compact: 传递 compactable_tools 参数
+        # micro-compact:  compactable_tools 
         compactable_tools_set: frozenset[str] | None = None
         if config.compactable_tools is not None:
             compactable_tools_set = frozenset(config.compactable_tools)
@@ -69,7 +69,7 @@ def create_compaction_strategy(config: CompactionConfig) -> CompactionStrategy:
 def create_trigger_strategy(config: CompactionConfig) -> TriggerStrategy:
     """Builds the trigger strategy based on config.
 
-    micro-compact: 支持 time_based 和 token_threshold 两种触发器
+    micro-compact:  time_based  token_threshold 
 
     Args:
         config: Validated configuration object

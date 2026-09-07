@@ -126,7 +126,7 @@ class ThinkingTextMessageStartEvent(AgUiThinkingTextMessageStartEvent):
         is_redacted: True when this thinking block carries an opaque
             ``redacted_thinking`` payload (Anthropic) instead of plaintext —
             consumers should not expect content events.
-            RFC-0023 §阶段 ② extension.
+            RFC-0023 § ② extension.
     """
 
     parent_message_id: str
@@ -152,10 +152,10 @@ class ThinkingTextMessageEndEvent(AgUiThinkingTextMessageEndEvent):
         thinking_message_id: Unique identifier linking to the start event
         signature: Optional reasoning signature (Anthropic ``SignatureDelta`` /
             Gemini ``thoughtSignature``) emitted by the provider for replay
-            authentication. RFC-0023 §阶段 ② extension.
+            authentication. RFC-0023 § ② extension.
         redacted_data: Opaque payload for ``redacted_thinking`` blocks
             (Anthropic) — present only when ``is_redacted=True`` was set on
-            the matching Start event. RFC-0023 §阶段 ② extension.
+            the matching Start event. RFC-0023 § ② extension.
     """
 
     thinking_message_id: str
@@ -292,9 +292,9 @@ class CompactionFinishedEvent(BaseEvent):
 class ContentBlockedEvent(BaseEvent):
     """Event emitted when a safety middleware blocks content.
 
-    RFC-0027: 内容安全拦截事件（如敏感词命中）。与终止用的 ``RunErrorEvent``
-    区分——本事件携带拦截的具体信息（来源 / 类别 / 命中词），由中间件在命中
-    那一刻即时发射；run 仍以 ``ERROR_OCCURRED`` 收尾。
+    RFC-0027: （sensitive words）。 ``RunErrorEvent``
+    ——（ / class / ），middleware
+    ；run  ``ERROR_OCCURRED`` 。
     """
 
     type: Literal["CONTENT_BLOCKED"] = "CONTENT_BLOCKED"  # type: ignore[assignment]
@@ -324,7 +324,7 @@ class TransportErrorEvent(BaseEvent):
 class UserMessageEvent(BaseEvent):
     """Event for user messages sent to an agent during streaming.
 
-    RFC-0002: 用户消息事件
+    RFC-0002: 
 
     Attributes:
         content: Message text
@@ -339,7 +339,7 @@ class UserMessageEvent(BaseEvent):
 class TeamMessageEvent(BaseEvent):
     """Event for inter-agent messages via the message bus.
 
-    RFC-0002: Agent 间消息事件
+    RFC-0002: Agent 
 
     Attributes:
         content: Message text
@@ -365,7 +365,7 @@ class ModelCallFinishedEvent(BaseEvent):
     """Sidecar event emitted once per LLM call carrying per-call metadata
     that doesn't belong on any single message-level event.
 
-    RFC-0023 §阶段 ② — closes the Set A weak gaps for ``model_name`` /
+    RFC-0023 § ② — closes the Set A weak gaps for ``model_name`` /
     ``stop_reason`` / ``model_call_id``. Set A previously had no event
     carrying these, so consumers (parity tests, agent_events_middleware)
     had to read ``ModelResponse`` from Set B. With this event Set A is

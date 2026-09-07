@@ -86,7 +86,7 @@ When completing a task, you need to update the todo list. Todo list: {{current_t
         deep_research_agent = Agent(config=main_agent_config)
         print("✓ Sub-agents created successfully")
         print("\nTesting delegation with web research...")
-        web_message = "调研一下腾讯，拆解成多个调研子任务，并让多个 subagent 分别并行执行这些子任务"
+        web_message = "，， subagent "
         print(f"\nUser: {web_message}")
         print("\nAgent Response:")
         print("-" * 30)

@@ -8,7 +8,7 @@ Handles message / function_call / reasoning output items including the
 ⚠️ PARITY PROTOCOL: This module has a twin in
 ``nexau/archs/main_sub/execution/llm_caller.py``
 (``OpenAIResponsesStreamAggregator``) that MUST stay in lock-step until
-RFC-0023 §阶段 ③ retires the twin. Any change to this module's parsing
+RFC-0023 § ③ retires the twin. Any change to this module's parsing
 or emission logic requires:
 
 1. Run ``uv run pytest tests/aggregator_parity/`` before commit.
@@ -175,7 +175,7 @@ class OpenAIResponsesAggregator(Aggregator[ResponseStreamEvent, Response]):
                     agg.aggregate(item.item)
                     # Emit ThinkingTextMessageEnd if reasoning was silent
                     # (no summary_text.done arrived). See _ReasoningItemAggregator
-                    # docstring + RFC-0023 §阶段 ① divergence catalogue.
+                    # docstring + RFC-0023 § ① divergence catalogue.
                     agg.finish()
                 return
 
@@ -236,7 +236,7 @@ class OpenAIResponsesAggregator(Aggregator[ResponseStreamEvent, Response]):
             # back by output_index.
             preserved_output = self._value.output if self._value.output else item.response.output
             self._value = item.response.model_copy(update={"output": preserved_output}, deep=True)
-            # RFC-0023 §阶段 ② — emit per-call metadata once at completion.
+            # RFC-0023 § ② — emit per-call metadata once at completion.
             # Token usage is owned by ``UsageUpdateEvent``; not included here.
             status = getattr(self._value, "status", None)
             self._on_event(

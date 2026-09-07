@@ -14,10 +14,10 @@
 
 """Tool registry with deferred loading support.
 
-RFC-0005: Tool Search — 工具按需动态注入
+RFC-0005: Tool Search — 
 
-ToolRegistry 管理工具的注册、分类和按需注入。
-工具来源（source）是不可变的，注入（inject）仅在运行时生效，不修改任何 source。
+ToolRegistry 、class。
+（source），（inject）， source。
 """
 
 import logging
@@ -33,16 +33,16 @@ logger = logging.getLogger(__name__)
 class ToolRegistry:
     """Registry that separates eager and deferred tools.
 
-    RFC-0005: 不可变来源 + computed tools + inject
+    RFC-0005:  + computed tools + inject
 
     Core interface:
-    - add_source(name, tools): 注册工具来源
-    - compute_eager_tools(): 当前应传给 LLM 的工具列表
-    - compute_deferred_tools(): ToolSearch 搜索池
-    - compute_serial_tool_names(): 当前串行工具名称列表
-    - inject(tool_name): 运行时注入 deferred tool
-    - get_all(): 完整注册表（用于工具执行）
-    - search(query, max_results): 搜索 deferred 工具并注入
+    - add_source(name, tools): 
+    - compute_eager_tools():  LLM list
+    - compute_deferred_tools(): ToolSearch 
+    - compute_serial_tool_names(): list
+    - inject(tool_name):  deferred tool
+    - get_all(): （）
+    - search(query, max_results):  deferred 
     """
 
     def __init__(self) -> None:
@@ -53,7 +53,7 @@ class ToolRegistry:
     def add_source(self, name: str, tools: Sequence[Tool]) -> None:
         """Register a tool source (append-only, does not modify existing entries).
 
-        RFC-0005: 注册工具来源（只追加，不修改已有条目）
+        RFC-0005: （，）
 
         Args:
             name: Source identifier (e.g. 'config', 'mcp', 'builtin')
@@ -68,7 +68,7 @@ class ToolRegistry:
     def compute_eager_tools(self) -> list[Tool]:
         """Compute tools that should be sent to LLM this turn.
 
-        RFC-0005: defer_loading=false 的工具 + 已注入的 deferred 工具
+        RFC-0005: defer_loading=false  +  deferred 
 
         Returns:
             List of tools to include in LLM tools parameter
@@ -84,7 +84,7 @@ class ToolRegistry:
     def compute_deferred_tools(self) -> list[Tool]:
         """Compute tools available for ToolSearch (not yet injected).
 
-        RFC-0005: defer_loading=true 且尚未注入的工具
+        RFC-0005: defer_loading=true 
 
         Returns:
             List of deferred tools not yet injected
@@ -114,7 +114,7 @@ class ToolRegistry:
     def inject(self, tool_name: str) -> bool:
         """Inject a deferred tool so it appears in eager tools next turn.
 
-        RFC-0005: 运行时注入 deferred tool（不修改任何 source）
+        RFC-0005:  deferred tool（ source）
 
         Args:
             tool_name: Name of the tool to inject
@@ -136,7 +136,7 @@ class ToolRegistry:
     def get_all(self) -> dict[str, Tool]:
         """Get complete registry (for tool execution lookup).
 
-        RFC-0005: 获取完整注册表（用于工具执行）
+        RFC-0005: （）
 
         Returns:
             Dict mapping tool name to Tool object
@@ -165,7 +165,7 @@ class ToolRegistry:
     ) -> list[Tool]:
         """Search deferred tools and inject matches.
 
-        RFC-0005: 搜到即注入，无需额外 activate 步骤
+        RFC-0005: ， activate 
 
         Weighted keyword search on name + description + search_hint.
 
@@ -184,7 +184,7 @@ class ToolRegistry:
     def _search_keyword(self, query: str, limit: int) -> list[Tool]:
         """Keyword search with weighted scoring.
 
-        RFC-0005: 加权关键词搜索
+        RFC-0005: key
 
         Scoring:
         - Tool name exact match with token: +10
@@ -199,7 +199,7 @@ class ToolRegistry:
         if not deferred:
             return []
 
-        # 1. 分离 required tokens (+keyword) 和普通 tokens
+        # 1.  required tokens (+keyword)  tokens
         raw_tokens = query.lower().split()
         required_tokens: list[str] = []
         search_tokens: list[str] = []
@@ -214,7 +214,7 @@ class ToolRegistry:
         if not all_tokens:
             return []
 
-        # 2. 前置过滤（required tokens 必须出现在 name 中）
+        # 2. （required tokens  name ）
         candidates = deferred
         if required_tokens:
             filtered: list[Tool] = []
@@ -224,18 +224,18 @@ class ToolRegistry:
                     filtered.append(tool)
             candidates = filtered
 
-        # 3. 加权评分
+        # 3. 
         scored: list[tuple[float, Tool]] = []
         for tool in candidates:
             score = self._score_tool(tool, all_tokens)
             if score > 0:
                 scored.append((score, tool))
 
-        # 4. 排序并截断
+        # 4. 
         scored.sort(key=lambda x: x[0], reverse=True)
         results = [tool for _, tool in scored[:limit]]
 
-        # 5. 注入
+        # 5. 
         with self._lock:
             for tool in results:
                 self._injected.add(tool.name)
@@ -246,21 +246,21 @@ class ToolRegistry:
     def _score_tool(tool: Tool, tokens: list[str]) -> float:
         """Calculate weighted relevance score for a tool.
 
-        RFC-0005: 对名字 + description + search_hint 做加权关键词匹配
+        RFC-0005:  + description + search_hint key
         """
         score = 0.0
         name_lower = tool.name.lower()
         desc_lower = (tool.description or "").lower()
         hint_lower = (tool.search_hint or "").lower()
 
-        # Phase 1.5: CamelCase 分词支持
-        # 两步 re.sub 处理连续大写：HTTPClient → HTTP_Client → http_client → ["http", "client"]
+        # Phase 1.5: CamelCase 
+        # re.sub ：HTTPClient → HTTP_Client → http_client → ["http", "client"]
         s = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", tool.name)
         s = re.sub(r"([a-z\d])([A-Z])", r"\1_\2", s)
         name_parts = [p for p in re.split(r"[_\-]", s.lower()) if p]
 
         for token in tokens:
-            # name 精确匹配某个 token（按 _ / CamelCase 分词）
+            # name  token（ _ / CamelCase ）
             if token in name_parts:
                 score += 10
             elif token in name_lower:
@@ -268,11 +268,11 @@ class ToolRegistry:
             elif name_lower in token or token in name_lower:
                 score += 3
 
-            # search_hint 匹配
+            # search_hint 
             if hint_lower and token in hint_lower:
                 score += 4
 
-            # description 匹配
+            # description 
             if token in desc_lower:
                 score += 2
 
@@ -281,7 +281,7 @@ class ToolRegistry:
     def build_deferred_index(self) -> str:
         """Build a compact index of deferred tools for ToolSearch description.
 
-        RFC-0005: description 中附带 deferred tools 的简短索引（名字 + 一句话描述）
+        RFC-0005: description  deferred tools （ + ）
 
         Returns:
             Formatted string listing available deferred tools

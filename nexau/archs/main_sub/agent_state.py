@@ -193,12 +193,12 @@ class AgentState:
     def get_sandbox(self) -> Optional["BaseSandbox"]:
         """Get the sandbox associated with the agent state.
 
-        功能说明1：使用 start_sync() 在当前事件循环中同步启动 sandbox
-        功能说明2：避免在不同事件循环中访问 asyncio 原语导致的问题
-        功能说明3：E2B SDK 的 httpx 客户端会在当前事件循环上下文中创建
-        功能说明4：如果没有 sandbox_manager，则使用直接设置的 sandbox
+        1： start_sync()  sandbox
+        2： asyncio 
+        3：E2B SDK  httpx 
+        4： sandbox_manager， sandbox
         """
-        # 使用 start_sync() 在当前线程/事件循环中启动 sandbox
+        # start_sync() / sandbox
         if self._sandbox_manager is not None:
             return self._sandbox_manager.start_sync()
         return self._sandbox
@@ -210,7 +210,7 @@ class AgentState:
     def add_tool(self, tool: "Tool") -> None:
         """Dynamically add an eager tool into the current execution context.
 
-        RFC-0005: 直接写入 ToolRegistry，不经过 Executor 间接层。
+        RFC-0005:  ToolRegistry， Executor 。
         Deferred runtime additions are intentionally unsupported for now.
         """
         if tool.defer_loading:

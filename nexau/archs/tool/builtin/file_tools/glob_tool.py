@@ -27,6 +27,10 @@ DEFAULT_EXCLUDES = [
     ".tox",
     ".eggs",
     "*.egg-info",
+    ".next",
+    "bifrost_data",
+    ".gemini",
+    ".nexau",
 ]
 
 

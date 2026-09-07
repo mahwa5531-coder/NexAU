@@ -306,11 +306,13 @@ def replace(
     new_string: str,
     expected_replacements: int = 1,
     instruction: str | None = None,
+    description: str | None = None,
     modified_by_user: bool = False,
     ai_proposed_content: str | None = None,
     agent_state: AgentState | None = None,
     *,
     ctx: FrameworkContext | None = None,
+    **kwargs: Any,
 ) -> dict[str, Any]:
     """
     Replaces text within a file.
@@ -336,7 +338,7 @@ def replace(
     Returns:
         Dict with content and returnDisplay matching gemini-cli format
     """
-    # RFC-0019: 权限检查（在任何资源分配之前）
+    # RFC-0019: permission check（）
     if ctx is not None:
         check_path_permission(ctx, file_path)
 
@@ -459,18 +461,24 @@ def replace(
         if modified_by_user:
             llm_message += f" User modified the `new_string` content to be: {new_string}."
 
+        display_dict: dict[str, Any] = {
+            "fileDiff": file_diff,
+            "fileName": Path(resolved_path).name,
+            "filePath": resolved_path,
+            "originalContent": normalized_content,
+            "newContent": result["newContent"],
+            "isNewFile": False,
+            "occurrences": result["occurrences"],
+            "strategy": result["strategy"],
+        }
+        if description or kwargs.get("description"):
+            display_dict["description"] = description or kwargs.get("description")
+        if instruction or kwargs.get("instruction"):
+            display_dict["instruction"] = instruction or kwargs.get("instruction")
+
         return {
             "content": llm_message,
-            "returnDisplay": {
-                "fileDiff": file_diff,
-                "fileName": Path(resolved_path).name,
-                "filePath": resolved_path,
-                "originalContent": normalized_content,
-                "newContent": result["newContent"],
-                "isNewFile": False,
-                "occurrences": result["occurrences"],
-                "strategy": result["strategy"],
-            },
+            "returnDisplay": display_dict,
         }
 
     except PermissionError:

@@ -665,9 +665,9 @@ class MCPServerConfig:
     # disable parallel
     disable_parallel: bool = False
     source_id: str | None = None
-    # RFC-0019: server 级默认权限（None = auto-allow，向后兼容）
+    # RFC-0019: server default（None = auto-allow，backward compatibility）
     permissions: dict[str, list[str]] | None = None
-    # RFC-0019: per-tool 权限覆盖（key=原始工具名，None 值 = auto-allow）
+    # RFC-0019: per-tool （key=，None value = auto-allow）
     tool_permissions: dict[str, dict[str, list[str]] | None] | None = None
 
 
@@ -698,7 +698,7 @@ class MCPTool(Tool):
             # For stdio sessions, store the server config for recreation
             self._session_params = server_config
 
-        # CC 对齐: MCP 工具命名 mcp__{server}__{tool}
+        # CC : MCP  mcp__{server}__{tool}
         self._server_name = server_config.name if server_config else "unknown"
         self._raw_tool_name = mcp_tool.name
         prefixed_name = f"mcp__{self._server_name}__{mcp_tool.name}"
@@ -713,7 +713,7 @@ class MCPTool(Tool):
             source_id=server_config.source_id if server_config else None,
         )
 
-        # RFC-0019: 权限优先级 tool_permissions > server permissions > None (auto-allow)
+        # RFC-0019:  tool_permissions > server permissions > None (auto-allow)
         resolved_perms: dict[str, list[str]] | None = None
         if server_config is not None:
             if server_config.tool_permissions is not None and self._raw_tool_name in server_config.tool_permissions:
@@ -722,8 +722,8 @@ class MCPTool(Tool):
                 resolved_perms = server_config.permissions
         self.permissions = resolved_perms
 
-        # MCPTool 拥有原生 async execute_async() 实现（直接 await MCP RPC），
-        # executor 应走 async 路径而非 to_thread → _execute_sync → asyncio.run。
+        # MCPTool  async execute_async() （ await MCP RPC），
+        # executor  async  to_thread → _execute_sync → asyncio.run。
         self._has_native_async_execute = True
 
     async def _get_thread_local_session(self) -> Any:
@@ -951,19 +951,19 @@ class MCPTool(Tool):
     def _execute_sync(self, **kwargs: Any) -> dict[str, Any]:
         """Execute the MCP tool synchronously (sync-only fallback).
 
-        P1 async/sync 技术债修复: sync-only 入口 + running-loop 保护
+        P1 async/sync : sync-only  + running-loop 
 
-        仅在无 running event loop 的 sync 入口（CLI、脚本）中使用。
-        async executor 应通过 has_native_async_execute 标记检测到 MCPTool
-        并直接 await execute_async()，不会到达此路径。
+         running event loop  sync （CLI、）。
+        async executor  has_native_async_execute  MCPTool
+         await execute_async()，。
 
         Raises:
-            RuntimeError: 在 async context 中调用时
+            RuntimeError:  async context 
         """
         try:
             asyncio.get_running_loop()
         except RuntimeError:
-            pass  # 无 running loop — 预期的 sync 调用方
+            pass  #  running loop —  sync 
         else:
             raise RuntimeError(
                 "MCPTool._execute_sync() cannot be called from an async context. Use `await tool.execute_async(...)` instead."
@@ -972,7 +972,7 @@ class MCPTool(Tool):
 
     def execute(self, **kwargs: Any) -> dict[str, Any]:
         """Execute the MCP tool synchronously (for backward compatibility)."""
-        # RFC-0019: MCP 权限检查（AskPermission/PermissionDenied 自然传播至 Executor）
+        # RFC-0019: MCP permission check（AskPermission/PermissionDenied  Executor）
         ctx: FrameworkContext | None = kwargs.get("ctx")
         if ctx is not None:
             check_mcp_permission(ctx, self._server_name, self._raw_tool_name)
@@ -990,14 +990,14 @@ class MCPTool(Tool):
     async def execute_async(self, **kwargs: Any) -> dict[str, Any]:
         """Execute the MCP tool asynchronously (preferred async path).
 
-        P1 async/sync 技术债修复: 消除 _execute_sync 中 new_event_loop
+        P1 async/sync :  _execute_sync  new_event_loop
 
-        直接委托 _execute_async()，在主事件循环上执行 MCP RPC 调用，
-        避免 _execute_sync 中每次调用都创建新的 event loop 的开销和
-        跨 loop session 绑定问题。同步路径 execute() / _execute_sync()
-        保留给向后兼容的 sync 调用方。
+         _execute_async()， MCP RPC ，
+         _execute_sync  event loop 
+         loop session 。 execute() / _execute_sync()
+        backward compatibility sync 。
         """
-        # RFC-0019: MCP 权限检查
+        # RFC-0019: MCP permission check
         ctx: FrameworkContext | None = kwargs.get("ctx")
         if ctx is not None:
             check_mcp_permission(ctx, self._server_name, self._raw_tool_name)
@@ -1613,13 +1613,13 @@ async def initialize_mcp_tools(server_configs: list[dict[str, Any]]) -> Sequence
 def sync_initialize_mcp_tools(server_configs: list[dict[str, Any]]) -> Sequence[Tool]:
     """Synchronous wrapper for initialize_mcp_tools.
 
-    P1 async/sync 技术债修复: 消除手动 new_event_loop 管理
+    P1 async/sync :  new_event_loop 
 
-    仅在无 running event loop 的 sync 入口（CLI、脚本、ThreadPoolExecutor worker）
-    中使用 asyncio.run()。async 调用方应直接使用 initialize_mcp_tools()。
+     running event loop  sync （CLI、、ThreadPoolExecutor worker）
+     asyncio.run()。async  initialize_mcp_tools()。
 
     Raises:
-        RuntimeError: 在 async context 中调用时（应使用 await initialize_mcp_tools()）
+        RuntimeError:  async context （ await initialize_mcp_tools()）
     """
     try:
         asyncio.get_running_loop()

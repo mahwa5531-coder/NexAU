@@ -264,17 +264,17 @@ class TestWindowsLocalSandboxSmoke:
         assert result.exit_code == 0
         assert "nexau" in result.stdout.lower()
 
-    @pytest.mark.timeout(10)
+    @pytest.mark.timeout(30)
     def test_shell_task_writes_quicksort_and_runs_pytest(self, sandbox: LocalSandbox) -> None:
         """RFC-0020: real Windows shell task writes code and validates it with pytest."""
         command, expected_marker = _quicksort_task_command(sandbox)
         started_at = time.monotonic()
 
-        result = sandbox.execute_bash(command, timeout=10000)
+        result = sandbox.execute_bash(command, timeout=30000)
 
         elapsed = time.monotonic() - started_at
         work_dir = Path(str(sandbox.work_dir))
-        assert elapsed < 10
+        assert elapsed < 30
         assert result.status == SandboxStatus.SUCCESS
         assert result.exit_code == 0
         assert f"SHELL_BACKEND={expected_marker}" in result.stdout

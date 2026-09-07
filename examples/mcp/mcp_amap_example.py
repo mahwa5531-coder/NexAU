@@ -123,7 +123,7 @@ Explain what you're doing and provide context for the results.""",
                 "        The timeout has been reduced from 30s to 10s for faster failure detection.",
             )
 
-        response = agent.run(message="现在从漕河泾现代服务园A6到上南路 4265弄要多久？")
+        response = agent.run(message="A6 4265？")
         print(response)
 
     except Exception as e:

@@ -18,14 +18,14 @@ This engine accepts Filter DSL filters and converts them to SQLAlchemy
 ColumnElement[bool] using to_sqlalchemy() before passing to where() clauses.
 
 Requirements implemented:
-- 5.4: THE SQLDatabaseEngine SHALL 使用 to_sqlalchemy() 方法转换过滤器为 SQL 表达式
+- 5.4: THE SQLDatabaseEngine SHALL  to_sqlalchemy() method SQL 
 """
 
 from __future__ import annotations
 
 from typing import Any, TypeVar
 
-from sqlalchemy import func, text
+from sqlalchemy import func, text, event
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlmodel import SQLModel, select
 
@@ -68,6 +68,15 @@ class SQLDatabaseEngine(DatabaseEngine):
                 poolclass=kwargs.pop("poolclass", None),  # Use NullPool for SQLite by default
                 **kwargs,
             )
+            # ponytail: enforce WAL mode and concurrency pragmas on all SQLite connections
+            @event.listens_for(engine.sync_engine, "connect")
+            def set_sqlite_pragma(dbapi_connection, connection_record):
+                cursor = dbapi_connection.cursor()
+                cursor.execute("PRAGMA journal_mode = WAL;")
+                cursor.execute("PRAGMA synchronous = NORMAL;")
+                cursor.execute("PRAGMA busy_timeout = 15000;")
+                cursor.execute("PRAGMA cache_size = -64000;")
+                cursor.close()
         else:
             engine = create_async_engine(
                 url,

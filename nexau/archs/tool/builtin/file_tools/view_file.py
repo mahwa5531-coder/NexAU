@@ -1,0 +1,312 @@
+# Copyright 2026 NexAU Engine
+# SPDX-License-Identifier: Apache-2.0
+"""
+view_file tool - Universal, high-performance polymorphic file and directory viewer.
+
+Directly composes:
+- Calamine & Polars fast-bundle engine for spreadsheets (.xlsx, .csv, .parquet)
+- Read visual file engine for images, video, and PDFs
+- Directory tree engine for folder inspection
+- Batch glob engine for wildcard patterns
+- Precise 1-indexed line slicing and byte pagination for source code & text
+"""
+
+import logging
+import os
+import mimetypes
+from pathlib import Path
+from typing import Any
+
+from nexau.archs.main_sub.agent_state import AgentState
+from nexau.archs.sandbox import BaseSandbox, SandboxStatus
+from nexau.archs.tool.builtin._sandbox_utils import get_sandbox, resolve_path
+from nexau.archs.tool.builtin.file_tools.list_directory import list_directory
+from nexau.archs.tool.builtin.file_tools.read_visual_file import read_visual_file
+from nexau.archs.tool.builtin.file_tools.read_many_files import read_many_files
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_WINDOW_SIZE = 100  # SWE-agent windowing discipline
+MAX_LINES_PER_VIEW = 800
+MAX_BYTES_PER_VIEW = 46_080
+
+TABULAR_EXTENSIONS = {".xlsx", ".xls", ".csv", ".tsv", ".parquet"}
+VISUAL_EXTENSIONS = {
+    ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".tiff", ".tif", ".svg",
+    ".mp4", ".avi", ".mov", ".mkv", ".webm", ".flv", ".wmv", ".m4v",
+    ".pdf"
+}
+
+
+def _is_visual_file(file_path: str) -> bool:
+    return Path(file_path).suffix.lower() in VISUAL_EXTENSIONS
+
+
+def view_file(
+    AbsolutePath: str | None = None,
+    file_path: str | None = None,
+    StartLine: int | None = None,
+    start_line: int | None = None,
+    EndLine: int | None = None,
+    end_line: int | None = None,
+    ContentOffset: int | None = None,
+    content_offset: int | None = None,
+    sheet_name: str | None = None,
+    toolAction: str | None = None,
+    toolSummary: str | None = None,
+    agent_state: AgentState | None = None,
+    sandbox: BaseSandbox | None = None,
+) -> dict[str, Any]:
+    """Polymorphic file viewer supporting text, code, spreadsheets, directories, and visual media."""
+
+    target_path = AbsolutePath if AbsolutePath is not None else file_path
+    if not target_path:
+        return {
+            "content": "Error: 'AbsolutePath' parameter is required for view_file.",
+            "returnDisplay": "Error: Missing AbsolutePath",
+            "isError": True,
+        }
+
+    # Normalize aliases
+    start = StartLine if StartLine is not None else start_line
+    end = EndLine if EndLine is not None else end_line
+    offset = ContentOffset if ContentOffset is not None else content_offset
+
+    # 1. Check for Batch / Glob Wildcard patterns (*, ?, [)
+    if any(char in target_path for char in ["*", "?", "["]):
+        return read_many_files(include=[target_path], agent_state=agent_state)
+
+    # Resolve sandbox environment
+    if sandbox is None:
+        sandbox = get_sandbox(agent_state)
+
+    try:
+        resolved_path = resolve_path(target_path, sandbox)
+    except Exception as e:
+        return {
+            "content": f"Error resolving path: {e}",
+            "returnDisplay": "Error resolving path",
+            "isError": True,
+        }
+
+    # 2. Check if target is a Directory
+    try:
+        if sandbox.file_exists(resolved_path):
+            info = sandbox.get_file_info(resolved_path)
+            if info.is_directory:
+                return list_directory(dir_path=target_path, agent_state=agent_state)
+    except Exception:
+        pass
+
+    # Extract extension
+    ext = Path(resolved_path).suffix.lower()
+
+    # 3. Tabular Datasets (.xlsx, .xls, .csv, .parquet) -> Calamine Engine
+    if ext in [".xlsx", ".xls"]:
+        from nexau.ingestion_pipeline.excel_to_md import parse_excel_to_markdown
+
+        proj_id = None
+        sess_id = None
+        if agent_state:
+            ctx = getattr(agent_state, "context", None)
+            if ctx is not None:
+                ctx_dict = getattr(ctx, "context", None) or (ctx if isinstance(ctx, dict) else {})
+                proj_id = ctx_dict.get("project_id")
+                sess_id = ctx_dict.get("session_id")
+
+        parsed_md = parse_excel_to_markdown(
+            resolved_path,
+            project_id=proj_id,
+            session_id=sess_id,
+            sheet_name=sheet_name,
+        )
+        return {
+            "content": parsed_md,
+            "returnDisplay": f"Read Excel workbook ({ext}): {Path(target_path).name}",
+        }
+
+    if ext in [".csv", ".tsv"]:
+        from nexau.ingestion_pipeline.csv_to_md_parquet import parse_csv_to_markdown
+
+        proj_id = None
+        sess_id = None
+        if agent_state:
+            ctx = getattr(agent_state, "context", None)
+            if ctx is not None:
+                ctx_dict = getattr(ctx, "context", None) or (ctx if isinstance(ctx, dict) else {})
+                proj_id = ctx_dict.get("project_id")
+                sess_id = ctx_dict.get("session_id")
+
+        parsed_md = parse_csv_to_markdown(
+            resolved_path,
+            project_id=proj_id,
+            session_id=sess_id,
+        )
+        return {
+            "content": parsed_md,
+            "returnDisplay": f"Read CSV dataset ({ext}): {Path(target_path).name}",
+        }
+
+    # 4. Multimodal PDF Documents -> Direct Native Multimodal Ingestion (All pages preserved)
+    if ext == ".pdf":
+        max_pdf_bytes = 20 * 1024 * 1024  # 20MB limit matching Gemini CLI
+        read_res = sandbox.read_file(resolved_path, binary=True)
+        if read_res.status != SandboxStatus.SUCCESS:
+            error_msg = read_res.error or f"Failed to read PDF file: {target_path}"
+            return {"content": f"Error: {error_msg}", "returnDisplay": f"Error: {error_msg}", "isError": True}
+
+        raw_bytes = bytes(read_res.content) if isinstance(read_res.content, (bytes, bytearray)) else b""
+        if not raw_bytes:
+            return {"content": "Error: PDF file is empty.", "returnDisplay": "PDF file is empty", "isError": True}
+
+        if len(raw_bytes) > max_pdf_bytes:
+            error_msg = f"PDF file too large ({len(raw_bytes)} bytes). Maximum size is {max_pdf_bytes} bytes (20MB)."
+            return {
+                "content": error_msg,
+                "returnDisplay": "PDF file too large (exceeds 20MB limit).",
+                "isError": True,
+            }
+
+        num_pages = None
+        doc = None
+        try:
+            import fitz
+            doc = fitz.open(stream=raw_bytes, filetype="pdf")
+            num_pages = len(doc)
+        except Exception:
+            pass
+
+        # Page budgeting: map StartLine / EndLine to 1-indexed page ranges (Gemini CLI pattern)
+        if doc is not None and num_pages is not None and num_pages > 0:
+            PAGE_BUDGET = 10
+            if start is not None or end is not None:
+                p_start = max(1, start if start is not None else 1)
+                p_end = min(num_pages, end if end is not None else p_start + PAGE_BUDGET - 1)
+            elif num_pages > PAGE_BUDGET:
+                p_start = 1
+                p_end = PAGE_BUDGET
+            else:
+                p_start = 1
+                p_end = num_pages
+
+            if p_start > 1 or p_end < num_pages:
+                sub_doc = fitz.open()
+                sub_doc.insert_pdf(doc, from_page=p_start - 1, to_page=p_end - 1)
+                slice_bytes = sub_doc.tobytes()
+                pages_desc = f" (pages {p_start}-{p_end} of {num_pages}. Use StartLine={p_end + 1}, EndLine={min(num_pages, p_end + PAGE_BUDGET)} to view next pages)"
+            else:
+                slice_bytes = raw_bytes
+                pages_desc = f" ({num_pages} pages)"
+        else:
+            slice_bytes = raw_bytes
+            pages_desc = ""
+
+        import base64
+        b64_str = base64.b64encode(slice_bytes).decode("utf-8")
+        return {
+            "content": {
+                "type": "image",
+                "image_url": f"data:application/pdf;base64,{b64_str}",
+                "detail": "auto",
+            },
+            "returnDisplay": f"Read PDF document: {Path(target_path).name}{pages_desc}",
+        }
+
+    # 5. Multimodal Visual / Media -> Visual Engine
+    if ext in VISUAL_EXTENSIONS or _is_visual_file(resolved_path):
+        return read_visual_file(
+            file_path=target_path,
+            agent_state=agent_state,
+        )
+
+    # 5. Source Code & Text Files -> 1-Indexed Line Slicing with SWE-agent windowing
+    read_res = sandbox.read_file(resolved_path, binary=True)
+    if read_res.status != SandboxStatus.SUCCESS:
+        error_msg = read_res.error or f"Failed to read file: {target_path}"
+        return {
+            "content": f"Error: {error_msg}",
+            "returnDisplay": f"Error: {error_msg}",
+            "isError": True,
+        }
+
+    content_val = read_res.content
+    if isinstance(content_val, (bytes, bytearray)):
+        raw_bytes = bytes(content_val)
+    elif isinstance(content_val, str):
+        raw_bytes = content_val.encode("utf-8")
+    else:
+        raw_bytes = b""
+
+    total_bytes = len(raw_bytes)
+
+    # Apply byte ContentOffset if provided
+    byte_start = max(0, offset or 0)
+    if byte_start >= total_bytes and total_bytes > 0:
+        return {
+            "content": f"[ContentOffset {byte_start} exceeds total file size ({total_bytes} bytes).]",
+            "returnDisplay": f"End of file reached ({total_bytes} bytes)",
+        }
+
+    # Slice raw bytes within 46KB window
+    byte_chunk = raw_bytes[byte_start : byte_start + MAX_BYTES_PER_VIEW]
+    is_byte_truncated = (byte_start + len(byte_chunk)) < total_bytes
+
+    # Lossless/lossy UTF-8 decode
+    text_content = byte_chunk.decode("utf-8", errors="replace")
+    all_lines = text_content.splitlines(keepends=True)
+    total_lines = len(all_lines)
+
+    # Handle line slicing (1-indexed)
+    # SWE-agent windowing discipline: if unbounded, default to DEFAULT_WINDOW_SIZE (100 lines)
+    is_unbounded = (start is None and end is None)
+    req_start = max(1, start) if start is not None else 1
+    if end is not None:
+        req_end = min(total_lines, end)
+    elif is_unbounded and total_lines > DEFAULT_WINDOW_SIZE:
+        req_end = min(total_lines, DEFAULT_WINDOW_SIZE)
+    else:
+        req_end = min(total_lines, req_start + MAX_LINES_PER_VIEW - 1)
+
+    if req_end < req_start:
+        req_end = req_start
+
+    # Enforce hard ceiling of 800 lines per single call
+    if (req_end - req_start + 1) > MAX_LINES_PER_VIEW:
+        req_end = req_start + MAX_LINES_PER_VIEW - 1
+
+    selected_lines = all_lines[req_start - 1 : req_end]
+
+    # Format lines with 1-indexed numbers and SWE-agent spatial markers
+    formatted_chunks = []
+    
+    # Spatial marker above
+    if req_start > 1:
+        formatted_chunks.append(f"[({req_start - 1} lines above)]")
+
+    for idx, line in enumerate(selected_lines):
+        line_no = req_start + idx
+        clean_line = line.rstrip("\r\n")
+        formatted_chunks.append(f"{line_no:5d} | {clean_line}")
+
+    # Spatial marker below
+    if req_end < total_lines:
+        remaining = total_lines - req_end
+        next_start = req_end + 1
+        next_end = min(total_lines, next_start + DEFAULT_WINDOW_SIZE - 1)
+        formatted_chunks.append(
+            f"\n[({remaining} more lines below. Use StartLine={next_start}, EndLine={next_end} to view next window)]"
+        )
+    elif is_byte_truncated:
+        next_offset = byte_start + len(byte_chunk)
+        formatted_chunks.append(f"\n[Byte content truncated at {next_offset}/{total_bytes} bytes.]")
+
+    output_text = "\n".join(formatted_chunks)
+
+    display_info = f"Viewed {target_path}"
+    if total_lines > 0:
+        display_info += f" (lines {req_start}-{req_end} of {total_lines})"
+
+    return {
+        "content": output_text,
+        "returnDisplay": display_info,
+    }

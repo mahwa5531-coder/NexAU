@@ -100,8 +100,8 @@ Three reinforcing factors:
    carryforward. None of that would have helped — nightly *also* uses
    `LIVE_ANTHROPIC_*`, so the rename was needed either way.
 
-The user broke the loop with one question: **"CI 里按理说是配了很多的
-key 了吧"** ("CI should already have many keys configured, right?"). I
+The user broke the loop with one question: **"CI 
+key "** ("CI should already have many keys configured, right?"). I
 finally `grep`ed the workflow and the truth surfaced in 5 seconds.
 
 ---

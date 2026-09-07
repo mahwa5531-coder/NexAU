@@ -14,7 +14,7 @@
 
 """Shared task board for AgentTeam collaboration.
 
-RFC-0002: 共享任务面板
+RFC-0002: 
 
 Provides CRUD operations for team tasks with dependency checking
 and concurrent-safe claim/release via TaskLockService.
@@ -43,13 +43,13 @@ logger = logging.getLogger(__name__)
 def _slugify(text: str, max_length: int = 60) -> str:
     """Convert title to URL-safe slug for deliverable file paths.
 
-    RFC-0002: 标题转 slug 用于交付物文件路径
+    RFC-0002:  slug 
     """
-    # 1. 转小写，替换非字母数字为连字符
+    # 1. ，
     slug = re.sub(r"[^a-z0-9]+", "-", text.lower())
-    # 2. 去除首尾连字符
+    # 2. 
     slug = slug.strip("-")
-    # 3. 截断到最大长度
+    # 3. 
     if len(slug) > max_length:
         slug = slug[:max_length].rstrip("-")
     return slug or "task"
@@ -58,7 +58,7 @@ def _slugify(text: str, max_length: int = 60) -> str:
 class TaskBoard:
     """Shared task board with dependency-aware task management.
 
-    RFC-0002: 任务面板
+    RFC-0002: 
 
     All task mutations (claim/release/update_status) are protected
     by TaskLockService to ensure concurrent safety.
@@ -92,7 +92,7 @@ class TaskBoard:
     async def _next_task_id(self) -> str:
         """Generate next task ID (T-001, T-002, etc.).
 
-        RFC-0002: 自增任务 ID 生成
+        RFC-0002:  ID 
         """
         existing = await self._engine.count(
             TeamTaskModel,
@@ -118,7 +118,7 @@ class TaskBoard:
     async def _is_blocked(self, task: TeamTaskModel) -> bool:
         """Check if task has unfinished dependencies.
 
-        RFC-0002: 依赖阻塞检查
+        RFC-0002: 
         """
         if not task.dependencies:
             return False
@@ -150,7 +150,7 @@ class TaskBoard:
     async def get_task_info(self, task_id: str) -> TaskInfo:
         """Get a single task as TaskInfo.
 
-        RFC-0002: 获取单个任务信息（含交付物路径）
+        RFC-0002: （）
         """
         task = await self._get_task(task_id)
         blocked = await self._is_blocked(task)
@@ -168,11 +168,11 @@ class TaskBoard:
     ) -> TaskInfo:
         """Create a new task on the board.
 
-        RFC-0002: 创建任务（含交付物路径生成）
+        RFC-0002: （）
         """
         if task_id is None:
             task_id = await self._next_task_id()
-        # 生成交付物文件路径
+        # 
         slug = _slugify(title)
         deliverable_path = f".nexau/tasks/{task_id}-{slug}.md"
 
@@ -196,7 +196,7 @@ class TaskBoard:
     async def list_tasks(self, *, status: str | None = None) -> list[TaskInfo]:
         """List tasks, optionally filtered by status.
 
-        RFC-0002: 列出任务（含阻塞状态计算）
+        RFC-0002: （）
         """
         filters_list = self._team_filters()
         if status is not None:
@@ -207,10 +207,10 @@ class TaskBoard:
             filters=AndFilter(filters=filters_list),
         )
 
-        # 1. 收集已完成任务 ID 集合，用于快速判断阻塞
+        # 1. completed ID set，
         completed_ids = {t.task_id for t in tasks if t.status == "completed"}
 
-        # 2. 逐任务计算 is_blocked
+        # 2.  is_blocked
         results: list[TaskInfo] = []
         for t in tasks:
             blocked = bool(t.dependencies and not all(d in completed_ids for d in t.dependencies))
@@ -225,7 +225,7 @@ class TaskBoard:
     ) -> None:
         """Claim a task (assign to agent).
 
-        RFC-0002: 认领任务
+        RFC-0002: 
 
         Uses lock for concurrent safety.
         Raises TaskBlockedError if dependencies not met.
@@ -238,13 +238,13 @@ class TaskBoard:
             task_id=task_id,
         ):
             task = await self._get_task(task_id)
-            # 1. 检查依赖是否满足
+            # 1. 
             if await self._is_blocked(task):
                 raise TaskBlockedError(f"Task {task_id} has unfinished dependencies")
-            # 2. 检查是否已被认领
+            # 2. 
             if task.assignee_agent_id is not None:
                 raise LockConflictError(f"Task {task_id} already assigned to {task.assignee_agent_id}")
-            # 3. 分配
+            # 3. 
             task.assignee_agent_id = assignee_agent_id
             task.status = "in_progress"
             task.updated_at = datetime.now()
@@ -254,7 +254,7 @@ class TaskBoard:
     async def release_task(self, *, task_id: str) -> None:
         """Release a claimed task (unassign).
 
-        RFC-0002: 释放任务
+        RFC-0002: 
         """
         async with self._lock.acquire(
             user_id=self._user_id,
@@ -278,7 +278,7 @@ class TaskBoard:
     ) -> None:
         """Update task status.
 
-        RFC-0002: 更新任务状态
+        RFC-0002: 
         """
         async with self._lock.acquire(
             user_id=self._user_id,

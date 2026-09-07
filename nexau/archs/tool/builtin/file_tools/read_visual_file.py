@@ -130,7 +130,9 @@ class OversizedImageCompressionError(RuntimeError):
 def _detect_file_type(file_path: str) -> str:
     """Detect visual file type based on extension."""
     ext = Path(file_path).suffix.lower()
-    if ext in IMAGE_EXTENSIONS:
+    if ext == ".pdf":
+        return "pdf"
+    elif ext in IMAGE_EXTENSIONS:
         return "image"
     elif ext in VIDEO_EXTENSIONS:
         return "video"
@@ -386,10 +388,9 @@ def _ffmpeg_scale_in_sandbox(
     tmp_out = sandbox.join_path(sandbox.get_temp_dir(), f"nexau_resized_{uuid.uuid4().hex[:12]}.jpg")
     try:
         frames_arg = "-frames:v 1 " if single_frame else ""
-        cmd = (
-            f"ffmpeg -i {shlex.quote(sandbox.to_shell_path(file_path))} "
-            f"-vf {shlex.quote(scale_expr)} {frames_arg}-q:v 2 {shlex.quote(sandbox.to_shell_path(tmp_out))} -y 2>&1"
-        )
+        in_path = sandbox.to_shell_path(file_path)
+        out_path = sandbox.to_shell_path(tmp_out)
+        cmd = f'ffmpeg -y -loglevel error -i "{in_path}" -vf "{scale_expr}" {frames_arg}-q:v 2 "{out_path}"'
         result = sandbox.execute_shell(cmd, timeout=30_000)
         if result.status != SandboxStatus.SUCCESS or result.exit_code != 0:
             if _is_missing_ffmpeg(result):
@@ -418,7 +419,7 @@ def _downscale_image_content(
 ) -> bytes | None:
     """Downscale image bytes to their token bound via ffmpeg in the sandbox.
 
-    Incident fix (Rust counterpart nexau-rs#94): 读图默认按 token 预算降采样封顶。
+    Incident fix (Rust counterpart nexau-rs#94): default token 。
 
     Returns the downscaled JPEG bytes, or ``None`` meaning "keep the original
     bytes/mime unchanged" — either because the image is already within bound
@@ -515,10 +516,10 @@ def _oversized_scale_expr(
     expression lets ffmpeg bound the size without knowing it up front.
     """
 
-    # 不变量:强制压缩的产物永远 <= OVERSIZED_IMAGE_PIXELS。一个显式的大
-    # `image_max_size`/`image_token_budget`(如 30000 / 巨大预算)会让 edge/area
-    # 目标判定"界内"落到纯转码 —— 但 >60MP 的产物随后必被持久化 omit 成占位,
-    # 工具却报成功。因此纯转码 fallback 前先按 60MP 硬上限回夹一次。
+    # : <= OVERSIZED_IMAGE_PIXELS。
+    # `image_max_size`/`image_token_budget`( 30000 / ) edge/area
+    # "" ——  >60MP  omit ,
+    # success。 fallback  60MP 。
     def _transcode_or_hard_cap() -> str:
         if dimensions is not None:
             hard_target = area_capped_dimensions(dimensions[0], dimensions[1], OVERSIZED_IMAGE_PIXELS)
@@ -831,6 +832,49 @@ def read_visual_file(
             return {
                 "content": content_parts,
                 "returnDisplay": f"Read video file: {file_path} ({num_frames} frames)",
+            }
+
+        # Handle PDF documents natively (multimodal inlineData)
+        if file_type == "pdf":
+            file_size = int(info.size or 0)
+            if file_size > OVERSIZED_IMAGE_FILE_SIZE_BYTES:
+                error_msg = (
+                    f"PDF file too large ({file_size} bytes). Maximum size is {OVERSIZED_IMAGE_FILE_SIZE_BYTES} bytes (20MB)."
+                )
+                return {
+                    "content": error_msg,
+                    "returnDisplay": "PDF file too large (exceeds 20MB limit).",
+                    "error": {
+                        "message": error_msg,
+                        "type": "FILE_TOO_LARGE",
+                    },
+                }
+
+            res = sandbox.read_file(resolved_path, binary=True)
+            if res.status != SandboxStatus.SUCCESS:
+                raise RuntimeError(res.error or f"Failed to read PDF file: {file_path}")
+
+            raw_bytes = bytes(res.content) if isinstance(res.content, (bytes, bytearray)) else b""
+            if not raw_bytes:
+                raise RuntimeError(f"PDF file is empty: {file_path}")
+
+            num_pages = None
+            try:
+                import fitz
+                doc = fitz.open(stream=raw_bytes, filetype="pdf")
+                num_pages = len(doc)
+            except Exception:
+                pass
+
+            b64_str = base64.b64encode(raw_bytes).decode("utf-8")
+            pages_desc = f" ({num_pages} pages)" if num_pages is not None else ""
+            return {
+                "content": {
+                    "type": "image",
+                    "image_url": f"data:application/pdf;base64,{b64_str}",
+                    "detail": image_detail or "auto",
+                },
+                "returnDisplay": f"Read PDF document: {Path(file_path).name}{pages_desc}",
             }
 
         # Handle image files

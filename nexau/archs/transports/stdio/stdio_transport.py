@@ -176,7 +176,7 @@ class StdioTransport(TransportBase[StdioConfig]):
             await self._handle_sync_request_model(agent_request, rpc_request.id)
             return
 
-        # RFC-0001 Phase 4: agent.stop 方法
+        # RFC-0001 Phase 4: agent.stop method
         if rpc_request.method == "agent.stop":
             await self._handle_stop_request_model(params, rpc_request.id)
             return
@@ -254,7 +254,7 @@ class StdioTransport(TransportBase[StdioConfig]):
     async def _handle_stop_request_model(self, params: dict[str, Any], rpc_id: str) -> None:
         """Handle stop request.
 
-        RFC-0001 Phase 4: Stdio transport stop 支持
+        RFC-0001 Phase 4: Stdio transport stop 
 
         Args:
             params: Request parameters (user_id, session_id, agent_id, force, timeout)

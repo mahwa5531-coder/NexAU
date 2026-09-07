@@ -14,7 +14,7 @@
 
 """Team instance registry for HTTP endpoints.
 
-RFC-0002: AgentTeam 实例注册表
+RFC-0002: AgentTeam 
 
 Manages AgentTeam instances keyed by (user_id, session_id).
 Team configs are registered at server startup from YAML files.
@@ -38,10 +38,10 @@ logger = logging.getLogger(__name__)
 class TeamRegistry:
     """Registry for managing AgentTeam instances.
 
-    RFC-0002: AgentTeam 实例注册表
+    RFC-0002: AgentTeam 
 
-    在服务器启动时注册 team 配置（leader + candidates），
-    HTTP 请求到达时按 (user_id, session_id) 获取或创建 AgentTeam 实例。
+     team configuration（leader + candidates），
+    HTTP  (user_id, session_id)  AgentTeam 。
     """
 
     def __init__(
@@ -53,10 +53,10 @@ class TeamRegistry:
         self._engine = engine
         self._session_manager = session_manager
 
-        # team config 注册表: config_name -> (leader_config, candidates)
+        # team config : config_name -> (leader_config, candidates)
         self._configs: dict[str, tuple[AgentConfig, dict[str, AgentConfig]]] = {}
 
-        # 活跃 team 实例: (user_id, session_id) -> AgentTeam
+        # team : (user_id, session_id) -> AgentTeam
         self._teams: dict[tuple[str, str], AgentTeam] = {}
 
     def register_config(
@@ -68,7 +68,7 @@ class TeamRegistry:
     ) -> None:
         """Register a team configuration.
 
-        RFC-0002: 注册 team 配置
+        RFC-0002:  team configuration
 
         Args:
             name: Config name (e.g. "default").
@@ -86,7 +86,7 @@ class TeamRegistry:
     ) -> AgentTeam:
         """Get existing or create new AgentTeam instance.
 
-        RFC-0002: 获取或创建 AgentTeam 实例
+        RFC-0002:  AgentTeam 
 
         Args:
             user_id: User identifier.
@@ -125,7 +125,7 @@ class TeamRegistry:
     def get(self, user_id: str, session_id: str) -> AgentTeam | None:
         """Get an existing team instance without creating one.
 
-        RFC-0002: 获取已有 team 实例（不创建）
+        RFC-0002:  team （）
 
         Args:
             user_id: User identifier.
@@ -139,7 +139,7 @@ class TeamRegistry:
     def remove(self, user_id: str, session_id: str) -> None:
         """Remove a team instance from the registry.
 
-        RFC-0002: 移除 team 实例
+        RFC-0002:  team 
 
         Args:
             user_id: User identifier.

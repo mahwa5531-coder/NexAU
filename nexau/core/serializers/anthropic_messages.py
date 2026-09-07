@@ -1,6 +1,6 @@
 """Anthropic Messages request payload serializers.
 
-RFC-0014: UMP 到 Provider Payload 的统一序列化分层
+RFC-0014: UMP  Provider Payload 
 
 Provides serializer helpers for converting UMP messages into Anthropic
 Messages API ``system`` / ``messages`` payload blocks.
@@ -33,9 +33,11 @@ def serialize_ump_to_anthropic_messages_payload(
     def _image_block_to_anthropic(img: ImageBlock) -> dict[str, Any] | None:
         try:
             if img.base64:
+                media_type = img.mime_type or "image/jpeg"
+                block_type = "document" if media_type == "application/pdf" else "image"
                 return {
-                    "type": "image",
-                    "source": {"type": "base64", "media_type": img.mime_type, "data": img.base64},
+                    "type": block_type,
+                    "source": {"type": "base64", "media_type": media_type, "data": img.base64},
                 }
             if img.url:
                 return {"type": "image", "source": {"type": "url", "url": img.url}}

@@ -14,7 +14,7 @@
 
 """Team lifecycle manager.
 
-RFC-0002: AgentTeam 生命周期管理
+RFC-0002: AgentTeam 
 
 Manages leader + teammate agents, shared task board,
 message bus, and concurrent execution.
@@ -69,13 +69,13 @@ logger = logging.getLogger(__name__)
 def _safe_deepcopy_config(config: AgentConfig) -> AgentConfig:
     """Deepcopy AgentConfig while preserving unpicklable fields.
 
-    RFC-0002: 安全深拷贝 AgentConfig
+    RFC-0002:  AgentConfig
 
-    某些字段包含不可 pickle 的对象（如 tracer 的有状态连接、
-    middleware 中的 OpenAI client 持有 httpx 连接和 _thread.RLock、
-    hook 中的闭包等），需要在 deepcopy 前暂存并在拷贝后恢复。
+    package pickle object（ tracer 、
+    middleware  OpenAI client  httpx  _thread.RLock、
+    hook package）， deepcopy 。
     """
-    # 1. 暂存不可 pickle 的字段
+    # 1.  pickle 
     saved = {
         "tracers": config.tracers,
         "resolved_tracer": config.resolved_tracer,
@@ -86,7 +86,7 @@ def _safe_deepcopy_config(config: AgentConfig) -> AgentConfig:
         "before_tool_hooks": config.before_tool_hooks,
     }
 
-    # 2. 清空不可 pickle 的字段
+    # 2.  pickle 
     config.tracers = []
     config.resolved_tracer = None
     config.middlewares = None
@@ -95,10 +95,10 @@ def _safe_deepcopy_config(config: AgentConfig) -> AgentConfig:
     config.before_model_hooks = None
     config.before_tool_hooks = None
 
-    # 3. 执行 deepcopy
+    # 3.  deepcopy
     copied = copy.deepcopy(config)
 
-    # 4. 恢复原始 config 和拷贝后的 config
+    # 4.  config  config
     for field, value in saved.items():
         setattr(config, field, value)
         setattr(copied, field, value)
@@ -109,7 +109,7 @@ def _safe_deepcopy_config(config: AgentConfig) -> AgentConfig:
 class AgentTeam:
     """Team lifecycle manager.
 
-    RFC-0002: AgentTeam 生命周期管理
+    RFC-0002: AgentTeam 
 
     Manages leader + teammate agents, shared task board,
     message bus, and concurrent execution.
@@ -206,7 +206,7 @@ class AgentTeam:
     async def initialize(self) -> None:
         """Initialize or restore team state.
 
-        RFC-0002: 初始化或恢复团队状态
+        RFC-0002: 
 
         Steps:
         1. Setup database models
@@ -216,11 +216,11 @@ class AgentTeam:
 
         Idempotent: safe to call multiple times.
         """
-        # 跳过重复初始化
+        # 
         if self._task_board is not None:
             return
 
-        # 1. 初始化数据库模型
+        # 1. 
         await self._engine.setup_models(
             [
                 TeamModel,
@@ -231,7 +231,7 @@ class AgentTeam:
             ]
         )
 
-        # 2. 创建或恢复团队记录
+        # 2. 
         self._team_id = f"team-{uuid4().hex[:8]}"
         self._leader_agent_id = "leader"
 
@@ -260,7 +260,7 @@ class AgentTeam:
             await self._engine.create(team)
             logger.info(f"Created team: {self._team_id}")
 
-        # 3. 创建共享服务
+        # 3. 
         task_lock = TaskLockService(engine=self._engine)
         self._task_board = TaskBoard(
             engine=self._engine,
@@ -285,7 +285,7 @@ class AgentTeam:
             notify_leader=self.notify_leader,
         )
 
-        # 4. 恢复已有 teammate 计数器
+        # 4.  teammate 
         existing_members = await self._engine.find_many(
             TeamMemberModel,
             filters=AndFilter(
@@ -304,7 +304,7 @@ class AgentTeam:
     async def spawn_teammate(self, role_name: str) -> str:
         """Spawn a new teammate instance and start it in forever-run mode.
 
-        RFC-0002: 创建 Teammate 实例并启动永久运行循环
+        RFC-0002:  Teammate 
 
         Args:
             role_name: Role name from candidates dict.
@@ -322,15 +322,15 @@ class AgentTeam:
         if role_name not in self._candidates:
             raise ValueError(f"Unknown role: {role_name}")
 
-        # 1. 自增 ID
+        # 1.  ID
         count = self._role_counters.get(role_name, 0) + 1
         self._role_counters[role_name] = count
         agent_id = f"{role_name}-{count}"
 
-        # 2. 生成 teammate 独立 session_id
+        # 2.  teammate  session_id
         agent_session_id = f"{self._team_session_id}:{agent_id}"
 
-        # 3. 创建 teammate 记录（含独立 session_id）
+        # 3.  teammate （ session_id）
         member = TeamMemberModel(
             user_id=self._user_id,
             session_id=self._team_session_id,
@@ -342,11 +342,11 @@ class AgentTeam:
         )
         await self._engine.create(member)
 
-        # 4. 注入 team 上下文到 teammate system prompt（deepcopy 避免污染原始 config）
-        #    浅拷贝会导致 skills / middlewares 等嵌套对象被共享，后续 teammate 运行期修改
-        #    可能回写到 candidate config，影响同角色的后续 spawn。
+        # 4.  team  teammate system prompt（deepcopy  config）
+        # skills / middlewares object， teammate 
+        # candidate config， spawn。
         config = _safe_deepcopy_config(self._candidates[role_name])
-        # 注入 teammate tools 到 deepcopy 后的 config（避免污染原始 candidate config）
+        # teammate tools  deepcopy  config（ candidate config）
         config.tools = list(config.tools) + get_teammate_tools()
         teammate_lines: list[str] = []
         for aid, a in self._teammate_agents.items():
@@ -368,19 +368,19 @@ class AgentTeam:
         else:
             config.system_prompt = team_context.lstrip()
 
-        # 5a. 注入 SSE 事件中间件（若 multiplexer 已激活）
+        # 5a.  SSE middleware（ multiplexer ）
         if self._multiplexer is not None:
             handler = self._multiplexer.create_event_handler(agent_id=agent_id, role_name=role_name)
             mw = AgentEventsMiddleware(session_id=agent_session_id, on_event=handler)
-            # 必须创建新列表，避免污染原始 candidate config 的 middlewares
-            # （_safe_deepcopy_config 对不可 pickle 字段使用同一引用）
+            # list， candidate config  middlewares
+            # （_safe_deepcopy_config  pickle ）
             config.middlewares = [*(config.middlewares or []), mw]
             if config.llm_config:
                 config.llm_config.stream = True
 
-        # 6. 创建 teammate Agent 实例（独立 session，带 team_state）
-        #    使用 Agent.create() async factory 避免在 async context 中调用
-        #    sync Agent() 构造器（后者会因检测到 running event loop 而抛出 RuntimeError）。
+        # 6.  teammate Agent （ session， team_state）
+        # Agent.create() async factory  async context 
+        # sync Agent() （ running event loop  RuntimeError）。
         teammate_team_state = AgentTeamState(
             team=self,
             task_board=self.task_board,
@@ -400,9 +400,9 @@ class AgentTeam:
         )
         self._teammate_agents[agent_id] = agent
 
-        # 7. 在主事件循环上启动 teammate 的永久运行协程
-        #    spawn_teammate 是 async 方法，teammate 永久运行协程通过
-        #    run_coroutine_threadsafe 调度到主循环以保持独立的生命周期。
+        # 7.  teammate 
+        # spawn_teammate  async method，teammate 
+        # run_coroutine_threadsafe 。
         if self._loop is None:
             raise RuntimeError("AgentTeam._loop not set. Call run() first.")
         teammate_future = asyncio.run_coroutine_threadsafe(
@@ -417,18 +417,18 @@ class AgentTeam:
     async def remove_teammate(self, agent_id: str) -> None:
         """Remove a teammate instance.
 
-        RFC-0002: 移除 Teammate 实例
+        RFC-0002:  Teammate 
 
         Force-stops the agent's executor to break the forever-run loop,
         then cancels the asyncio.Task as safety net.
         """
         agent = self._teammate_agents.pop(agent_id, None)
 
-        # 1. Force-stop executor 以退出永久运行循环
+        # 1. Force-stop executor 
         if agent is not None:
             agent.executor.force_stop()
 
-        # 2. 取消 Future 作为安全兜底
+        # 2. cancel Future 
         future = self._teammate_futures.pop(agent_id, None)
         if future is not None and not future.done():
             future.cancel()
@@ -437,7 +437,7 @@ class AgentTeam:
             except (Exception,):
                 pass
 
-        # 3. 更新 DB 状态
+        # 3.  DB 
         member = await self._engine.find_first(
             TeamMemberModel,
             filters=AndFilter(
@@ -453,7 +453,7 @@ class AgentTeam:
             member.status = "stopped"
             await self._engine.update(member)
 
-        # 4. 从 watchdog 注销
+        # 4.  watchdog 
         if self._watchdog is not None:
             self._watchdog.unregister(agent_id)
 
@@ -462,19 +462,19 @@ class AgentTeam:
     def get_teammate_info(self) -> list[TeammateInfo]:
         """List all teammates and their status.
 
-        RFC-0002: 获取 Teammate 状态列表
+        RFC-0002:  Teammate list
 
-        通过 executor.is_idle 判断状态，而非 future.done()。
-        executor 在 team_mode 下无 tool call 时进入 idle 等待，
-        此时 future 仍在运行，但 agent 实际处于空闲状态。
+         executor.is_idle ， future.done()。
+        executor  team_mode  tool call  idle ，
+         future ， agent 。
         """
         results: list[TeammateInfo] = []
         for agent_id, agent in self._teammate_agents.items():
             future = self._teammate_futures.get(agent_id)
-            # agent 报错退出 → error
+            # agent  → error
             if agent_id in self._errored_agents:
                 status = "error"
-            # future 已结束 或 executor 处于 idle 等待 → idle
+            # future   executor  idle  → idle
             elif future is None or future.done() or agent.executor.is_idle:
                 status = "idle"
             else:
@@ -491,14 +491,14 @@ class AgentTeam:
     def enqueue_user_message(self, to_agent_id: str, content: str) -> None:
         """Enqueue a user message to a specific agent.
 
-        RFC-0002: 向指定 agent 注入用户消息
+        RFC-0002:  agent 
 
-        与 send_message_to_agent 不同，此方法注入 role=user 的消息，
-        用于前端在 stream 期间向 agent 发送后续指令。
+         send_message_to_agent ，method role=user ，
+         stream  agent 。
         """
         msg = {"role": "user", "content": content}
 
-        # 1. 通过 SSE 通知前端
+        # 1.  SSE 
         if self._multiplexer is not None:
             self._multiplexer.emit(
                 agent_id=to_agent_id,
@@ -506,7 +506,7 @@ class AgentTeam:
                 role_name="user",
             )
 
-        # 2. 注入消息到目标 agent
+        # 2.  agent
         if to_agent_id == self._leader_agent_id:
             if self._leader_agent is not None:
                 self._leader_agent.enqueue_message(msg)
@@ -519,7 +519,7 @@ class AgentTeam:
                 agent.enqueue_message(msg)
                 logger.info(f"Enqueued user message to {to_agent_id}")
 
-                # RFC-0002: 若 teammate 的 executor 已退出（报错等），重新启动永久运行循环
+                # RFC-0002:  teammate  executor （），
                 future = self._teammate_futures.get(to_agent_id)
                 if future is not None and future.done() and self._loop is not None:
                     logger.info(f"Restarting exited teammate for user message: {to_agent_id}")
@@ -539,19 +539,19 @@ class AgentTeam:
     ) -> None:
         """Enqueue a message to a teammate or leader agent.
 
-        RFC-0002: 向 teammate 或 leader 注入消息
+        RFC-0002:  teammate  leader 
 
-        消息通过 executor.enqueue_message 注入，
-        executor 的 _message_available 事件会唤醒等待中的永久运行循环。
+         executor.enqueue_message ，
+        executor  _message_available 。
         """
         enqueue_text = f"[Team Message from {from_agent_id}]: {content}"
         msg = {"role": "user", "content": enqueue_text}
 
-        # 0. 非 watchdog 消息重置空闲通知标记，允许下次全员空闲时再次唤醒 leader
+        # 0.  watchdog ， leader
         if from_agent_id != "watchdog" and self._watchdog is not None:
             self._watchdog.reset_idle_notification()
 
-        # 1. 通过 SSE 通知前端
+        # 1.  SSE 
         if self._multiplexer is not None:
             self._multiplexer.emit(
                 agent_id=to_agent_id,
@@ -562,7 +562,7 @@ class AgentTeam:
                 ),
             )
 
-        # 2. 注入消息到目标 agent
+        # 2.  agent
         if to_agent_id == self._leader_agent_id:
             if self._leader_agent is not None:
                 self._leader_agent.enqueue_message(msg)
@@ -575,7 +575,7 @@ class AgentTeam:
                 agent.enqueue_message(msg)
                 logger.info(f"Enqueued message to {to_agent_id} from {from_agent_id}")
 
-                # 3. 若 teammate 的 executor 已退出（idle 超时等），重新启动永久运行循环
+                # 3.  teammate  executor （idle timeout），
                 future = self._teammate_futures.get(to_agent_id)
                 if future is not None and future.done() and self._loop is not None:
                     logger.info(f"Restarting exited teammate: {to_agent_id}")
@@ -590,9 +590,9 @@ class AgentTeam:
     def notify_leader(self, content: str, from_agent_id: str) -> None:
         """Send a notification message to the leader agent.
 
-        RFC-0002: 通知 leader agent
+        RFC-0002:  leader agent
 
-        用于任务完成通知、idle 检测等场景，通过 enqueue_message 唤醒 leader。
+        completed、idle ， enqueue_message  leader。
         """
         self.send_message_to_agent(
             to_agent_id=self._leader_agent_id,
@@ -603,7 +603,7 @@ class AgentTeam:
     def is_all_idle(self) -> bool:
         """Check if all agents (leader + teammates) are idle.
 
-        RFC-0002: 检测所有 agent 是否处于空闲状态
+        RFC-0002:  agent 
 
         Returns True when leader and all teammates are in the executor's
         team_mode wait loop. Used by watchdog for deadlock detection.
@@ -611,21 +611,21 @@ class AgentTeam:
         Note: agents waiting for user response (ask_user) are excluded —
         they are idle but not "stuck", so we should not wake the leader.
         """
-        # 1. 检查 leader
+        # 1.  leader
         if self._leader_agent is not None:
             if not self._leader_agent.executor.is_idle:
                 return False
-            # leader 等待用户回复时也不算全员空闲
+            # leader 
             if self._leader_agent.executor.is_waiting_for_user:
                 return False
         else:
-            return False  # leader 未启动，不算 all-idle
+            return False  # leader ， all-idle
 
-        # 2. 检查所有 teammate
+        # 2.  teammate
         for agent in self._teammate_agents.values():
             if not agent.executor.is_idle:
                 return False
-            # ask_user 导致的 idle 不算真正空闲，agent 在等待用户回复
+            # ask_user  idle ，agent 
             if agent.executor.is_waiting_for_user:
                 return False
 
@@ -634,32 +634,32 @@ class AgentTeam:
     async def _run_teammate_forever(self, agent_id: str) -> None:
         """Run teammate in forever-run mode. Exits only on force_stop.
 
-        RFC-0002: 永久运行 Teammate Agent
+        RFC-0002:  Teammate Agent
 
-        Agent 的 executor 在 team_mode 下会持续循环等待消息，
-        直到 force_stop() 被调用。
+        Agent  executor  team_mode ，
+         force_stop() 。
         """
         agent = self._teammate_agents.get(agent_id)
         if agent is None:
             return
 
-        # 更新 DB 状态为 running，清除 error 标记
+        # DB  running， error 
         await self._update_member_status(agent_id, "running")
         self._errored_agents.discard(agent_id)
 
-        # 注册 watchdog
+        # watchdog
         if self._watchdog is not None:
             self._watchdog.register(agent_id)
 
         try:
-            # RFC-0002: 不发送激活消息，teammate 启动后直接进入 idle 等待
+            # RFC-0002: ，teammate  idle 
             await agent.run_async(message=[], variables=self._variables)
             logger.info(f"Teammate {agent_id} exited normally")
             await self._update_member_status(agent_id, "idle")
         except Exception as e:
             logger.error(f"Teammate {agent_id} exited with error: {e}")
             self._errored_agents.add(agent_id)
-            # 1. 通过 SSE 将错误信息 stream 给前端
+            # 1.  SSE error stream 
             if self._multiplexer is not None:
                 role_name = agent.config.name or agent_id
                 self._multiplexer.emit(
@@ -670,7 +670,7 @@ class AgentTeam:
                     ),
                     role_name=role_name,
                 )
-            # 2. 更新 DB 状态为 error（区别于正常 idle）
+            # 2.  DB  error（ idle）
             await self._update_member_status(agent_id, "error")
         finally:
             if self._watchdog is not None:
@@ -679,18 +679,18 @@ class AgentTeam:
     async def stop_all_teammates(self) -> None:
         """Force-stop all running teammates.
 
-        RFC-0002: 强制停止所有运行中的 Teammate
+        RFC-0002: running Teammate
 
-        停止所有 teammate 的 executor，等待 Future 完成，
-        清理内存引用。DB 记录保留（状态设为 idle），
-        下次 run() 时通过 _restore_teammates() 恢复。
+         teammate  executor， Future completed，
+        。DB （ idle），
+         run()  _restore_teammates() 。
         """
-        # 1. Force-stop 所有 teammate executor
+        # 1. Force-stop  teammate executor
         stopped_ids = list(self._teammate_agents.keys())
         for agent in self._teammate_agents.values():
             agent.executor.force_stop()
 
-        # 2. 异步等待所有 Future 完成（避免阻塞事件循环）
+        # 2.  Future completed（）
         for future in self._teammate_futures.values():
             if not future.done():
                 try:
@@ -698,7 +698,7 @@ class AgentTeam:
                 except (TimeoutError, asyncio.CancelledError, Exception):
                     future.cancel()
 
-        # 3. 确保 DB 状态为 idle，并强制释放 agent lock
+        # 3.  DB  idle， agent lock
         for agent_id in stopped_ids:
             await self._update_member_status(agent_id, "idle")
             teammate_session_id = f"{self._team_session_id}:{agent_id}"
@@ -707,18 +707,18 @@ class AgentTeam:
                 agent_id=agent_id,
             )
 
-        # 4. 清理内存引用（DB 记录保留，下次 run 恢复）
+        # 4. （DB ， run ）
         self._teammate_agents.clear()
         self._teammate_futures.clear()
 
     async def _restore_teammates(self) -> None:
         """Restore previously spawned teammates from DB.
 
-        RFC-0002: 恢复之前 spawn 的 teammate
+        RFC-0002:  spawn  teammate
 
-        读取 DB 中状态非 stopped 的 teammate 记录，
-        重建 Agent 实例并启动永久运行循环。
-        Agent 会通过 session 恢复机制自动恢复对话历史。
+         DB  stopped  teammate ，
+         Agent 。
+        Agent  session 。
         """
         existing_members = await self._engine.find_many(
             TeamMemberModel,
@@ -732,7 +732,7 @@ class AgentTeam:
         )
 
         for member in existing_members:
-            # 跳过已停止或已在内存中的 teammate
+            # teammate
             if member.status == "stopped":
                 continue
             if member.agent_id in self._teammate_agents:
@@ -746,9 +746,9 @@ class AgentTeam:
             agent_id = member.agent_id
             agent_session_id = member.member_session_id
 
-            # 1. 创建 config 副本并注入 team 上下文（deepcopy 避免污染原始 candidate config）
+            # 1.  config  team （deepcopy  candidate config）
             config = _safe_deepcopy_config(self._candidates[role_name])
-            # 注入 teammate tools 到 deepcopy 后的 config（避免污染原始 candidate config）
+            # teammate tools  deepcopy  config（ candidate config）
             config.tools = list(config.tools) + get_teammate_tools()
             team_context = (
                 "\n\n# Team Context\n\n"
@@ -762,18 +762,18 @@ class AgentTeam:
             else:
                 config.system_prompt = team_context.lstrip()
 
-            # 2. 注入 SSE 事件中间件（若 multiplexer 已激活）
+            # 2.  SSE middleware（ multiplexer ）
             if self._multiplexer is not None:
                 handler = self._multiplexer.create_event_handler(agent_id=agent_id, role_name=role_name)
                 mw = AgentEventsMiddleware(session_id=agent_session_id, on_event=handler)
-                # 必须创建新列表，避免污染原始 candidate config 的 middlewares
+                # list， candidate config  middlewares
                 config.middlewares = [*(config.middlewares or []), mw]
                 if config.llm_config:
                     config.llm_config.stream = True
 
-            # 3. 创建 Agent 实例（session 恢复机制自动恢复对话历史）
-            #    使用 Agent.create() async factory 避免在 async context 中调用
-            #    sync Agent() 构造器（后者会因检测到 running event loop 而抛出 RuntimeError）。
+            # 3.  Agent （session ）
+            # Agent.create() async factory  async context 
+            # sync Agent() （ running event loop  RuntimeError）。
             teammate_team_state = AgentTeamState(
                 team=self,
                 task_board=self.task_board,
@@ -793,7 +793,7 @@ class AgentTeam:
             )
             self._teammate_agents[agent_id] = agent
 
-            # 4. 在主事件循环上启动永久运行协程
+            # 4. 
             if self._loop is None:
                 raise RuntimeError("AgentTeam._loop not set. Call run() first.")
             teammate_future = asyncio.run_coroutine_threadsafe(
@@ -807,33 +807,33 @@ class AgentTeam:
     async def stop_all(self) -> None:
         """Force-stop the leader and all running teammates.
 
-        RFC-0002: 外部强制停止整个 Team
+        RFC-0002:  Team
 
-        前端 Stop 按钮调用此方法，立即中断 leader 和所有 teammate 的执行循环。
-        同时强制释放 leader 的 agent lock，避免下次 run 时因锁未释放而报错。
+         Stop method， leader  teammate 。
+         leader  agent lock， run 。
         """
-        # 1. 停止 leader
+        # 1.  leader
         if self._leader_agent is not None:
             self._leader_agent.executor.force_stop()
 
-        # 2. 停止所有 teammates
+        # 2.  teammates
         await self.stop_all_teammates()
 
-        # 3. 强制释放 leader lock（防止 run_async 尚未退出导致锁残留）
+        # 3.  leader lock（ run_async ）
         leader_session_id = f"{self._team_session_id}:leader"
         await self._session_manager.agent_lock.force_release(
             session_id=leader_session_id,
             agent_id=self._leader_agent_id,
         )
 
-        # 4. 停止 watchdog
+        # 4.  watchdog
         if self._watchdog is not None:
             self._watchdog.stop()
 
     async def _update_member_status(self, agent_id: str, status: str) -> None:
         """Update teammate member status in DB.
 
-        RFC-0002: 更新 Teammate 状态
+        RFC-0002:  Teammate 
         """
         try:
             member = await self._engine.find_first(
@@ -860,17 +860,17 @@ class AgentTeam:
     ) -> str:
         """Run the team with the leader agent in forever-run mode.
 
-        RFC-0002: 运行团队（永久运行模式）
-        RFC-0014: 并发调用保护
+        RFC-0002: （）
+        RFC-0014: 
 
-        Leader agent 在 team_mode 下持续运行，直到调用 finish_team stop tool。
-        Teammate agents 通过 spawn_teammate 按需创建，各自独立运行。
-        所有通信通过 enqueue_message 实现。
+        Leader agent  team_mode ， finish_team stop tool。
+        Teammate agents  spawn_teammate ，。
+         enqueue_message 。
 
-        SSE 流式输出通过 self._multiplexer 控制：
-        - 若 self._multiplexer 已设置（由 run_streaming() 预设），
-          自动为 leader 和 teammate 注入 AgentEventsMiddleware。
-        - 非流式调用时 self._multiplexer 为 None，不注入中间件。
+        SSE  self._multiplexer ：
+        -  self._multiplexer （ run_streaming() ），
+           leader  teammate  AgentEventsMiddleware。
+        -  self._multiplexer  None，middleware。
 
         Args:
             message: User message to send to the leader.
@@ -884,29 +884,29 @@ class AgentTeam:
         Raises:
             RuntimeError: If team is already running (concurrent call protection).
         """
-        # RFC-0014: 防止并发调用 run()，避免 leader lock 冲突
+        # RFC-0014:  run()， leader lock 
         if self._is_running:
             raise RuntimeError("Team is already running. Use enqueue_user_message() for follow-up messages.")
 
         await self.initialize()
 
-        # 保存主事件循环引用，供 spawn_teammate 跨线程调度使用
+        # ， spawn_teammate 
         self._loop = asyncio.get_running_loop()
         self._is_running = True
 
-        # 存储 variables，供 leader 和后续 spawn 的 teammate 使用
+        # variables， leader  spawn  teammate 
         if variables is not None:
             self._variables = variables
 
-        # 1. 启动 watchdog
+        # 1.  watchdog
         watchdog_task: asyncio.Task[None] | None = None
         if self._watchdog is not None:
             watchdog_task = asyncio.create_task(self._watchdog.run())
 
         try:
-            # 2. 注入 candidate 信息到 leader system prompt（deepcopy 避免污染原始 config）
+            # 2.  candidate  leader system prompt（deepcopy  config）
             leader_config = _safe_deepcopy_config(self._leader_config)
-            # 注入 team tools 到 deepcopy 后的 leader config（避免污染原始 config）
+            # team tools  deepcopy  leader config（ config）
             leader_config.tools = list(leader_config.tools) + get_leader_tools()
             candidate_lines = [f"- `{name}`: {cfg.description or cfg.name or name}" for name, cfg in self._candidates.items()]
             team_context = (
@@ -926,22 +926,22 @@ class AgentTeam:
             else:
                 leader_config.system_prompt = team_context.lstrip()
 
-            # 3. 注册 finish_team 为 stop tool
+            # 3.  finish_team  stop tool
             if leader_config.stop_tools is None:
                 leader_config.stop_tools = set()
             leader_config.stop_tools.add("finish_team")
 
-            # 3a. 注入 SSE 事件中间件（若 multiplexer 已激活）
+            # 3a.  SSE middleware（ multiplexer ）
             leader_session_id = f"{self._team_session_id}:leader"
             if self._multiplexer is not None:
                 leader_handler = self._multiplexer.create_event_handler(agent_id=self._leader_agent_id, role_name="leader")
                 leader_mw = AgentEventsMiddleware(session_id=leader_session_id, on_event=leader_handler)
-                # 必须创建新列表，避免污染原始 leader config 的 middlewares
+                # list， leader config  middlewares
                 leader_config.middlewares = [*(leader_config.middlewares or []), leader_mw]
                 if leader_config.llm_config:
                     leader_config.llm_config.stream = True
 
-            # 4. 创建共享 sandbox manager（所有 agent 共用一个 sandbox 实例）
+            # 4.  sandbox manager（ agent  sandbox ）
             if self._shared_sandbox_manager is None:
                 leader_sandbox_config = leader_config.sandbox_config
                 if leader_sandbox_config is None:
@@ -967,9 +967,9 @@ class AgentTeam:
                     sandbox_config=leader_sandbox_config,
                 )
 
-            # 5. 创建 team_state 并构建 leader agent（独立 session）
-            #    使用 Agent.create() async factory 避免在 async context 中调用
-            #    sync Agent() 构造器（后者会因检测到 running event loop 而抛出 RuntimeError）。
+            # 5.  team_state  leader agent（ session）
+            # Agent.create() async factory  async context 
+            # sync Agent() （ running event loop  RuntimeError）。
             leader_team_state = AgentTeamState(
                 team=self,
                 task_board=self.task_board,
@@ -987,14 +987,14 @@ class AgentTeam:
             )
             self._leader_agent = leader
 
-            # RFC-0002: 让 leader 的 executor 能查询活跃 teammate 数量，
-            # 有活跃 teammate 时跳过 nudge，直接进入 _wait_for_messages。
+            # RFC-0002:  leader  executor  teammate ，
+            # teammate  nudge， _wait_for_messages。
             leader.executor.has_active_teammates = lambda: len(self._teammate_agents) > 0
 
-            # 5. 恢复之前 spawn 的 teammate（从 DB 读取，重建 Agent 并启动）
+            # 5.  spawn  teammate（ DB ， Agent ）
             await self._restore_teammates()
 
-            # 6. 通过 SSE 发送初始用户消息事件
+            # 6.  SSE 
             if self._multiplexer is not None:
                 self._multiplexer.emit(
                     agent_id=self._leader_agent_id,
@@ -1002,13 +1002,13 @@ class AgentTeam:
                     role_name="user",
                 )
 
-            # 7. Leader 在 team_mode 下运行，直到 finish_team 被调用
+            # 7. Leader  team_mode ， finish_team 
             raw = await leader.run_async(message=message, variables=self._variables)
             result = raw[0] if isinstance(raw, tuple) else raw
 
             return result
         finally:
-            # 8. 立即停止 watchdog，避免在 teammate 清理期间发送无效消息
+            # 8.  watchdog， teammate 
             if watchdog_task is not None:
                 watchdog_task.cancel()
                 try:
@@ -1016,10 +1016,10 @@ class AgentTeam:
                 except asyncio.CancelledError:
                     pass
 
-            # 9. Leader 结束后，强制停止所有 teammate
+            # 9. Leader ， teammate
             await self.stop_all_teammates()
 
-            # 9a. 管理共享 sandbox 生命周期
+            # 9a.  sandbox 
             if self._shared_sandbox_manager is not None:
                 self._shared_sandbox_manager.on_run_complete()
                 leader_sandbox_cfg = self._leader_config.sandbox_config
@@ -1029,12 +1029,12 @@ class AgentTeam:
                 elif status_after_run == "stop":
                     self._shared_sandbox_manager.stop()
 
-            # 10. 关闭 SSE multiplexer（发送流结束信号）
+            # 10.  SSE multiplexer（）
             if self._multiplexer is not None:
                 self._multiplexer.close()
                 self._multiplexer = None
 
-            # 11. 标记运行结束，触发完成回调（用于 SSE 断连后的注册表清理）
+            # 11. ，completed（ SSE ）
             self._is_running = False
             if self._on_run_complete is not None:
                 try:
@@ -1050,10 +1050,10 @@ class AgentTeam:
     ) -> AsyncGenerator[TeamStreamEnvelope, None]:
         """Run team with SSE streaming output.
 
-        RFC-0002: Team SSE 流式输出
+        RFC-0002: Team SSE 
 
-        创建 TeamSSEMultiplexer，在后台运行 team，
-        通过 async generator 输出 TeamStreamEnvelope 事件流。
+         TeamSSEMultiplexer， team，
+         async generator  TeamStreamEnvelope 。
 
         Args:
             message: User message to send to the leader.
@@ -1065,29 +1065,29 @@ class AgentTeam:
         Yields:
             TeamStreamEnvelope events from all agents.
         """
-        # 1. 预初始化以获取 team_id
+        # 1.  team_id
         await self.initialize()
 
-        # 2. 创建 multiplexer 并设置到 self（run() 会检查 self._multiplexer）
+        # 2.  multiplexer  self（run()  self._multiplexer）
         multiplexer = TeamSSEMultiplexer(team_id=self._team_id, on_envelope=on_envelope)
         self._multiplexer = multiplexer
 
-        # 3. 后台运行 team（run() 检测 self._multiplexer 自动注入中间件）
+        # 3.  team（run()  self._multiplexer middleware）
         run_task: asyncio.Task[str] = asyncio.create_task(self.run(message, variables=variables))
 
         try:
-            # 4. 流式输出 envelope 事件
+            # 4.  envelope 
             async for envelope in multiplexer.stream():
                 yield envelope
 
-            # 5. 等待 run_task 完成，捕获内部异常
+            # 5.  run_task completed，exception
             await run_task
         except Exception:
             multiplexer.close()
             raise
         finally:
-            # 6. SSE 断连时不取消 run_task，让 team 继续运行
-            # on_envelope 回调会持续将事件存入 EventStore，
-            # 前端刷新后可通过 /team/subscribe 重新接收事件。
-            # run() 的 finally 块会在执行结束后自动关闭 multiplexer 并触发 on_run_complete。
+            # 6. SSE cancel run_task， team 
+            # on_envelope  EventStore，
+            # /team/subscribe 。
+            # run()  finally  multiplexer  on_run_complete。
             pass

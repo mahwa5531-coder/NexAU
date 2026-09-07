@@ -780,7 +780,7 @@ class ModelResponse:
             # Handle function calls
             if "functionCall" in part:
                 fc = part["functionCall"]
-                # Gemini REST 非流式响应不提供 call ID，生成唯一 ID 以匹配后续 tool result
+                # Gemini REST  call ID， ID  tool result
                 gemini_call_id = f"gemini_tc_{len(tool_calls)}"
                 # Convert to ModelToolCall format
                 tool_calls.append(
@@ -863,7 +863,7 @@ class ModelResponse:
                 ),
             )
 
-        # micro-compact: 设置 created_at 时间戳，用于 TimeBasedTrigger 判断
+        # micro-compact:  created_at ， TimeBasedTrigger 
         from datetime import UTC, datetime
 
         msg = Message(role=role, content=blocks, created_at=datetime.now(UTC))

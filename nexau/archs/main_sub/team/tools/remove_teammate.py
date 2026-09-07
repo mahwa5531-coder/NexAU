@@ -14,7 +14,7 @@
 
 """remove_teammate tool — remove a teammate instance from the team.
 
-RFC-0002: 移除 teammate 实例
+RFC-0002:  teammate 
 """
 
 from __future__ import annotations
@@ -33,10 +33,10 @@ async def remove_teammate(
 ) -> RemoveTeammateResult | ToolError:
     """Remove a teammate instance.
 
-    RFC-0002: 移除 teammate 实例
+    RFC-0002:  teammate 
 
-    仅可移除 idle 状态的 teammate。正在执行任务的 teammate
-    需先完成或被 stop 后才能移除。
+     idle  teammate。 teammate
+    completed stop 。
     """
     ts = require_team_state(agent_state)
     if not ts.is_leader:

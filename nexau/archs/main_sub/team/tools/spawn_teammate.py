@@ -14,7 +14,7 @@
 
 """spawn_teammate tool — instantiate a new teammate from candidates.
 
-RFC-0002: 从 candidates 动态实例化 teammate
+RFC-0002:  candidates  teammate
 """
 
 from __future__ import annotations
@@ -38,11 +38,11 @@ async def spawn_teammate(
 ) -> SpawnResult | ToolError:
     """Spawn a new teammate instance from candidates.
 
-    RFC-0002: 从 candidates 动态实例化 teammate
+    RFC-0002:  candidates  teammate
 
-    Leader 根据任务需求调用此工具，从预配置的 candidates 中
-    实例化一个新的 teammate agent。同一 role 可多次 spawn
-    产生多个实例（如 coder-1, coder-2）。
+    Leader ，configuration candidates 
+     teammate agent。 role  spawn
+    （ coder-1, coder-2）。
     """
     ts = require_team_state(agent_state)
     if not ts.is_leader:

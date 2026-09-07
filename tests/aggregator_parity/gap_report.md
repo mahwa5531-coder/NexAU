@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04 04:24:17 UTC by `tests/aggregator_parity/scripts/gen_gap_report.py`._
 
-This report is the input list for RFC-0023 §阶段 ②. It enumerates
+This report is the input list for RFC-0023 §Phase ②. It enumerates
 every field Set A's event stream doesn't carry today (vs. Set B's
 `finalize()` output) and every structural divergence between Set A's
 aggregation and the vendor's own non-stream JSON response.
@@ -16,7 +16,7 @@ aggregation and the vendor's own non-stream JSON response.
 | `openai_chat` | 16 | 0 | 16 |
 | `openai_responses` | 16 | 0 | 16 |
 
-**Registered known divergences (strict xfail in `KNOWN_DIVERGENT_FIXTURES` — design discussions for §阶段 ②):**
+**Registered known divergences (strict xfail in `KNOWN_DIVERGENT_FIXTURES` — design discussions for §Phase ②):**
 
 | Provider | Fixture | Failure |
 | --- | --- | --- |
@@ -24,11 +24,11 @@ aggregation and the vendor's own non-stream JSON response.
 | `anthropic` | `rec_vt_server_tool_use` | block count mismatch: a=2 b=6 (a_types=['ToolUseBlock', 'TextBlock'], b_types=['ToolUseBlock', 'TextBlock', 'TextBlock', 'TextBlock', 'TextBlock', 'TextBlock']) |
 | `gemini_rest` | `rec_vt_tool` | block count mismatch: a=1 b=2 (a_types=['ToolUseBlock'], b_types=['TextBlock', 'ToolUseBlock']) |
 
-## Axis 2 — Set A weak gaps (target list for §阶段 ②)
+## Axis 2 — Set A weak gaps (target list for §Phase ②)
 
 These fields are present on Set B's `finalize()` dict but cannot
 be reconstructed from the AG-UI event stream into a UMP `Message`.
-Two paths to close them in §阶段 ②: (a) add the fields to `Message`,
+Two paths to close them in §Phase ②: (a) add the fields to `Message`,
 or (b) have the gap-checker consume `ModelCallFinishedEvent` from
 the agui event stream directly. Either way, the gap is at the
 `Message`-shape level even though Set A already emits the metadata.
@@ -42,7 +42,7 @@ the agui event stream directly. Either way, the gap is at the
 - Known divergences (registered xfail): **1**
 - Unregistered failures: **0**
 
-**Known divergences (design discussions for §阶段 ②):**
+**Known divergences (design discussions for §Phase ②):**
 
 | Provider | Scenario | Failure |
 | --- | --- | --- |

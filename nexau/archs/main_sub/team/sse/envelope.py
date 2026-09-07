@@ -14,7 +14,7 @@
 
 """Team SSE stream envelope.
 
-RFC-0002: 多 Agent SSE 事件封装
+RFC-0002:  Agent SSE 
 """
 
 from __future__ import annotations
@@ -27,9 +27,9 @@ from nexau.archs.llm.llm_aggregators.events import Event
 class TeamStreamEnvelope(BaseModel):
     """Envelope for multi-agent SSE events.
 
-    RFC-0002: 多 Agent 流式事件封装
+    RFC-0002:  Agent 
 
-    每个 SSE 事件包含 agent 来源信息，客户端可按 agent_id 分栏显示。
+     SSE package agent ， agent_id 。
     """
 
     team_id: str

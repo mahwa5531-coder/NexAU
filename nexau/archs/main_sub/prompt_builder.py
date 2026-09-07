@@ -159,8 +159,8 @@ class PromptBuilder:
         from nexau.archs.main_sub.config.base import SystemPromptBlock
 
         if not agent_config.system_prompt:
-            agent_name = agent_config.name or "agent"
-            default_parts = [SystemPromptPart(text=self._get_default_system_prompt(agent_name))]
+            agent_name = agent_config.name or "NexAU"
+            default_parts = [SystemPromptPart(text=self._get_default_system_prompt(agent_name, runtime_context, agent_config=agent_config))]
             self._append_suffix_and_nexau_md(default_parts, agent_config, runtime_context)
             return default_parts
 
@@ -209,12 +209,49 @@ class PromptBuilder:
             logger.error(f"❌ Error processing system prompt: {e}")
             raise ValueError("Error processing system prompt") from e
 
-    def _get_default_system_prompt(self, agent_name: str) -> str:
+    def _get_default_system_prompt(
+        self,
+        agent_name: str,
+        runtime_context: dict[str, Any] | None = None,
+        agent_config: "AgentConfig | None" = None,
+    ) -> str:
         """Get default system prompt for the agent."""
+        import platform
         try:
             template = self._load_prompt_template("default_system_prompt")
             if template:
-                context = {"agent_name": agent_name}
+                from nexau.archs.platform.path_helpers import get_session_brain_dir, get_nexau_home
+                ctx = runtime_context or {}
+                s_id = ctx.get("session_id")
+                p_id = ctx.get("project_id")
+                def_brain = str(get_session_brain_dir(s_id if s_id != "None" else None, p_id if p_id != "None" else None))
+                
+                tools_list = []
+                subagents_list = []
+                skills_list = []
+                if agent_config:
+                    tools_list = agent_config.tools or []
+                    if agent_config.sub_agents:
+                        subagents_list = [
+                            {"name": k, "description": v.description if hasattr(v, "description") else str(v)}
+                            for k, v in agent_config.sub_agents.items()
+                        ]
+                    if hasattr(agent_config, "skills") and agent_config.skills:
+                        skills_list = agent_config.skills
+
+                context = {
+                    "agent_name": agent_name,
+                    "os_name": platform.system().lower(),
+                    "working_directory": ctx.get("working_directory", "No Repo"),
+                    "project_id": ctx.get("project_id", "None"),
+                    "session_id": ctx.get("session_id", "None"),
+                    "brain_directory": ctx.get("brain_directory", def_brain),
+                    "scratch_directory": ctx.get("scratch_directory", str(Path(def_brain) / "scratch")),
+                    "nexau_home": str(get_nexau_home()),
+                    "tools": tools_list,
+                    "sub_agents": subagents_list,
+                    "skills": skills_list,
+                }
                 jinja_template = self.jinja_env.from_string(template)
                 return jinja_template.render(**context)
         except Exception as e:
@@ -228,7 +265,7 @@ class PromptBuilder:
         agent_config: "AgentConfig",
         runtime_context: dict[str, Any],
     ) -> None:
-        """Append system_prompt_suffix and NEXAU.md content to the last part."""
+        """Append system_prompt_suffix, NEXAU.md, and advanced context to the last part."""
         extra = ""
         if agent_config.system_prompt_suffix:
             extra += agent_config.system_prompt_suffix
@@ -236,6 +273,10 @@ class PromptBuilder:
         nexau_md = self._load_nexau_md(agent_config, runtime_context)
         if nexau_md:
             extra += f"\n\n# Project Instructions (NEXAU.md)\n\n{nexau_md}"
+
+        advanced_ctx = self._load_advanced_context(agent_config, runtime_context)
+        if advanced_ctx:
+            extra += f"\n\n{advanced_ctx}"
 
         if extra and parts:
             last = parts[-1]
@@ -429,3 +470,50 @@ class PromptBuilder:
             )
 
         return ""
+
+    def _load_advanced_context(
+        self,
+        agent_config: "AgentConfig",
+        runtime_context: dict[str, Any],
+    ) -> str:
+        """Load advanced context (.skills, .rules) similar to Antigravity."""
+        work_dir_str = runtime_context.get("working_directory")
+        if not work_dir_str and agent_config.sandbox_config:
+            work_dir_str = agent_config.sandbox_config.work_dir
+
+        if not work_dir_str:
+            return ""
+
+        work_dir = Path(work_dir_str)
+        context_blocks: list[str] = []
+
+        # Load global rules
+        rules_dir = work_dir / ".rules"
+        if rules_dir.is_dir():
+            rules_content: list[str] = []
+            for rule_file in rules_dir.glob("*"):
+                if rule_file.is_file() and rule_file.suffix in (".md", ".txt", ".xml"):
+                    try:
+                        content = rule_file.read_text(encoding="utf-8").strip()
+                        if content:
+                            rules_content.append(f"<RULE[{rule_file.stem}]>\n{content}\n</RULE[{rule_file.stem}]>")
+                    except Exception as e:
+                        logger.warning("⚠️ Failed to read rule file %s: %s", rule_file, e)
+            if rules_content:
+                rules_block = "<user_rules>\nThe following are user-defined rules that you MUST ALWAYS FOLLOW WITHOUT ANY EXCEPTION:\n" + "\n".join(rules_content) + "\n</user_rules>"
+                context_blocks.append(rules_block)
+
+        # Load skills context
+        skills_dir = work_dir / ".skills"
+        if skills_dir.is_dir():
+            skills_content: list[str] = []
+            for skill_folder in skills_dir.glob("*"):
+                if skill_folder.is_dir():
+                    skill_md = skill_folder / "SKILL.md"
+                    if skill_md.is_file():
+                        skills_content.append(f"- {skill_folder.name} ({skill_md.absolute()}): Extended capabilities.")
+            if skills_content:
+                skills_block = "<skills>\nYou can use specialized 'skills' to help you with complex tasks:\n" + "\n".join(skills_content) + "\n</skills>"
+                context_blocks.append(skills_block)
+
+        return "\n\n".join(context_blocks) if context_blocks else ""

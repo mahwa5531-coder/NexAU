@@ -63,11 +63,11 @@ class SubAgentManager:
         self.session_id = session_id
         self.xml_parser = XMLParser()
         self._shutdown_event = threading.Event()
-        # Thread-safety: 写入路径 (call_sub_agent / call_sub_agent_async 的 register
-        # + finally pop) 都在 sub-agent lifecycle methods 中, 走的是同一 event loop
-        # 或同一 worker thread; 读取路径 (Executor.force_stop 的递归传播) 用
-        # list(running_sub_agents.values()) 做 GIL-原子快照后再迭代, 避免
-        # iteration-during-mutation 问题。无显式锁。
+        # Thread-safety:  (call_sub_agent / call_sub_agent_async  register
+        # + finally pop)  sub-agent lifecycle methods ,  event loop
+        # worker thread;  (Executor.force_stop ) 
+        # list(running_sub_agents.values())  GIL-, 
+        # iteration-during-mutation 。。
         self.running_sub_agents: dict[str, Agent] = {}
 
     def call_sub_agent(
@@ -120,7 +120,7 @@ class SubAgentManager:
             parent_agent_state.record_source_id(sub_agent_config.source_id)
 
         # Recall existing sub-agent by ID (will restore history from agent_repo)
-        # 防御性检查：空字符串视为 None（创建新子代理）
+        # ：string None（）
         if sub_agent_id:
             logger.info(
                 f"🔄🤖 Recall sub-agent '{sub_agent_name}' with id '{sub_agent_id}' - history will be restored from storage",
@@ -209,7 +209,7 @@ class SubAgentManager:
 
         except Exception as e:
             logger.error(f"❌ Sub-agent '{sub_agent_name}' failed: {e}")
-            # RFC-0015: 无论成功或失败，返回消息都包含 sub_agent_id
+            # RFC-0015: successfailure，package sub_agent_id
             raise RuntimeError(
                 f"[sub_agent_id: {actual_sub_agent_id}] Sub-agent '{sub_agent_name}' (id: {actual_sub_agent_id}) failed: {e}"
             ) from e
@@ -240,13 +240,13 @@ class SubAgentManager:
     ) -> str:
         """Async version of call_sub_agent — runs on the main event loop.
 
-        P1 async/sync 技术债修复: 消除 sub-agent 每次调用创建一次性 event loop
+        P1 async/sync :  sub-agent  event loop
 
-        使用 Agent.create()（async factory）+ run_async() 替代
+         Agent.create()（async factory）+ run_async() 
         Agent()（sync __init__ → asyncio.run()）+ run()（sync → asyncio.run()），
-        复用主事件循环而非每次调用创建两个临时 loop。
+         loop。
 
-        同步路径 call_sub_agent() 保留给向后兼容的 sync 调用方。
+         call_sub_agent() backward compatibility sync 。
         """
         from ...main_sub.agent import Agent
         from ..agent_context import get_context
@@ -271,11 +271,11 @@ class SubAgentManager:
         if parent_agent_state is not None:
             parent_agent_state.record_source_id(sub_agent_config.source_id)
 
-        # 防御性检查：空字符串视为 None（创建新子代理，自动生成 ID）
+        # ：string None（， ID）
         if not sub_agent_id:
             sub_agent_id = None
 
-        # 使用 Agent.create() async factory 创建 sub-agent，复用主事件循环
+        # Agent.create() async factory  sub-agent，
         if caller_sandbox_manager is not None:
             sub_agent = await Agent.create(
                 config=sub_agent_config,
@@ -333,7 +333,7 @@ class SubAgentManager:
 
         except Exception as e:
             logger.error(f"❌ Sub-agent '{sub_agent_name}' failed (async): {e}")
-            # RFC-0015: 无论成功或失败，返回消息都包含 sub_agent_id
+            # RFC-0015: successfailure，package sub_agent_id
             raise RuntimeError(
                 f"[sub_agent_id: {actual_sub_agent_id}] Sub-agent '{sub_agent_name}' (id: {actual_sub_agent_id}) failed: {e}"
             ) from e

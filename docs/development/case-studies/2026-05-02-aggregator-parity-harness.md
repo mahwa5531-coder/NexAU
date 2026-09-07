@@ -11,7 +11,7 @@ pathologies that other frameworks (vLLM, JetBrains/koog, Spring AI,
 LiteLLM) had independently re-discovered the same year.
 
 **Date**: 2026-05-01 to 2026-05-02
-**Driver**: PR #508 (RFC-0023 §阶段 ① implementation)
+**Driver**: PR #508 (RFC-0023 § ① implementation)
 **Files**: `tests/aggregator_parity/`, plus 5 fix commits across the
 4 Set A aggregators in `nexau/archs/llm/llm_aggregators/`.
 
@@ -60,7 +60,7 @@ The pattern that surfaced all five bugs:
 3. **Compare Messages** — strong assertions on `role` + content blocks
    (count / order / type / primary fields), weak gap recording for fields
    only one Set carries (usage / model / stop_reason — those need Set A
-   to emit `ModelCallFinishedEvent` in §阶段 ②).
+   to emit `ModelCallFinishedEvent` in § ②).
 4. **Strong failure = real production bug** — no skipping with xfail
    unless the divergence is a documented design decision pending RFC
    resolution.
@@ -200,7 +200,7 @@ problem in NexAU, the parity-harness recipe:
 - **"Just reuse one Set as the test for the other"** — would have caught
   drift but locked in the bug. Need an independent canonical comparison
   point (UMP Message via reconstructor vs converter).
-- **"xfail until §阶段 ② handles it"** — fine for design decisions, NOT
+- **"xfail until § ② handles it"** — fine for design decisions, NOT
   for production drift. The harness initially had 9 xfails; after
   digging into each, 3 were real bugs requiring code fix, 6 were
   obsolete provider routings that no longer exist (deleted).
@@ -220,7 +220,7 @@ problem in NexAU, the parity-harness recipe:
 - `tests/aggregator_parity/test_meta_self.py` runs in every CI pass —
   if positive control breaks, the suite is meaningless and CI must fail
 
-After RFC-0023 §阶段 ③ retires Set B (deletes the
+After RFC-0023 § ③ retires Set B (deletes the
 `*StreamAggregator` classes), the harness self-degrades into "single-
 aggregator regression tests" — still useful for catching provider
 protocol changes, but no longer load-bearing for parity. At that point
@@ -228,10 +228,10 @@ the banners come down.
 
 ## Related work
 
-- RFC-0022: Agent Run Action 事件溯源协议 — defines the event-sourcing
+- RFC-0022: Agent Run Action  — defines the event-sourcing
   framing that motivated this work
 - RFC-0023: Provider Stream Aggregator Unification — the design RFC
   that made parity testing the official quality gate
-- PR #508: implementation of RFC-0023 §阶段 ①
+- PR #508: implementation of RFC-0023 § ①
 - vLLM RFC-27755 / Spring AI #4407 / JetBrains/koog #1264 / LiteLLM #25321
   — OSS prior art for each of the bug classes

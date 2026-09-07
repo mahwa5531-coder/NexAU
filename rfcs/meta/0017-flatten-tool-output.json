@@ -1,6 +1,6 @@
 {
   "rfc": "0017",
-  "title": "工具输出扁平化（Flatten Tool Output）",
+  "title": "（Flatten Tool Output）",
   "status": "implemented",
   "priority": "P1",
   "tags": [
@@ -19,14 +19,14 @@
   "tasks": [
     {
       "id": "T1",
-      "title": "扩展 ToolYamlSchema 与 Tool 构造器，支持 formatter 配置并默认回退到 xml",
+      "title": " ToolYamlSchema  Tool ， formatter  xml",
       "depends_on": [],
       "status": "implemented",
       "ref": "Implemented in workspace; verified via targeted pytest suites and make typecheck"
     },
     {
       "id": "T2",
-      "title": "实现 formatter resolver，支持 builtin alias（首期仅 xml）与 import path",
+      "title": " formatter resolver， builtin alias（ xml） import path",
       "depends_on": [
         "T1"
       ],
@@ -35,7 +35,7 @@
     },
     {
       "id": "T3",
-      "title": "实现默认 XML formatter，并为 MCP / Python tool 的图片输出建立 bypass 规则",
+      "title": " XML formatter， MCP / Python tool  bypass ",
       "depends_on": [
         "T2"
       ],
@@ -44,7 +44,7 @@
     },
     {
       "id": "T4",
-      "title": "扩展 AfterToolHookInput / HookResult / MiddlewareManager，支持 raw tool_output 与 llm_tool_output 双通道",
+      "title": " AfterToolHookInput / HookResult / MiddlewareManager， raw tool_output  llm_tool_output ",
       "depends_on": [
         "T1"
       ],
@@ -53,7 +53,7 @@
     },
     {
       "id": "T5",
-      "title": "在 tool 执行链路中先执行 formatter，再进入 after_tool middleware",
+      "title": " tool  formatter， after_tool middleware",
       "depends_on": [
         "T2",
         "T4"
@@ -63,7 +63,7 @@
     },
     {
       "id": "T6",
-      "title": "修改 LongToolOutputMiddleware，优先对 llm_tool_output 做截断、持久化与提示注入",
+      "title": " LongToolOutputMiddleware， llm_tool_output 、",
       "depends_on": [
         "T4",
         "T5"
@@ -73,7 +73,7 @@
     },
     {
       "id": "T7",
-      "title": "明确并实现 AgentEventsMiddleware / LoggingMiddleware 的双通道消费策略",
+      "title": " AgentEventsMiddleware / LoggingMiddleware ",
       "depends_on": [
         "T4"
       ],
@@ -82,7 +82,7 @@
     },
     {
       "id": "T8",
-      "title": "调整 ToolResultBlock 构建链路，仅消费最终 llm_tool_output，并移除 repr fallback",
+      "title": " ToolResultBlock ， llm_tool_output， repr fallback",
       "depends_on": [
         "T5",
         "T6"
@@ -92,7 +92,7 @@
     },
     {
       "id": "T9",
-      "title": "为 AgentTool 配置 custom formatter，并补充单元测试、集成测试与手动验证",
+      "title": " AgentTool  custom formatter，、",
       "depends_on": [
         "T3",
         "T6",
@@ -104,7 +104,7 @@
     },
     {
       "id": "T10",
-      "title": "验证 Sub-agent 长输出不再被 Dict 包裹且前端事件仍保留 raw output 语义",
+      "title": " Sub-agent  Dict  raw output ",
       "depends_on": [
         "T9"
       ],

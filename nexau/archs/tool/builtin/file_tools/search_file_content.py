@@ -18,7 +18,7 @@ from nexau.archs.sandbox import BaseSandbox, SandboxStatus
 from nexau.archs.tool.builtin._sandbox_utils import get_sandbox, resolve_path
 
 # Configuration constants
-DEFAULT_TOTAL_MAX_MATCHES = 500
+DEFAULT_TOTAL_MAX_MATCHES = 50  # Hard-capped at 50 matches (matches Antigravity & OpenHands standard)
 DEFAULT_SEARCH_TIMEOUT_MS = 30000
 DEFAULT_EXCLUDES = [
     "node_modules",
@@ -30,7 +30,18 @@ DEFAULT_EXCLUDES = [
     "build",
     ".tox",
     ".eggs",
+    ".next",
+    "bifrost_data",
+    ".gemini",
+    ".nexau",
+    "reports",
 ]
+
+BINARY_EXTENSIONS = {
+    ".parquet", ".xlsx", ".xls", ".db", ".db-wal", ".db-shm",
+    ".jpeg", ".jpg", ".png", ".gif", ".ico", ".pdf", ".sst",
+    ".meta", ".bin", ".pyc", ".zip", ".tar", ".gz"
+}
 
 _GREP_LINE_PATTERN: re.Pattern[str] = re.compile(r":(\d+):(.*)$")
 _WINDOWS_DRIVE_PATH_PATTERN: re.Pattern[str] = re.compile(r"^[A-Za-z]:[\\/]")
@@ -186,55 +197,55 @@ def _python_grep(
             return True
         return fnmatch.fnmatch(filename, include)
 
-    # List files via sandbox (recursive) and scan contents.
-    try:
-        infos = sandbox.list_files(search_path, recursive=True)
-    except Exception:
-        infos = []
-
-    for info in infos:
-        if len(matches) >= max_matches:
-            return matches
-
-        if not info.is_file:
-            continue
-
-        full_path = info.path
-        try:
-            rel_path = str(Path(full_path).relative_to(search_path))
-        except Exception:
-            rel_path = full_path
-
-        if should_exclude(rel_path):
-            continue
-
-        if include and not (matches_include(Path(rel_path).name) or fnmatch.fnmatch(rel_path, include)):
-            continue
-
-        read_res = sandbox.read_file(full_path, encoding="utf-8", binary=False)
-        if read_res.status != SandboxStatus.SUCCESS or not isinstance(read_res.content, str):
-            continue
-
-        for line_num, line in enumerate(read_res.content.splitlines(), 1):
-            if len(matches) >= max_matches:
-                return matches
-            if regex.search(line):
-                matches.append(
-                    {
-                        "filePath": rel_path,
-                        "lineNumber": line_num,
-                        "line": line.rstrip("\n\r"),
-                    }
-                )
+    import os
+    for root, dirnames, filenames in os.walk(search_path):
+        dirnames[:] = [d for d in dirnames if not any(fnmatch.fnmatch(d, ex) for ex in excludes)]
+        for fname in filenames:
+            ext = Path(fname).suffix.lower()
+            if ext in BINARY_EXTENSIONS:
+                continue
+            if include and not matches_include(fname):
+                continue
+            full_path = os.path.join(root, fname)
+            try:
+                rel_path = os.path.relpath(full_path, search_path)
+            except Exception:
+                rel_path = full_path
+            if should_exclude(rel_path):
+                continue
+            try:
+                with open(full_path, "r", encoding="utf-8", errors="ignore") as f:
+                    for line_num, line in enumerate(f, 1):
+                        if regex.search(line):
+                            matches.append(
+                                {
+                                    "filePath": rel_path.replace("\\", "/"),
+                                    "lineNumber": line_num,
+                                    "line": line.rstrip("\n\r"),
+                                }
+                            )
+                            if len(matches) >= max_matches:
+                                return matches
+            except Exception:
+                continue
 
     return matches
 
 
 def search_file_content(
-    pattern: str,
+    pattern: str | None = None,
     dir_path: str | None = None,
     include: str | None = None,
     agent_state: AgentState | None = None,
+    *,
+    Query: str | None = None,
+    query: str | None = None,
+    SearchPath: str | None = None,
+    path: str | None = None,
+    Includes: Any | None = None,
+    toolAction: str | None = None,
+    toolSummary: str | None = None,
+    **kwargs: Any,
 ) -> dict[str, Any]:
     """
     Searches for a regular expression pattern within file contents.
@@ -247,13 +258,26 @@ def search_file_content(
     Returns lines containing matches with file paths and line numbers.
 
     Args:
-        pattern: The regular expression pattern to search for
-        dir_path: Directory to search in (optional, defaults to cwd)
-        include: Glob pattern to filter files (e.g., "*.js", "*.{ts,tsx}")
+        pattern: The regular expression pattern to search for (or Query)
+        dir_path: Directory to search in (optional, defaults to cwd, or SearchPath)
+        include: Glob pattern to filter files (or Includes)
 
     Returns:
         Dict with content and returnDisplay matching gemini-cli format
     """
+    # ponytail: universal parameter alias normalization for cross-model resilience
+    pattern = Query or query or pattern or ""
+    if SearchPath is not None:
+        dir_path = SearchPath
+    elif path is not None:
+        dir_path = path
+
+    if Includes is not None and include is None:
+        if isinstance(Includes, list):
+            include = Includes[0] if Includes else None
+        else:
+            include = str(Includes)
+
     try:
         sandbox = get_sandbox(agent_state)
 

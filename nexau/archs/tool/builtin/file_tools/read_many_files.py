@@ -22,6 +22,7 @@ REFERENCE_CONTENT_END = "REFERENCE_CONTENT_END"
 MAX_LINE_LENGTH = 2000
 DEFAULT_OUTPUT_SEPARATOR_FORMAT = "--- {filePath} ---"
 DEFAULT_ENCODING = "utf-8"
+MAX_TOTAL_OUTPUT_CHARS = 25_000  # Total output budget to protect LLM context window (~6,000 tokens)
 
 # Default exclusion patterns
 DEFAULT_EXCLUDES = [
@@ -54,12 +55,9 @@ UNSUPPORTED_BINARY_EXTENSIONS = {
     ".pdf",
     ".doc",
     ".docx",
-    ".xls",
-    ".xlsx",
     ".ppt",
     ".pptx",
     ".odt",
-    ".ods",
     ".odp",
     # Video is not returned by read_many_files; use read_file with visual support.
     *VIDEO_EXTENSIONS,
@@ -110,10 +108,15 @@ UNSUPPORTED_BINARY_EXTENSIONS = {
 }
 
 
+TABULAR_EXTENSIONS = {".xlsx", ".xls", ".ods", ".csv", ".tsv", ".parquet"}
+
+
 def _detect_file_type(file_path: str) -> str:
     """Detect file type based on extension."""
     ext = Path(file_path).suffix.lower()
-    if ext in IMAGE_EXTENSIONS:
+    if ext in TABULAR_EXTENSIONS:
+        return "tabular"
+    elif ext in IMAGE_EXTENSIONS:
         return "image"
     elif ext in AUDIO_EXTENSIONS:
         return "audio"
@@ -137,9 +140,10 @@ def _match_glob_patterns(
     base_dir: str,
     include_patterns: list[str],
     exclude_patterns: list[str],
-    sandbox: BaseSandbox,
+    sandbox: BaseSandbox | None,
 ) -> list[str]:
-    """Find files matching glob patterns via sandbox."""
+    """Find files matching glob patterns via sandbox or local filesystem."""
+    import glob as _glob
     matched_files: set[str] = set()
 
     for pattern in include_patterns:
@@ -152,18 +156,31 @@ def _match_glob_patterns(
         else:
             full_pattern = f"{base_dir}/{normalized}"
 
-        try:
-            matches = sandbox.glob(full_pattern, recursive=True)
-        except Exception:
-            matches = []
+        if sandbox is not None:
+            try:
+                matches = sandbox.glob(full_pattern, recursive=True)
+            except Exception:
+                matches = []
+        else:
+            try:
+                if Path(full_pattern).is_file():
+                    matches = [str(Path(full_pattern))]
+                else:
+                    matches = _glob.glob(full_pattern, recursive=True)
+            except Exception:
+                matches = []
 
         for match in matches:
-            try:
-                info = sandbox.get_file_info(match)
-                if not info.is_file:
+            if sandbox is not None:
+                try:
+                    info = sandbox.get_file_info(match)
+                    if not info.is_file:
+                        continue
+                except Exception:
                     continue
-            except Exception:
-                continue
+            else:
+                if not Path(match).is_file():
+                    continue
 
             try:
                 rel_path = str(Path(match).relative_to(base_dir)).replace("\\", "/")
@@ -171,7 +188,7 @@ def _match_glob_patterns(
                 rel_path = match
 
             if not _should_exclude(rel_path, exclude_patterns):
-                matched_files.add(match)
+                matched_files.add(str(Path(match)))
 
     return sorted(matched_files)
 
@@ -283,7 +300,12 @@ def read_many_files(
         Dict with content and returnDisplay matching gemini-cli format
     """
     try:
-        sandbox = get_sandbox(agent_state)
+        try:
+            sandbox = get_sandbox(agent_state)
+            base_dir = str(sandbox.work_dir)
+        except Exception:
+            sandbox = None
+            base_dir = str(Path.cwd())
 
         if not include:
             return {
@@ -295,9 +317,6 @@ def read_many_files(
                 },
             }
 
-        # Determine base directory
-        base_dir = str(sandbox.work_dir)
-
         # Build exclusion patterns
         exclude_patterns = list(exclude) if exclude else []
         if use_default_excludes:
@@ -308,7 +327,7 @@ def read_many_files(
         if file_filtering_options:
             respect_git_ignore = file_filtering_options.get("respect_git_ignore", True)
 
-        if respect_git_ignore:
+        if respect_git_ignore and sandbox is not None:
             gitignore_path = str(Path(base_dir) / ".gitignore")
             if sandbox.file_exists(gitignore_path):
                 res = sandbox.read_file(gitignore_path, encoding="utf-8", binary=False)
@@ -333,6 +352,17 @@ def read_many_files(
         skipped_files: list[dict[str, Any]] = []
 
         for file_path in matched_files:
+            # Check aggregate output budget
+            current_total_chars = sum(len(p) if isinstance(p, str) else 0 for p in content_parts)
+            if current_total_chars >= MAX_TOTAL_OUTPUT_CHARS:
+                omitted_count = len(matched_files) - len(processed_files)
+                content_parts.append(
+                    f"\n... [Output budget limit reached (~{MAX_TOTAL_OUTPUT_CHARS} characters). "
+                    f"Omitted {omitted_count} remaining file(s). "
+                    f"Use 'read_file' to inspect specific files.] ...\n"
+                )
+                break
+
             try:
                 rel_path = str(Path(file_path).relative_to(base_dir)).replace("\\", "/")
             except Exception:
@@ -348,9 +378,33 @@ def read_many_files(
                 )
                 continue
 
+            # Handle tabular files (Excel, CSV, Parquet, ODS) via Ingestion Engine
+            elif file_type == "tabular":
+                try:
+                    from nexau.archs.tool.builtin.file_tools.read_file import read_file as _read_file_tool
+                    tab_res = _read_file_tool(file_path=file_path, agent_state=agent_state)
+                    if isinstance(tab_res, dict) and "error" in tab_res and not tab_res.get("content"):
+                        skipped_files.append(
+                            {
+                                "path": rel_path,
+                                "reason": f"Tabular read error: {tab_res['error']}",
+                            }
+                        )
+                        continue
+                    
+                    separator = DEFAULT_OUTPUT_SEPARATOR_FORMAT.replace("{filePath}", file_path)
+                    tab_content = tab_res.get("content", "") if isinstance(tab_res, dict) else str(tab_res)
+                    content_parts.append(f"{separator}\n\n{tab_content}\n\n")
+                    processed_files.append(rel_path)
+                except Exception as e:
+                    skipped_files.append(
+                        {
+                            "path": rel_path,
+                            "reason": f"Tabular ingestion error: {str(e)}",
+                        }
+                    )
             # Handle binary files (image/audio)
-            if file_type in ("image", "audio"):
-                # Only include if explicitly requested
+            elif file_type in ("image", "audio"):
                 if not _is_explicitly_requested(file_path, include):
                     skipped_files.append(
                         {
@@ -395,6 +449,9 @@ def read_many_files(
                         )
 
                     file_content += result["content"]
+                    remaining_budget = max(0, MAX_TOTAL_OUTPUT_CHARS - current_total_chars)
+                    if len(file_content) > remaining_budget:
+                        file_content = file_content[:remaining_budget] + "\n... [Content truncated to fit remaining batch budget] ...\n"
                     content_parts.append(f"{separator}\n\n{file_content}\n\n")
                     processed_files.append(rel_path)
 

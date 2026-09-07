@@ -36,6 +36,11 @@ import httpx
 import pytest
 import respx
 
+try:
+    import httpx2
+except ImportError:
+    httpx2 = None
+
 from nexau.archs.main_sub.execution.hooks import ModelCallParams
 from nexau.archs.main_sub.execution.llm_caller import (
     call_llm_with_anthropic_chat_completion,
@@ -161,23 +166,75 @@ def _assistant_blocks(captured_post_body: bytes) -> list[dict[str, Any]]:
 # ── Tests ───────────────────────────────────────────────────────────────────
 
 
+class _MockContext:
+    def __init__(self, on_request: Any) -> None:
+        self.on_request = on_request
+        self.respx_cm: Any = None
+
+    def __enter__(self) -> _MockContext:
+        if httpx2 is None:
+            self.respx_cm = respx.mock(base_url=_BASE_URL)
+            router = self.respx_cm.__enter__()
+            router.post("/v1/messages").mock(side_effect=self.on_request)
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> Any:
+        if self.respx_cm is not None:
+            return self.respx_cm.__exit__(exc_type, exc_val, exc_tb)
+
+    def sync_client(self) -> anthropic.Anthropic:
+        if httpx2 is not None:
+            return anthropic.Anthropic(
+                api_key=_API_KEY,
+                base_url=_BASE_URL,
+                http_client=httpx2.Client(transport=httpx2.MockTransport(self.on_request)),
+            )
+        return anthropic.Anthropic(api_key=_API_KEY, base_url=_BASE_URL)
+
+    def async_client(self) -> anthropic.AsyncAnthropic:
+        if httpx2 is not None:
+            return anthropic.AsyncAnthropic(
+                api_key=_API_KEY,
+                base_url=_BASE_URL,
+                http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(self.on_request)),
+            )
+        return anthropic.AsyncAnthropic(api_key=_API_KEY, base_url=_BASE_URL)
+
+
+def _response(
+    status_code: int,
+    *,
+    json_data: Any = None,
+    content: bytes | None = None,
+    headers: dict[str, str] | None = None,
+) -> Any:
+    resp_mod = httpx2 if httpx2 is not None else httpx
+    kw: dict[str, Any] = {}
+    if json_data is not None:
+        kw["json"] = json_data
+    if content is not None:
+        kw["content"] = content
+    if headers is not None:
+        kw["headers"] = headers
+    return resp_mod.Response(status_code, **kw)
+
+
 def test_layer4_sync_nonstream_replay() -> None:
     """Sync non-stream: gateway returns 400 → retry strips signatures →
     gateway accepts → ModelResponse carries the success text.
 
     Also asserts the retry POST body no longer contains any thinking block.
     """
-    captured: list[httpx.Request] = []
+    captured: list[Any] = []
 
-    def _on_request(request: httpx.Request) -> httpx.Response:
+    def _on_request(request: Any) -> Any:
         captured.append(request)
         if len(captured) == 1:
-            return httpx.Response(400, json=_INVALID_SIGNATURE_400)
-        return httpx.Response(200, json=_SUCCESS_NONSTREAM)
+            return _response(400, json_data=_INVALID_SIGNATURE_400)
+        return _response(200, json_data=_SUCCESS_NONSTREAM)
 
-    with respx.mock(base_url=_BASE_URL) as router:
-        router.post("/v1/messages").mock(side_effect=_on_request)
-        client = anthropic.Anthropic(api_key=_API_KEY, base_url=_BASE_URL)
+    with _MockContext(_on_request) as ctx:
+        client = ctx.sync_client()
         mr = call_llm_with_anthropic_chat_completion(
             client,
             kwargs={"model": _MODEL, "max_tokens": 100},
@@ -196,21 +253,20 @@ def test_layer4_sync_nonstream_replay() -> None:
 
 def test_layer4_sync_stream_replay() -> None:
     """Sync streaming: same retry path, with the success delivered as SSE."""
-    captured: list[httpx.Request] = []
+    captured: list[Any] = []
 
-    def _on_request(request: httpx.Request) -> httpx.Response:
+    def _on_request(request: Any) -> Any:
         captured.append(request)
         if len(captured) == 1:
-            return httpx.Response(400, json=_INVALID_SIGNATURE_400)
-        return httpx.Response(
+            return _response(400, json_data=_INVALID_SIGNATURE_400)
+        return _response(
             200,
             content=_success_sse_stream(),
             headers={"content-type": "text/event-stream"},
         )
 
-    with respx.mock(base_url=_BASE_URL) as router:
-        router.post("/v1/messages").mock(side_effect=_on_request)
-        client = anthropic.Anthropic(api_key=_API_KEY, base_url=_BASE_URL)
+    with _MockContext(_on_request) as ctx:
+        client = ctx.sync_client()
         mr = call_llm_with_anthropic_chat_completion(
             client,
             kwargs={"model": _MODEL, "max_tokens": 100, "stream": True},
@@ -235,25 +291,24 @@ def test_layer4_async_nonstream_replay() -> None:
     """
     import asyncio
 
-    captured: list[httpx.Request] = []
+    captured: list[Any] = []
 
-    def _on_request(request: httpx.Request) -> httpx.Response:
+    def _on_request(request: Any) -> Any:
         captured.append(request)
         if len(captured) == 1:
-            return httpx.Response(400, json=_INVALID_SIGNATURE_400)
-        return httpx.Response(200, json=_SUCCESS_NONSTREAM)
+            return _response(400, json_data=_INVALID_SIGNATURE_400)
+        return _response(200, json_data=_SUCCESS_NONSTREAM)
 
-    async def _run() -> Any:
-        client = anthropic.AsyncAnthropic(api_key=_API_KEY, base_url=_BASE_URL)
+    async def _run(ctx: _MockContext) -> Any:
+        client = ctx.async_client()
         return await call_llm_with_anthropic_chat_completion_async(
             client,
             kwargs={"model": _MODEL, "max_tokens": 100},
             model_call_params=_params(),
         )
 
-    with respx.mock(base_url=_BASE_URL) as router:
-        router.post("/v1/messages").mock(side_effect=_on_request)
-        mr = asyncio.run(_run())
+    with _MockContext(_on_request) as ctx:
+        mr = asyncio.run(_run(ctx))
 
     assert len(captured) == 2
     retry_blocks = _assistant_blocks(captured[1].content)
@@ -268,29 +323,28 @@ def test_layer4_async_stream_replay() -> None:
     """
     import asyncio
 
-    captured: list[httpx.Request] = []
+    captured: list[Any] = []
 
-    def _on_request(request: httpx.Request) -> httpx.Response:
+    def _on_request(request: Any) -> Any:
         captured.append(request)
         if len(captured) == 1:
-            return httpx.Response(400, json=_INVALID_SIGNATURE_400)
-        return httpx.Response(
+            return _response(400, json_data=_INVALID_SIGNATURE_400)
+        return _response(
             200,
             content=_success_sse_stream(),
             headers={"content-type": "text/event-stream"},
         )
 
-    async def _run() -> Any:
-        client = anthropic.AsyncAnthropic(api_key=_API_KEY, base_url=_BASE_URL)
+    async def _run(ctx: _MockContext) -> Any:
+        client = ctx.async_client()
         return await call_llm_with_anthropic_chat_completion_async(
             client,
             kwargs={"model": _MODEL, "max_tokens": 100, "stream": True},
             model_call_params=_params(),
         )
 
-    with respx.mock(base_url=_BASE_URL) as router:
-        router.post("/v1/messages").mock(side_effect=_on_request)
-        mr = asyncio.run(_run())
+    with _MockContext(_on_request) as ctx:
+        mr = asyncio.run(_run(ctx))
 
     assert len(captured) == 2
     retry_blocks = _assistant_blocks(captured[1].content)
@@ -301,18 +355,17 @@ def test_layer4_async_stream_replay() -> None:
 def test_layer4_non_signature_400_propagates_no_retry() -> None:
     """A 400 for a different reason (e.g. max_tokens) propagates unchanged
     — Layer 4 only catches the specific signature error."""
-    captured: list[httpx.Request] = []
+    captured: list[Any] = []
 
-    def _on_request(request: httpx.Request) -> httpx.Response:
+    def _on_request(request: Any) -> Any:
         captured.append(request)
-        return httpx.Response(
+        return _response(
             400,
-            json={"type": "error", "error": {"type": "invalid_request_error", "message": "max_tokens too small"}},
+            json_data={"type": "error", "error": {"type": "invalid_request_error", "message": "max_tokens too small"}},
         )
 
-    with respx.mock(base_url=_BASE_URL) as router:
-        router.post("/v1/messages").mock(side_effect=_on_request)
-        client = anthropic.Anthropic(api_key=_API_KEY, base_url=_BASE_URL)
+    with _MockContext(_on_request) as ctx:
+        client = ctx.sync_client()
         with pytest.raises(anthropic.BadRequestError, match="max_tokens"):
             call_llm_with_anthropic_chat_completion(
                 client,

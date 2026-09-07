@@ -14,10 +14,10 @@
 
 """Main execution orchestrator for agents.
 
-RFC-0006: 中性 Structured Tool Definitions 在执行器中的持有与分发
+RFC-0006:  Structured Tool Definitions executor
 
-执行器在 structured 模式下只缓存 neutral structured definitions，真正的
-OpenAI / Anthropic / Gemini provider schema 由 LLMCaller 在请求边界延迟适配。
+executor structured  neutral structured definitions，
+OpenAI / Anthropic / Gemini provider schema  LLMCaller 。
 """
 
 import asyncio
@@ -223,7 +223,7 @@ class _AsyncIterationState:
     runtime_client: object | None
     custom_llm_client_provider: Callable[[str], object] | None
     origin_history: list[Message] | list[dict[str, object]]
-    # RFC-0019: 预加载的权限规则缓存
+    # RFC-0019: 
     permission_cache: dict[str, tuple[list[str], list[str]]] | None = None
 
 
@@ -241,7 +241,7 @@ class Executor:
         llm_config: LLMConfig,
         async_openai_client: Any | None = None,
         max_iterations: int = 100,
-        max_context_tokens: int = 128000,
+        max_context_tokens: int = 1048576,
         max_running_subagents: int = 5,
         retry_attempts: int = 5,
         retry_backoff_max_seconds: int = 30,
@@ -290,7 +290,7 @@ class Executor:
         self.agent_id = agent_id
         self.max_running_subagents = max_running_subagents
 
-        # RFC-0019: 存储 session 引用以便权限缓存加载 & pending 写入
+        # RFC-0019:  session  & pending 
         self._session_manager = session_manager
         self._user_id = user_id
         self._session_id = session_id
@@ -348,7 +348,7 @@ class Executor:
         self.tool_call_mode = normalize_tool_call_mode(tool_call_mode)
         self.use_structured_tool_calls = self.tool_call_mode in STRUCTURED_TOOL_CALL_MODES
 
-        # 1. RFC-0006: 执行器内部只保存 neutral structured definitions，避免主状态提前 vendor 化。
+        # 1. RFC-0006: executor neutral structured definitions， vendor 。
         if structured_tools is not None:
             self.structured_tool_definitions = deepcopy(list(structured_tools))
         elif self.use_structured_tool_calls:
@@ -372,10 +372,10 @@ class Executor:
         self._shutdown_event = threading.Event()
         self.stop_signal = False
 
-        # RFC-0001: 追踪 execute() 主循环是否正在运行
-        # _execution_done: set 表示 execute() 未运行或已结束，clear 表示正在运行
+        # RFC-0001:  execute() 
+        # _execution_done: set  execute() ，clear 
         self._execution_done = threading.Event()
-        self._execution_done.set()  # 初始状态：未运行
+        self._execution_done.set()  # ：
 
         # Message queue for dynamic message enqueueing during execution
         self.queued_messages: list[Message] = []
@@ -385,9 +385,9 @@ class Executor:
         self._message_available = threading.Event()
         self._is_idle = False  # True when waiting for messages in team_mode
         self._is_waiting_for_user = False  # True when idle due to ask_user stop tool
-        self._last_stop_tool_name: str | None = None  # 最近触发 stop 的工具名
-        self._consecutive_text_only_count: int = 0  # team_mode 连续纯文本回复计数
-        self._has_active_teammates: Callable[[], bool] | None = None  # AgentTeam 注入，判断是否有活跃 teammate
+        self._last_stop_tool_name: str | None = None  #  stop 
+        self._consecutive_text_only_count: int = 0  # team_mode 
+        self._has_active_teammates: Callable[[], bool] | None = None  # AgentTeam ， teammate
 
     def _wire_middleware_event_emitters(self) -> None:
         """Wire internal middleware emitters to the unified event callback when available."""
@@ -502,7 +502,7 @@ class Executor:
     def is_executing(self) -> bool:
         """Check if execute() main loop is currently running.
 
-        RFC-0001: 用于 interrupt() 等待主循环退出。
+        RFC-0001:  interrupt() 。
         """
         return not self._execution_done.is_set()
 
@@ -510,7 +510,7 @@ class Executor:
     def is_idle(self) -> bool:
         """Check if executor is idle (waiting for messages in team_mode).
 
-        RFC-0002: 用于全员空闲检测。
+        RFC-0002: 。
         """
         return self._is_idle
 
@@ -518,8 +518,8 @@ class Executor:
     def is_waiting_for_user(self) -> bool:
         """Check if executor is idle because it's waiting for user response (ask_user).
 
-        RFC-0002: 区分 ask_user 导致的 idle 与普通 idle，
-        避免 watchdog 误报全员空闲。
+        RFC-0002:  ask_user  idle  idle，
+         watchdog 。
         """
         return self._is_waiting_for_user
 
@@ -532,7 +532,7 @@ class Executor:
     def execution_done_event(self) -> threading.Event:
         """Public accessor for the _execution_done event.
 
-        RFC-0001: interrupt() 通过 wait() 等待 execute() 退出。
+        RFC-0001: interrupt()  wait()  execute() 。
         Event is set when execute() is NOT running, cleared when running.
         """
         return self._execution_done
@@ -540,11 +540,11 @@ class Executor:
     def _snapshot_structured_tool_definitions(self) -> list[StructuredToolDefinition]:
         """Return a synchronized snapshot of neutral structured tool definitions.
 
-        RFC-0006: neutral structured definitions 与 ToolRegistry 运行时注入同步
+        RFC-0006: neutral structured definitions  ToolRegistry 
 
-        ToolSearch 会把 deferred tools 注入到 ToolRegistry；这里在每轮模型调用前
-        将新增 eager tools / sub-agent 代理补齐到执行器缓存中，确保下一轮 LLM
-        可以立即看到新可用的 neutral structured definitions。
+        ToolSearch  deferred tools  ToolRegistry；
+         eager tools / sub-agent executor， LLM
+         neutral structured definitions。
         """
 
         if not self.use_structured_tool_calls:
@@ -553,7 +553,7 @@ class Executor:
         with self._tool_registry_lock:
             definition_names = {definition["name"] for definition in self.structured_tool_definitions}
 
-            # 1. 同步 ToolRegistry 中当前所有 eager tools（含 ToolSearch 注入结果）。
+            # 1.  ToolRegistry  eager tools（ ToolSearch ）。
             for tool in self._tool_registry.compute_eager_tools():
                 if tool.name in definition_names:
                     continue
@@ -574,10 +574,10 @@ class Executor:
     def update_structured_tools(self, definitions: list[StructuredToolDefinition]) -> None:
         """Replace the structured tool definitions.
 
-        P1 async/sync 技术债修复: 支持 async MCP 初始化后更新工具定义
+        P1 async/sync :  async MCP 
 
-        由 Agent.create() 在异步 MCP 工具初始化完成后调用，
-        将新发现的 MCP 工具定义注入到 executor 的 structured tool payload 中。
+         Agent.create()  MCP completed，
+         MCP  executor  structured tool payload 。
         """
         with self._tool_registry_lock:
             self.structured_tool_definitions = deepcopy(list(definitions))
@@ -585,7 +585,7 @@ class Executor:
     def _wait_for_messages(self) -> bool:
         """Enter idle wait until new messages arrive or stop signal is received.
 
-        RFC-0002: team_mode 下的 idle 等待辅助方法
+        RFC-0002: team_mode  idle method
 
         Returns:
             True if new messages arrived, False if stop signal received.
@@ -601,10 +601,10 @@ class Executor:
     def _build_permission_cache_from_tools(self) -> dict[str, tuple[list[str], list[str]]]:
         """Build permission cache from Tool.permissions (sync, no DB).
 
-        RFC-0019: sync execute() 路径的权限缓存构建
+        RFC-0019: sync execute() 
 
-        遍历 ToolRegistry 中所有 eager tools，从 YAML permissions 字段提取规则。
-        没有 permissions 的 tool 不加入 cache，查找时 fallback 到 (["**"], [])。
+         ToolRegistry  eager tools， YAML permissions 。
+         permissions  tool  cache， fallback  (["**"], [])。
         """
         cache: dict[str, tuple[list[str], list[str]]] = {}
         for tool in self._tool_registry.compute_eager_tools():
@@ -618,11 +618,11 @@ class Executor:
     async def _build_permission_cache_async(self) -> dict[str, tuple[list[str], list[str]]]:
         """Build permission cache from DB or Tool.permissions.
 
-        RFC-0019: async execute_async() 路径的权限缓存构建
+        RFC-0019: async execute_async() 
 
-        优先从 DB 加载（包含 config 和 user 两种来源的规则），
-        无 session_manager 时 fallback 到 Tool.permissions。
-        permissions=None 的 tool 不参与权限体系，跳过 DB 查询直接放行。
+         DB （package config  user ），
+         session_manager  fallback  Tool.permissions。
+        permissions=None  tool ， DB 。
         """
         if self._session_manager and self._user_id and self._session_id:
             cache: dict[str, tuple[list[str], list[str]]] = {}
@@ -648,7 +648,7 @@ class Executor:
         role = Role(message.get("role", "user"))
         content = message.get("content", "")
         self.queued_messages.append(Message(role=role, content=[TextBlock(text=content)]))
-        # RFC-0002: 唤醒 team_mode 下等待消息的主循环
+        # RFC-0002:  team_mode 
         self._message_available.set()
         logger.info(
             f"📝 Message enqueued during execution: {message.get('role', 'unknown')} - {message.get('content', '')[:50]}...",
@@ -680,7 +680,7 @@ class Executor:
         self.stop_signal = False
         self._shutdown_event.clear()
 
-        # RFC-0006: 构建 FrameworkContext，供工具函数通过 ctx 参数访问框架服务
+        # RFC-0006:  FrameworkContext，function ctx 
         # RFC-0026: pass HistoryList handle so middleware (compaction)
         # can emit typed REPLACE via ctx.history.replace(...).
         # RFC-0024: trace_id lives here, not on AgentState.
@@ -696,10 +696,10 @@ class Executor:
             trace_id=trace_id,
         )
 
-        # RFC-0019: 预加载权限规则缓存
+        # RFC-0019: 
         permission_cache = self._build_permission_cache_from_tools()
 
-        # RFC-0001: 标记 execute() 正在运行
+        # RFC-0001:  execute() 
         self._execution_done.clear()
 
         messages: list[Message] = []
@@ -713,7 +713,7 @@ class Executor:
 
         force_stop_reason = AgentStopReason.SUCCESS
 
-        # RFC-0009: 从 AgentState 获取 token trace session 引用
+        # RFC-0009:  AgentState  token trace session 
         token_trace_session = agent_state.token_trace_session
 
         try:
@@ -723,7 +723,7 @@ class Executor:
             else:
                 messages = cast(list[Message], history).copy()
 
-            # RFC-0009: 复用外部传入的 session 以支持跨 run 延续 token buffer
+            # RFC-0009:  session  run  token buffer
             tools_payload = None
             if self.use_structured_tool_calls:
                 with self._tool_registry_lock:
@@ -792,8 +792,8 @@ class Executor:
                     messages.extend(self.queued_messages)
                     self.queued_messages = []
 
-                # RFC-0002: team_mode 下，若无用户内容（仅 system prompt），
-                # 跳过 LLM 调用，直接进入 idle 等待，避免浪费 token。
+                # RFC-0002: team_mode ，（ system prompt），
+                # LLM ， idle ， token。
                 if self.team_mode and not any(m.role != Role.SYSTEM for m in messages):
                     # Sync messages back to HistoryList before blocking wait
                     if isinstance(_origin_history, HistoryList):
@@ -803,9 +803,9 @@ class Executor:
                     iteration += 1
                     continue
 
-                # RFC-0002: team_mode 下，若最后一条非 system 消息是 assistant 消息，
-                # 跳过 LLM 调用，进入 idle 等待。恢复 session 时历史可能以 assistant
-                # 消息结尾，此时调用 LLM 会导致空响应（多数 LLM 不接受 assistant 结尾）。
+                # RFC-0002: team_mode ， system  assistant ，
+                # LLM ， idle 。 session  assistant
+                # ， LLM （ LLM  assistant ）。
                 if self.team_mode:
                     last_non_system: Message | None = None
                     for m in reversed(messages):
@@ -848,7 +848,7 @@ class Executor:
 
                 tools_payload = None
                 if self.use_structured_tool_calls:
-                    # 1. RFC-0006: 每轮调用前同步 ToolRegistry 注入结果，再快照 neutral definitions。
+                    # 1. RFC-0006:  ToolRegistry ， neutral definitions。
                     tools_payload = self._snapshot_structured_tool_definitions()
 
                 # Count current prompt tokens (including tool definitions if present)
@@ -870,7 +870,7 @@ class Executor:
                 available_tokens = self.max_context_tokens - current_prompt_tokens
 
                 # Get desired max_tokens from LLM config or use reasonable default
-                desired_max_tokens = 16384  # Default value
+                desired_max_tokens = self.llm_config.max_tokens or 65536
                 calculated_max_tokens = min(
                     desired_max_tokens,
                     available_tokens,
@@ -884,12 +884,26 @@ class Executor:
                         available_tokens,
                     )
 
-                if iteration == self.max_iterations - 1:
-                    logger.error(
-                        "❌ Maximum iteration limit reached. Stopping execution.",
+                if iteration == self.max_iterations - 2:
+                    messages.append(
+                        Message.user(
+                            "[SYSTEM NOTICE: You have 2 operational turns remaining in your turn budget. "
+                            "Complete any final data checks now. Your next turn will be your final synthesis turn.]"
+                        )
                     )
-                    final_response += "\\n\\n[Error: Maximum iteration limit reached.]"
-                    force_stop_reason = AgentStopReason.MAX_ITERATIONS_REACHED
+
+                if iteration == self.max_iterations - 1:
+                    logger.info(
+                        "🏁 Final synthesis iteration reached. Forcing text synthesis without tools.",
+                    )
+                    tools_payload = None
+                    force_stop_reason = AgentStopReason.SUCCESS
+                    messages.append(
+                        Message.user(
+                            "[SYSTEM NOTICE: This is your final operational turn. Synthesize all findings and calculations "
+                            "collected so far and output your final conclusive audit report now.]"
+                        )
+                    )
 
                 logger.info(
                     f"🔢 Token usage: prompt={current_prompt_tokens}, max_tokens={calculated_max_tokens}, available={available_tokens}",
@@ -1009,7 +1023,7 @@ class Executor:
                             raw_output=_coerce_raw_output(output),
                         )
 
-                        # micro-compact: 设置 created_at 时间戳
+                        # micro-compact:  created_at 
                         from datetime import UTC, datetime
 
                         tool_result_message = Message(
@@ -1031,7 +1045,15 @@ class Executor:
                     ).strip()
 
                 if tool_results:
-                    # micro-compact: 设置 created_at 时间戳
+                    # ponytail: Graceful last-turn wrap-up reminder. Prevents harsh max_iterations guillotine.
+                    if iteration >= self.max_iterations - 2:
+                        tool_results += (
+                            "\n\n[SYSTEM NOTICE: You are on your final turns of your turn budget. "
+                            "On your next turn, you MUST synthesize all findings collected so far and output "
+                            "your final answer/report. Do NOT call any more tools.]"
+                        )
+
+                    # micro-compact:  created_at 
                     from datetime import UTC, datetime
 
                     from nexau.core.messages import TextBlock
@@ -1045,7 +1067,7 @@ class Executor:
                     if token_trace_session is not None:
                         token_trace_session.append_messages([tool_result_feedback_message], mask_value=0)
 
-                # RFC-0019: Ask outcomes → 写入 pending_tool_calls，停止执行
+                # RFC-0019: Ask outcomes →  pending_tool_calls，
                 if ask_outcomes:
                     pending: dict[str, Any] = {
                         outcome.tool_call_id: {
@@ -1072,12 +1094,12 @@ class Executor:
 
                 # Check if a stop tool was executed
                 if should_stop and len(self.queued_messages) == 0:
-                    # RFC-0002: team_mode 下，仅「无更多 tool call」时继续等待，
-                    # stop_tool（如 finish_team）显式调用时必须退出。
+                    # RFC-0002: team_mode ，「 tool call」，
+                    # stop_tool（ finish_team）。
                     if self.team_mode:
-                        # team_mode 下只有框架级 stop tool `finish_team` 会真正结束执行；
-                        # 其他 stop_tools（如 ask_user / complete_task / 自定义 stop tool）
-                        # 只用于结束当前这一轮工具调用，然后继续进入等待态。
+                        # team_mode  stop tool `finish_team` ；
+                        # stop_tools（ ask_user / complete_task /  stop tool）
+                        # tool call，。
                         if stop_tool_result is not None and self._last_stop_tool_name == "finish_team":
                             logger.info(
                                 "🛑 Stop tool detected in team_mode, exiting executor loop",
@@ -1085,8 +1107,8 @@ class Executor:
                             force_stop_reason = AgentStopReason.STOP_TOOL_TRIGGERED
                             final_response = stop_tool_result
                             break
-                        # RFC-0002 补丁: 纯文本回复时，若无活跃 teammate 则注入提醒；
-                        # 若有活跃 teammate 则直接进入 _wait_for_messages 等待回信。
+                        # RFC-0002 : ， teammate ；
+                        # teammate  _wait_for_messages 。
                         if stop_tool_result is None:
                             has_teammates = self._has_active_teammates() if self._has_active_teammates else False
                             if not has_teammates:
@@ -1106,10 +1128,10 @@ class Executor:
                                 messages.append(nudge)
                                 iteration += 1
                                 continue
-                        # RFC-0002: team_mode 下无限等待新消息，不设超时。
-                        # Leader 需要等待 teammate 完成工作（可能远超 120s），
-                        # watchdog 负责检测全员空闲并唤醒 leader。
-                        # 标记 ask_user 导致的 idle，避免 watchdog 误报全员空闲
+                        # RFC-0002: team_mode ，timeout。
+                        # Leader  teammate completed（ 120s），
+                        # watchdog  leader。
+                        # ask_user  idle， watchdog 
                         self._mark_waiting_for_user()
                         # Sync messages back to HistoryList before blocking wait
                         if isinstance(_origin_history, HistoryList):
@@ -1166,7 +1188,7 @@ class Executor:
             return final_response, messages
 
         except TokenTraceContextOverflowError as e:
-            # token trace session 不支持上下文折叠，超限时直接终止
+            # token trace session ，
             force_stop_reason = AgentStopReason.CONTEXT_TOKEN_LIMIT
             final_response = f"Error: {e}"
             logger.error("❌ TokenTraceSession context overflow: %s", e)
@@ -1210,10 +1232,10 @@ class Executor:
             if isinstance(_origin_history, HistoryList):
                 _sync_history(_origin_history, messages)
             self._store_token_trace(token_trace_session)
-            # RFC-0009: 重置同步计数以匹配可能被压缩的 messages，确保下次 run 正确同步新消息
+            # RFC-0009:  messages， run 
             if token_trace_session is not None:
                 token_trace_session.synced_message_count = len(messages)
-            # RFC-0001: 标记 execute() 已结束，唤醒 interrupt() 的等待
+            # RFC-0001:  execute() ， interrupt() 
             self._execution_done.set()
 
     async def execute_async(
@@ -1227,18 +1249,18 @@ class Executor:
     ) -> tuple[str, list[Message]]:
         """Fully async execution — runs on the main event loop.
 
-        async/sync 技术债修复: 理想状态的 async 执行器
+        async/sync :  async executor
 
-        - LLM 调用: await call_llm_async() (Gemini 走 httpx.AsyncClient，其余走 to_thread 桥接)
-        - Tool 执行: asyncio.gather + tool.execute_async() (async tool 直接 await，sync tool to_thread)
-        - Middleware hooks: asyncio.to_thread (用户 hooks 是 sync API)
-        - Team mode 等待: asyncio.to_thread(_wait_for_messages)
-        - History flush: 直接 create_task 或 await flush_async()
+        - LLM : await call_llm_async() (Gemini  httpx.AsyncClient， to_thread )
+        - Tool : asyncio.gather + tool.execute_async() (async tool  await，sync tool to_thread)
+        - Middleware hooks: asyncio.to_thread ( hooks  sync API)
+        - Team mode : asyncio.to_thread(_wait_for_messages)
+        - History flush:  create_task  await flush_async()
 
-        sync execute() 保留给向后兼容的 sync 调用方和测试。
+        sync execute() backward compatibility sync 。
         """
 
-        # 1. 初始化执行状态
+        # 1. 
         self.stop_signal = False
         self._shutdown_event.clear()
         self._execution_done.clear()
@@ -1270,10 +1292,10 @@ class Executor:
         )
 
         try:
-            # 2. 准备 messages、token trace session 和 before-agent hooks
+            # 2.  messages、token trace session  before-agent hooks
             await self._prepare_async_execution(state)
 
-            # 3. 主迭代循环
+            # 3. 
             while state.iteration < self.max_iterations:
                 if self.stop_signal:
                     stop_response = "Stop signal received."
@@ -1290,7 +1312,7 @@ class Executor:
                 if outcome == _IterationOutcome.BREAK:
                     break
 
-            # 4. 循环结束后处理
+            # 4. 
             if state.iteration >= self.max_iterations:
                 state.force_stop_reason = AgentStopReason.MAX_ITERATIONS_REACHED
                 state.final_response += "\\n\\n[Note: Maximum iteration limit reached]"
@@ -1341,13 +1363,13 @@ class Executor:
             self._execution_done.set()
 
     # ------------------------------------------------------------------
-    # execute_async 辅助方法
+    # execute_async method
     # ------------------------------------------------------------------
 
     async def _prepare_async_execution(self, state: _AsyncIterationState) -> None:
         """Prepare messages, token trace session and run before-agent hooks.
 
-        历史格式转换 → token trace 初始化 → before-agent middleware
+         → token trace  → before-agent middleware
 
         Mutates *state* in-place.
         """
@@ -1358,7 +1380,7 @@ class Executor:
         else:
             state.messages = cast(list[Message], history).copy()
 
-        # Token trace session 初始化
+        # Token trace session 
         tools_payload = None
         if self.use_structured_tool_calls:
             with self._tool_registry_lock:
@@ -1391,24 +1413,24 @@ class Executor:
             except Exception as e:
                 logger.warning(f"⚠️ Before-agent middleware execution failed: {e}")
 
-        # RFC-0019: 预加载权限规则缓存
+        # RFC-0019: 
         state.permission_cache = await self._build_permission_cache_async()
 
     async def _execute_iteration_async(self, state: _AsyncIterationState) -> _IterationOutcome:
         """Execute one iteration of the main async loop.
 
-        async 主循环单次迭代：排队消息 → team_mode 跳过检查 → LLM 调用 →
-        工具执行 → 工具结果构建 → 停止条件判断。
+        async ： → team_mode  → LLM  →
+         → tool result → 。
 
         Mutates *state* in-place and returns the loop control signal.
         """
 
-        # 1. 处理排队消息
+        # 1. 
         if self.queued_messages:
             state.messages.extend(self.queued_messages)
             self.queued_messages = []
 
-        # 2. team_mode: 跳过无用户内容的 LLM 调用
+        # 2. team_mode:  LLM 
         if self.team_mode and not any(m.role != Role.SYSTEM for m in state.messages):
             if isinstance(state.origin_history, HistoryList):
                 _sync_history(state.origin_history, state.messages)
@@ -1417,7 +1439,7 @@ class Executor:
             state.iteration += 1
             return _IterationOutcome.CONTINUE
 
-        # 3. team_mode: assistant 结尾时跳过 LLM 调用
+        # 3. team_mode: assistant  LLM 
         if self.team_mode:
             last_non_system: Message | None = None
             for m in reversed(state.messages):
@@ -1453,15 +1475,15 @@ class Executor:
                 state.framework_context,
                 before_model_hook_input.history_event,
             )
-            # RFC-0027: before_model 中间件请求强制停止（输入侧拦截）——
-            # 在发起 LLM 调用前短路，不向模型发送请求。
+            # RFC-0027: before_model middleware（）——
+            # LLM ，。
             if before_model_hook_input.force_stop_reason is not None:
                 return self._apply_middleware_force_stop(
                     state,
                     before_model_hook_input.force_stop_reason,
                 )
 
-        # 5. 快照工具定义 & token 计算
+        # 5.  & token 
         tools_payload = None
         if self.use_structured_tool_calls:
             tools_payload = self._snapshot_structured_tool_definitions()
@@ -1480,14 +1502,29 @@ class Executor:
             )
 
         available_tokens = self.max_context_tokens - current_prompt_tokens
-        desired_max_tokens = 16384
+        desired_max_tokens = self.llm_config.max_tokens or 65536
         _ = max(1, min(desired_max_tokens, available_tokens))  # calculated_max_tokens (reserved for future use)
 
-        if state.iteration == self.max_iterations - 1:
-            state.final_response += "\\n\\n[Error: Maximum iteration limit reached.]"
-            state.force_stop_reason = AgentStopReason.MAX_ITERATIONS_REACHED
+        if state.iteration == self.max_iterations - 2:
+            state.messages.append(
+                Message.user(
+                    "[SYSTEM NOTICE: You have 2 operational turns remaining in your turn budget. "
+                    "Complete any final data checks now. Your next turn will be your final synthesis turn.]"
+                )
+            )
 
-        # 6. 异步 LLM 调用 — 直接 await，不再走 to_thread
+        if state.iteration == self.max_iterations - 1:
+            logger.info("🏁 Final synthesis iteration reached. Forcing text synthesis without tools.")
+            tools_payload = None
+            state.force_stop_reason = AgentStopReason.SUCCESS
+            state.messages.append(
+                Message.user(
+                    "[SYSTEM NOTICE: This is your final operational turn. Synthesize all findings and calculations "
+                    "collected so far and output your final conclusive audit report now.]"
+                )
+            )
+
+        # 6.  LLM  —  await， to_thread
         model_response = await self.llm_caller.call_llm_async(
             state.messages,
             openai_client=state.runtime_client,
@@ -1510,7 +1547,7 @@ class Executor:
         if model_response is None:
             return _IterationOutcome.BREAK
 
-        # 7. 解析响应并追加 assistant 消息
+        # 7.  assistant 
         assistant_content = model_response.content or ""
         state.final_response = assistant_content
 
@@ -1523,7 +1560,7 @@ class Executor:
                 fallback_messages=[assistant_message],
             )
 
-        # 8. 执行工具/子代理调用（含 after-model middleware）
+        # 8. /（ after-model middleware）
         after_model_hook_input = AfterModelHookInput(
             agent_state=state.agent_state,
             max_iterations=self.max_iterations,
@@ -1550,17 +1587,17 @@ class Executor:
 
         state.messages = updated_messages
 
-        # RFC-0027: after_model 中间件请求强制停止（输出侧拦截）——
-        # 在写工具结果 / should_stop 判定之前 BREAK，避免停止原因被
-        # NO_MORE_TOOL_CALLS 覆盖。工具调用已在 _process_xml_calls_async 内被
-        # 跳过（见该函数中的 force_stop_reason 短路）。
+        # RFC-0027: after_model middleware（）——
+        # tool result / should_stop  BREAK，
+        # NO_MORE_TOOL_CALLS 。tool call _process_xml_calls_async 
+        # （function force_stop_reason ）。
         if after_model_hook_input.force_stop_reason is not None:
             return self._apply_middleware_force_stop(
                 state,
                 after_model_hook_input.force_stop_reason,
             )
 
-        # 9. 构建工具结果消息
+        # 9. tool result
         self._append_tool_result_messages(
             state=state,
             execution_feedbacks=execution_feedbacks,
@@ -1569,7 +1606,7 @@ class Executor:
             processed_response=processed_response,
         )
 
-        # RFC-0019: Ask outcomes → 写入 pending_tool_calls，停止执行
+        # RFC-0019: Ask outcomes →  pending_tool_calls，
         if ask_outcomes:
             pending: dict[str, Any] = {
                 outcome.tool_call_id: {
@@ -1590,7 +1627,7 @@ class Executor:
             state.force_stop_reason = AgentStopReason.PERMISSION_PENDING
             return _IterationOutcome.BREAK
 
-        # 10. 停止条件判断
+        # 10. 
         if should_stop and len(self.queued_messages) == 0:
             return await self._handle_stop_condition_async(
                 state,
@@ -1657,8 +1694,8 @@ class Executor:
     ) -> None:
         """Build tool result messages from execution feedbacks and append to state.
 
-        构建工具结果消息：structured tool 模式生成 TOOL 角色消息，
-        XML 模式生成 USER 角色文本反馈。
+        tool result：structured tool  TOOL ，
+        XML  USER 。
 
         Mutates *state.messages* in-place. Also appends to token trace session
         when present.
@@ -1693,7 +1730,7 @@ class Executor:
                     is_error=bool(feedback.get("is_error")),
                     raw_output=_coerce_raw_output(output),
                 )
-                # micro-compact: 设置 created_at 时间戳
+                # micro-compact:  created_at 
                 from datetime import UTC, datetime
 
                 tool_result_message = Message(role=Role.TOOL, content=[tool_result_block], created_at=datetime.now(UTC))
@@ -1719,11 +1756,11 @@ class Executor:
     ) -> _IterationOutcome:
         """Finalize a run that a before/after_model middleware asked to force-stop.
 
-        RFC-0027: 中间件强制停止收尾
+        RFC-0027: middleware
 
-        把停止原因落到 state，并将最后一条消息文本作为最终回复——按约定，
-        请求强制停止的中间件会把面向用户的文案作为末条消息追加/替换（例如
-        敏感词中间件的拒绝回复）。返回 BREAK 让主循环退出。
+         state，——，
+        middleware/（
+        sensitive wordsmiddleware）。 BREAK 。
         """
         state.force_stop_reason = reason
         if state.messages:
@@ -1740,8 +1777,8 @@ class Executor:
     ) -> _IterationOutcome:
         """Determine whether to break or continue when should_stop is True.
 
-        停止条件处理：team_mode 区分 finish_team（退出）和其他 stop tool（等待新消息），
-        普通模式直接退出循环。
+        ：team_mode  finish_team（） stop tool（），
+        。
 
         Mutates *state.final_response* and *state.force_stop_reason* when breaking.
         """
@@ -1752,8 +1789,8 @@ class Executor:
                 state.final_response = stop_tool_result
                 return _IterationOutcome.BREAK
 
-            # RFC-0002 补丁: 纯文本回复时，若无活跃 teammate 则注入提醒；
-            # 若有活跃 teammate 则直接进入 _wait_for_messages 等待回信。
+            # RFC-0002 : ， teammate ；
+            # teammate  _wait_for_messages 。
             if stop_tool_result is None:
                 has_teammates = self._has_active_teammates() if self._has_active_teammates else False
                 if not has_teammates:
@@ -1836,8 +1873,8 @@ class Executor:
     ) -> tuple[str, bool, str | None, list[Message], list[dict[str, Any]], list[AskOutcome]]:
         """Async version of _process_xml_calls.
 
-        Middleware hooks 通过 to_thread 调用（sync API），
-        tool/sub-agent 通过 _execute_parsed_calls_async 异步执行。
+        Middleware hooks  to_thread （sync API），
+        tool/sub-agent  _execute_parsed_calls_async asynchronous execution。
         """
 
         response_payload: str | ModelResponse = hook_input.model_response or hook_input.original_response
@@ -1860,9 +1897,9 @@ class Executor:
                 framework_context,
                 hook_input.history_event,
             )
-            # RFC-0027: after_model 中间件请求强制停止 —— 在执行任何工具/子代理
-            # 调用前短路。should_stop=True 让上层收尾；真正的停止原因经
-            # hook_input.force_stop_reason（outparam）回传给 _execute_iteration_async。
+            # RFC-0027: after_model middleware —— /
+            # 。should_stop=True ；
+            # hook_input.force_stop_reason（outparam） _execute_iteration_async。
             if hook_input.force_stop_reason is not None:
                 return hook_input.original_response, True, None, current_messages, [], []
 
@@ -1890,29 +1927,29 @@ class Executor:
     ) -> tuple[Any, bool]:
         """Await ``awaitable`` while watching ``_shutdown_event``; cancel on stop.
 
-        生产现象 (NAC 数据局): 用户点停止后, 主 agent 仍在 await 长 tool / sub-agent
-        的 future, 要等当前 tool 自然返回主循环才下个边界检查 stop_signal。
-        本 helper 让主 agent 不再卡: shutdown_event 触发立即 cancel awaitable,
-        主循环下个边界检测 stop_signal 退出, 走持久化路径。
+         (NAC ): ,  agent  await  tool / sub-agent
+         future,  tool  stop_signal。
+         helper  agent : shutdown_event  cancel awaitable,
+         stop_signal , 。
 
-        注意: 通过 ``asyncio.to_thread`` 创建的 future 被 cancel 只是 detach 主侧引用,
-        worker 线程内的同步代码无法从外部中断 (Python 限制)。但 sub-agent 已通过
-        ``Executor.force_stop`` 收到 stop_signal, 会在自己下个 iteration 边界退出。
+        :  ``asyncio.to_thread``  future  cancel  detach ,
+        worker  (Python )。 sub-agent 
+        ``Executor.force_stop``  stop_signal,  iteration 。
 
         Returns:
-            (result, False): awaitable 正常完成 (含 awaitable 自身已 handle shutdown
-                后正常返回 error tuple 的情况, 如 _run_tool 入口的 shutdown emit 路径)
-            (None, True): shutdown_event 触发且 awaitable 仍卡住, 已被 race cancel
+            (result, False): awaitable completed ( awaitable  handle shutdown
+                 error tuple ,  _run_tool  shutdown emit )
+            (None, True): shutdown_event  awaitable ,  race cancel
         """
-        # NOTE 不在进入时立即短路: awaitable (如 _run_tool) 自己有 shutdown 检查 +
-        # _emit_tool_error_result 副作用, 提前 cancel 会跳过 emit 让事件流缺失。
-        # 给 awaitable 至少一轮 poll 的执行机会, 它能自己处理就让它处理。
+        # NOTE : awaitable ( _run_tool)  shutdown  +
+        # _emit_tool_error_result ,  cancel  emit 。
+        # awaitable  poll , 。
         task = asyncio.ensure_future(awaitable)
 
-        # 循环短轮询: shield 保护 task 不被 wait_for 的 timeout 真 cancel,
-        # timeout 仅做时间盒, 由我们自己在循环顶判 shutdown 决定是否 cancel。
-        # 仅当 awaitable 自己卡住 (asyncio.to_thread 跑长 tool / sub-agent) 时,
-        # shutdown_event 触发我们才主动 race cancel, 让主循环边界退出。
+        # : shield  task  wait_for  timeout  cancel,
+        # timeout ,  shutdown  cancel。
+        # awaitable  (asyncio.to_thread  tool / sub-agent) ,
+        # shutdown_event  race cancel, 。
         while not task.done():
             try:
                 result = await asyncio.wait_for(asyncio.shield(task), timeout=poll_interval)
@@ -1920,17 +1957,17 @@ class Executor:
             except TimeoutError:
                 if self._shutdown_event.is_set():
                     task.cancel()
-                    # 必须 await 让 task 的 CancelledError 被消费,
-                    # 否则 asyncio 会丢 "Task was destroyed but it is pending" warning,
-                    # 也避免 task 内 ensure_future 的 children (如 gather) 的 cancel 链路泄漏。
+                    # await  task  CancelledError ,
+                    # asyncio  "Task was destroyed but it is pending" warning,
+                    # task  ensure_future  children ( gather)  cancel 。
                     try:
                         await task
                     except (asyncio.CancelledError, Exception):
                         pass
                     return None, True
                 continue
-        # task 在第一次轮询前已完成; 极端 race 下 task 可能已被外层 cancel,
-        # task.result() 抛 CancelledError; 视同 interrupted。
+        # task completed;  race  task  cancel,
+        # task.result()  CancelledError;  interrupted。
         try:
             return task.result(), False
         except asyncio.CancelledError:
@@ -1947,8 +1984,8 @@ class Executor:
     ) -> tuple[str, bool, str | None, list[dict[str, Any]], list[AskOutcome]]:
         """Async parallel tool/sub-agent execution via asyncio.gather.
 
-        async tool → 直接 await tool.execute_async()
-        sync tool / sub-agent → asyncio.to_thread 在线程池执行
+        async tool →  await tool.execute_async()
+        sync tool / sub-agent → asyncio.to_thread 
         """
 
         processed_response = parsed_response.original_response
@@ -1972,19 +2009,19 @@ class Executor:
 
         serial_tool_names = set(self._tool_registry.compute_serial_tool_names())
 
-        # 构建 async tasks
+        # async tasks
         async def _run_tool(tc: ToolCall) -> tuple[str, ToolCall, tuple[str, Any, bool]]:
             """Dispatch tool execution based on sync/async implementation type.
 
-            - Sync tool: 复用 _execute_tool_call_safe 在 worker 线程中执行。
-              整条链（get_sandbox → before_tool → tool.execute → after_tool）
-              都在同一个 worker 线程中运行，没有 running event loop，
-              与改造前 ThreadPoolExecutor 行为完全一致。
-              用户 sync tool 可以安全调用 agent_state.get_sandbox()、
-              run_async_function_sync() 等 sync framework API。
+            - Sync tool:  _execute_tool_call_safe  worker 。
+              （get_sandbox → before_tool → tool.execute → after_tool）
+               worker ， running event loop，
+               ThreadPoolExecutor 。
+               sync tool  agent_state.get_sandbox()、
+              run_async_function_sync()  sync framework API。
 
-            - Async tool: 在 event loop 上直接 await tool.execute_async()。
-              Async tool 应使用 async-native API，不应调用 sync-only 的
+            - Async tool:  event loop  await tool.execute_async()。
+              Async tool  async-native API， sync-only 
               run_async_function_sync()。
             """
             if self._shutdown_event.is_set():
@@ -1998,15 +2035,15 @@ class Executor:
                 await asyncio.to_thread(self._emit_tool_error_result, tc, error_msg, agent_state)
                 return ("tool", tc, (tc.tool_name, error_msg, True))
 
-            # 检测 async tool: implementation 是 async def，
-            # 或子类（如 MCPTool）声明了原生 async execute_async() 覆盖。
+            # async tool: implementation  async def，
+            # class（ MCPTool） async execute_async() 。
             is_async_impl = (
                 tool_obj.implementation is not None and inspect.iscoroutinefunction(tool_obj.implementation)
             ) or tool_obj.has_native_async_execute
 
             if not is_async_impl:
-                # ── Sync tool: 整条链在 worker 线程中执行 ──
-                # 与改造前 ThreadPoolExecutor.submit(_execute_tool_call_safe) 行为一致
+                # ── Sync tool:  worker  ──
+                # ThreadPoolExecutor.submit(_execute_tool_call_safe) 
                 return (
                     "tool",
                     tc,
@@ -2019,7 +2056,7 @@ class Executor:
                     ),
                 )
 
-            # ── Async tool: event loop 原生路径 ──
+            # ── Async tool: event loop  ──
             tool_call_id = tc.tool_call_id or f"tool_call_{uuid.uuid4()}"
             converted_params: dict[str, Any] = {}
             try:
@@ -2037,7 +2074,7 @@ class Executor:
                 else:
                     tool_ctx = framework_context
 
-                # get_sandbox 内部可能调用 sync session API，放到 to_thread 避免阻塞
+                # get_sandbox  sync session API， to_thread 
                 sandbox: BaseSandbox | None = None
                 if tc.tool_name not in {"LoadSkill"}:
                     sandbox = await asyncio.to_thread(agent_state.get_sandbox)
@@ -2062,12 +2099,12 @@ class Executor:
                 exec_params["sandbox"] = sandbox
                 exec_params["ctx"] = tool_ctx
 
-                # 获取 tracer 以生成 Langfuse span（与 sync 路径对齐）
+                # tracer  Langfuse span（ sync ）
                 tracer: BaseTracer | None = agent_state.get_global_value("tracer")
                 tool_call_id = tc.tool_call_id or ""
 
-                # Async tool: 直接 await（不经过 to_thread），
-                # 用 TraceContext 包裹以记录 tool span
+                # Async tool:  await（ to_thread），
+                # TraceContext package tool span
                 if tracer:
                     span_name = f"Tool: {tc.tool_name}"
                     trace_inputs: dict[str, Any] = {
@@ -2151,7 +2188,7 @@ class Executor:
             except Exception as e:
                 return ("tool", tc, (tc.tool_name, str(e), True))
 
-        # serial tools 需要顺序执行，其余并行
+        # serial tools ，
         serial_tasks: list[ToolCall] = []
         parallel_tool_tasks: list[ToolCall] = []
         for tc in parsed_response.tool_calls:
@@ -2160,20 +2197,20 @@ class Executor:
             else:
                 parallel_tool_tasks.append(tc)
 
-        # 结果类型: (call_type, call_obj, (name, result, is_error))
+        # type: (call_type, call_obj, (name, result, is_error))
         all_results: list[tuple[str, ToolCall, tuple[str, Any, bool]]] = []
 
-        # 先执行 serial tools（顺序）
+        # serial tools（）
         for tc in serial_tasks:
-            # shutdown_event 触发立即 cancel 当前 tool, 跳过剩余 serial / parallel,
-            # 主循环边界查 stop_signal 退出走持久化（"放弃 tool 结果立刻停"）。
+            # shutdown_event  cancel  tool,  serial / parallel,
+            # stop_signal （" tool "）。
             serial_result, interrupted = await self._await_with_shutdown_race(_run_tool(tc))
             if interrupted:
                 return processed_response, False, None, [], []
             all_results.append(serial_result)
 
-        # 再并行执行剩余 tools
-        # 维护 call_origins 与 parallel_coros 索引一一对应，gather 异常时保留调用上下文
+        # tools
+        # call_origins  parallel_coros ，gather exception
         parallel_coros: list[Any] = []
         call_origins: list[tuple[str, ToolCall]] = []
         for tc in parallel_tool_tasks:
@@ -2181,14 +2218,14 @@ class Executor:
             call_origins.append(("tool", tc))
 
         if parallel_coros:
-            # gather 整体也走 shutdown race。注: return_exceptions=True 只影响 children
-            # 自己抛异常的情况; 当我们从外部 cancel gather wrapper 时, gather 自身抛
-            # CancelledError, 并把 cancel 信号向 children 传播 (cpython behavior, 见
-            # asyncio.gather() docs 的 "If gather() is cancelled, all submitted
+            # gather  shutdown race。: return_exceptions=True  children
+            # exception;  cancel gather wrapper , gather 
+            # CancelledError,  cancel  children  (cpython behavior, 
+            # asyncio.gather() docs  "If gather() is cancelled, all submitted
             # awaitables that have not completed yet are also cancelled.")。
-            # 不可中断的部分: children 内的 asyncio.to_thread 主侧 detach, worker 线程
-            # 跑完它当前的 sync 调用 (Python 限制); sub-agent worker 由 force_stop 已传
-            # 的 stop_signal 在自己下个 iteration 边界退出, 资源/token 跟着止血。
+            # : children  asyncio.to_thread  detach, worker 
+            # sync  (Python ); sub-agent worker  force_stop 
+            # stop_signal  iteration , /token 。
             gather_result, interrupted = await self._await_with_shutdown_race(asyncio.gather(*parallel_coros, return_exceptions=True))
             if interrupted:
                 return processed_response, False, None, [], []
@@ -2200,7 +2237,7 @@ class Executor:
                 elif isinstance(r, tuple):
                     all_results.append(r)  # type: ignore[arg-type]
 
-        # 收集结果
+        # 
         tool_results: list[str] = []
         execution_feedbacks: list[dict[str, Any]] = []
         ask_outcomes: list[AskOutcome] = []
@@ -2213,7 +2250,7 @@ class Executor:
             result_data: tuple[str, Any, bool] = entry[2]
             tool_name, result, is_error = result_data
 
-            # RFC-0019: 处理权限相关 outcome
+            # RFC-0019:  outcome
             if isinstance(result, AskOutcome):
                 ask_outcomes.append(result)
                 continue
@@ -2263,7 +2300,7 @@ class Executor:
                     tool_results.append(
                         f"\n<tool_result>\n<tool_name>{tool_name}</tool_name>\n<result>{result_str}</result>\n</tool_result>\n"
                     )
-                # 检查 stop tool
+                # stop tool
                 try:
                     stop_raw_output: dict[str, Any] | None
                     if isinstance(raw_output, dict):
@@ -2502,7 +2539,7 @@ class Executor:
             # Submit tool execution tasks using pre-created context snapshots
             tool_futures: dict[Future[tuple[str, Any, bool]], tuple[str, ToolCall]] = {}
             for task_ctx, tool_call in tool_snapshots:
-                # RFC-0001: 每次提交前检查 shutdown_event，避免中断后继续执行
+                # RFC-0001:  shutdown_event，
                 if self._shutdown_event.is_set():
                     logger.info("🛑 Shutdown event detected, skipping remaining tool calls")
                     break
@@ -2536,7 +2573,7 @@ class Executor:
                     result_data = future.result()
                     tool_name, result, is_error = result_data
 
-                    # RFC-0019: 处理权限相关 outcome
+                    # RFC-0019:  outcome
                     if isinstance(result, AskOutcome):
                         ask_outcomes.append(result)
                         continue
@@ -2682,10 +2719,8 @@ class Executor:
         error_output: dict[str, Any] = {"status": "error", "error": error_msg}
         hook_input = AfterToolHookInput(
             agent_state=agent_state,
-            # sandbox 为 None：此时工具不存在或正在 shutdown，尚未进入 ToolExecutor，
-            # 无法也不需要获取 sandbox。当前所有 after_tool middleware（如
-            # LongToolOutputMiddleware）对短错误消息不会触及 sandbox 路径。
-            sandbox=None,
+            # ponytail: pass active sandbox from agent_state so after_tool middleware (e.g. LongToolOutputMiddleware) can persist/truncate
+            sandbox=agent_state.get_sandbox(),
             tool_name=tc.tool_name,
             tool_call_id=tc.tool_call_id or "",
             tool_input=tc.parameters,
@@ -2711,8 +2746,8 @@ class Executor:
     ) -> tuple[str, Any, bool]:
         """Safely execute a tool call.
 
-        RFC-0019: 每次 tool call 构造独立 FrameworkContext，
-        捕获 AskPermission / PermissionDenied 返回对应 Outcome。
+        RFC-0019:  tool call  FrameworkContext，
+         AskPermission / PermissionDenied  Outcome。
         """
         # Early check: emit error result event if tool is not registered.
         if self._tool_registry.get_tool(tool_call.tool_name) is None:
@@ -2782,32 +2817,32 @@ class Executor:
     def force_stop(self) -> None:
         """Force-stop the executor, breaking the team_mode forever-run loop.
 
-        RFC-0002: 强制停止 team_mode 下的永久运行循环
+        RFC-0002:  team_mode 
 
         Sets stop_signal and wakes the message wait so the loop exits immediately.
-        同时把停止信号递归下发到所有 running sub-agents 的 executor，避免父 stop
-        时子循环仍在跑（生产现象：sub-agent 跑完才停）。
+         running sub-agents  executor， stop
+        （：sub-agent ）。
         """
         self._force_stop(set())
 
     def _force_stop(self, visited_executor_ids: set[int]) -> None:
         """Force-stop this executor and propagate to running sub-agents.
 
-        RFC-0002: 递归停止 running sub-agents
+        RFC-0002:  running sub-agents
 
-        visited_executor_ids 防止异常 executor graph 出现环时递归爆栈。
+        visited_executor_ids exception executor graph 。
         """
         executor_id = id(self)
         if executor_id in visited_executor_ids:
             return
         visited_executor_ids.add(executor_id)
 
-        # 1. 本 executor 立即退出
+        # 1.  executor 
         self.stop_signal = True
         self._shutdown_event.set()
         self._message_available.set()
 
-        # 2. 向下传播到所有 running sub-agents；先取快照，避免 finally 路径 pop 时中断遍历。
+        # 2.  running sub-agents；， finally  pop 。
         for sub_agent in list(self.subagent_manager.running_sub_agents.values()):
             try:
                 sub_agent.executor._force_stop(visited_executor_ids)
@@ -2822,9 +2857,9 @@ class Executor:
         # Signal shutdown to prevent new tasks
         self._shutdown_event.set()
 
-        # RFC-0001: 释放 LLM 资源
-        # 1. shutdown(wait=False) 释放 middleware 路径的专用线程池
-        # 2. close() 关闭 sync/async HTTP client 连接池
+        # RFC-0001:  LLM 
+        # 1. shutdown(wait=False)  middleware 
+        # 2. close()  sync/async HTTP client 
         try:
             self.llm_caller.shutdown_thread_pool()
         except Exception as e:
@@ -2839,8 +2874,8 @@ class Executor:
 
         async_client = self.llm_caller.async_openai_client
         if async_client is not None:
-            # AsyncOpenAI/AsyncAnthropic.close() 是 coroutine，sync cleanup 无法 await。
-            # 释放引用让 GC 回收即可；async client 的连接会在析构时自动关闭。
+            # AsyncOpenAI/AsyncAnthropic.close()  coroutine，sync cleanup  await。
+            # GC ；async client 。
             self.llm_caller.async_openai_client = None
 
         # Shutdown subagent manager

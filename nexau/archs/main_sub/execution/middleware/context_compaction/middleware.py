@@ -63,7 +63,7 @@ _CONTEXT_OVERFLOW_MARKERS = (
     "input token count",
     "token limit exceeded",
     "context_length_exceeded",
-    # 兼容部分 OpenAI 兼容网关的 overflow 文案,例如:
+    # OpenAI  overflow ,:
     #   "The input (296915 tokens) is longer than the model's context length (262144 tokens)."
     "longer than the model",
     "model's context length",
@@ -107,7 +107,7 @@ class ContextCompactionMiddleware(Middleware):
         self._session_id: str | None = None
         self._global_storage: Any | None = None
 
-        # RFC-0021: 历史归档 (lazy 初始化, 首次有可归档消息时构造)
+        # RFC-0021: history archive (lazy , )
         self._archive_writer: HistoryArchiveWriter | None = None
 
         # Tracer span state for in-flight compaction (one compaction at a time)
@@ -147,7 +147,7 @@ class ContextCompactionMiddleware(Middleware):
         self.summary_api_key = self.summary_llm_config_overrides.get("api_key")
         self.summary_api_type = self.summary_llm_config_overrides.get("api_type")
 
-        # RFC-0021: 归档开关 (路径走常量, hint 启用归档即注入, 都不暴露成单独开关)
+        # RFC-0021:  (, hint , )
         self.save_history = config.save_history
 
         # Create strategies from config
@@ -358,7 +358,7 @@ class ContextCompactionMiddleware(Middleware):
         original_message_count: int,
         original_token_count: int | None,
     ) -> None:
-        # 1. 启动 tracer span（独立于 event emitter）
+        # 1.  tracer span（ event emitter）
         self._start_compaction_span(
             agent_state,
             phase,
@@ -368,7 +368,7 @@ class ContextCompactionMiddleware(Middleware):
             original_token_count,
         )
 
-        # 2. 发射事件（可能因缺少 emitter 提前返回）
+        # 2. （ emitter ）
         if self._event_emitter is None:
             return
         run_id = self._resolve_run_id(agent_state)
@@ -402,7 +402,7 @@ class ContextCompactionMiddleware(Middleware):
         error: str | None = None,
         fallback: bool = False,
     ) -> None:
-        # 1. 结束 tracer span（独立于 event emitter）
+        # 1.  tracer span（ event emitter）
         self._end_compaction_span(
             phase,
             mode,
@@ -415,7 +415,7 @@ class ContextCompactionMiddleware(Middleware):
             error,
         )
 
-        # 2. 发射事件（可能因缺少 emitter 提前返回）
+        # 2. （ emitter ）
         if self._event_emitter is None:
             return
         run_id = self._resolve_run_id(agent_state)
@@ -625,7 +625,7 @@ class ContextCompactionMiddleware(Middleware):
             )
             raise
 
-        # RFC-0021: 归档被移除的消息，并按需注入路径提示
+        # RFC-0021: ，
         after_tokens = self._estimate_tokens(compacted_messages)
         compacted_messages = self._maybe_archive_compaction(
             agent_state=hook_input.agent_state,
@@ -637,7 +637,7 @@ class ContextCompactionMiddleware(Middleware):
             strategy_name=self.compaction_strategy.name,
         )
 
-        # 检查 compaction strategy 是否使用了 hard truncation fallback
+        # compaction strategy  hard truncation fallback
         compaction_used_fallback = getattr(self.compaction_strategy, "last_compact_used_fallback", False)
 
         self._compact_count += 1
@@ -686,7 +686,7 @@ class ContextCompactionMiddleware(Middleware):
         base_llm_config = cast(LLMConfig, params.llm_config)
         summary_llm_config, summary_client = self._resolve_summary_runtime(base_llm_config, params.openai_client)
 
-        # RFC-0009: 传递 global_storage 以支持 Langfuse 追踪
+        # RFC-0009:  global_storage  Langfuse 
         gs = getattr(self, "_global_storage", None)
         if gs is None and params.agent_state is not None:
             gs = getattr(params.agent_state, "global_storage", None)
@@ -782,7 +782,7 @@ class ContextCompactionMiddleware(Middleware):
 
             after_tokens = self._estimate_tokens(compacted_messages, params.tools)
 
-            # RFC-0021: 紧急路径也归档（emergency strategy 名字单独标）
+            # RFC-0021: （emergency strategy ）
             emergency_strategy_name = self.emergency_compaction_strategy.name
             compacted_messages = self._maybe_archive_compaction(
                 agent_state=params.agent_state,
@@ -951,7 +951,7 @@ class ContextCompactionMiddleware(Middleware):
             raise
         compacted_tokens = self._estimate_tokens(compacted_messages)
 
-        # RFC-0021: 归档被移除的消息，并按需注入路径提示
+        # RFC-0021: ，
         compacted_messages = self._maybe_archive_compaction(
             agent_state=hook_input.agent_state,
             messages_before=messages,
@@ -963,7 +963,7 @@ class ContextCompactionMiddleware(Middleware):
         )
         compacted_message_count = len(compacted_messages)
 
-        # 检查 compaction strategy 是否使用了 hard truncation fallback
+        # compaction strategy  hard truncation fallback
         compaction_used_fallback = getattr(self.compaction_strategy, "last_compact_used_fallback", False)
 
         # Update statistics
@@ -1007,8 +1007,8 @@ class ContextCompactionMiddleware(Middleware):
     def _sync_strategy_global_storage(self, agent_state: Any | None) -> None:
         """Update the compaction strategy's global_storage from agent_state.
 
-        RFC-0009: 在运行时同步 global_storage 到 compaction strategy,
-        以支持 LLMCaller 的 Langfuse 追踪。
+        RFC-0009:  global_storage  compaction strategy,
+         LLMCaller  Langfuse 。
         """
         gs = self._global_storage
         if gs is None and agent_state is not None:
@@ -1016,11 +1016,11 @@ class ContextCompactionMiddleware(Middleware):
         if gs is None:
             return
 
-        # 1. 通过 SlidingWindowCompaction 的公开 API 同步
+        # 1.  SlidingWindowCompaction  API 
         strategy = self.compaction_strategy
         configure_fn = getattr(strategy, "configure_llm_runtime", None)  # noqa: B009 — duck-typing
         if callable(configure_fn):
-            # configure_llm_runtime 会设置 _global_storage 并刷新 LLMCaller
+            # configure_llm_runtime  _global_storage  LLMCaller
             base_cfg = getattr(strategy, "_base_llm_config", None)  # noqa: B009
             base_client = getattr(strategy, "_base_openai_client", None)  # noqa: B009
             session_id = getattr(strategy, "_session_id", None)  # noqa: B009
@@ -1038,7 +1038,7 @@ class ContextCompactionMiddleware(Middleware):
         return self.compaction_strategy.compact(messages)
 
     # ------------------------------------------------------------------
-    # RFC-0021: 历史归档辅助方法
+    # RFC-0021: history archivemethod
     # ------------------------------------------------------------------
 
     @staticmethod
@@ -1059,10 +1059,10 @@ class ContextCompactionMiddleware(Middleware):
         trigger_reason: str,
         strategy_name: str,
     ) -> list[Message]:
-        """RFC-0021: 计算 before/after 差集，把被移除消息写入 sandbox 归档。
+        """RFC-0021:  before/after ， sandbox 。
 
-        失败均静默 —— 归档异常绝不应中断压缩流程。
-        返回值：可能内嵌归档路径提示的 messages_after。
+        failure —— exception。
+        value： messages_after。
         """
         if not self.save_history or agent_state is None:
             return messages_after
@@ -1091,12 +1091,12 @@ class ContextCompactionMiddleware(Middleware):
         if meta is None:
             return messages_after
 
-        # RFC-0021: 归档启用就一定注入 hint, 否则 agent 不知道归档存在 (没有"档但
-        # 不告诉 agent"的真实场景)
+        # RFC-0021:  hint,  agent  ("
+        # agent")
         return self._inject_archive_hint(messages_after, meta)
 
     def _inject_archive_hint(self, messages: list[Message], meta: BoundaryRecord) -> list[Message]:
-        """把归档路径提示注入到 summary 消息末尾；若无 summary 则追加 framework 消息。"""
+        """ summary ； summary  framework 。"""
         if self._archive_writer is None:
             return messages
         messages = self._remove_existing_archive_hints(messages)
@@ -1110,12 +1110,12 @@ class ContextCompactionMiddleware(Middleware):
         for msg in messages:
             md = msg.metadata or {}
             if md.get("isSummary") is True or md.get("is_compacted") is True:
-                # 多数 LLM provider 序列化时把同一消息的多个 TextBlock 直接拼接,
-                # 不插入 separator —— 新 TextBlock 不是渲染边界。显式留两行让
-                # hint 在 trace / prompt 里独占段落。
+                # LLM provider  TextBlock ,
+                # separator ——  TextBlock 。
+                # hint  trace / prompt 。
                 msg.content.append(TextBlock(text="\n\n" + hint))
                 return messages
-        # 无 summary 消息（如 ToolResultCompaction 路径）：附加一条 framework 提示
+        # summary （ ToolResultCompaction ）： framework 
         framework_msg = Message(
             role=Role.FRAMEWORK,
             content=[TextBlock(text=hint)],

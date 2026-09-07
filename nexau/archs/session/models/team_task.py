@@ -14,7 +14,7 @@
 
 """Team task data models.
 
-RFC-0002: Agent Team 协作系统
+RFC-0002: Agent Team 
 
 Stores team tasks with priority, dependencies, and assignment.
 """
@@ -30,7 +30,7 @@ from sqlmodel import Column, Field, SQLModel
 class TeamTaskModel(SQLModel, table=True):
     """Team task model for tracking work items within a team.
 
-    RFC-0002: 团队任务模型
+    RFC-0002: 
 
     Attributes:
         user_id: User identifier (primary key).

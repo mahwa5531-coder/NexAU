@@ -57,13 +57,24 @@ def _get_diff_stat(original_content: str, new_content: str) -> dict[str, int]:
 
 
 def write_file(
-    file_path: str,
-    content: str,
+    file_path: str | None = None,
+    content: str | None = None,
     modified_by_user: bool = False,
     ai_proposed_content: str | None = None,
     agent_state: AgentState | None = None,
     *,
     ctx: FrameworkContext | None = None,
+    TargetFile: str | None = None,
+    CodeContent: str | None = None,
+    overwrite: bool | None = None,
+    Overwrite: bool | None = None,
+    description: str | None = None,
+    Description: str | None = None,
+    artifact_metadata: dict[str, Any] | None = None,
+    ArtifactMetadata: dict[str, Any] | None = None,
+    toolAction: str | None = None,
+    toolSummary: str | None = None,
+    **kwargs: Any,
 ) -> dict[str, Any]:
     """
     Writes content to a specified file in the local filesystem.
@@ -72,15 +83,19 @@ def write_file(
     stated in the response.
 
     Args:
-        file_path: The path to the file to write to
-        content: The content to write to the file
+        file_path: The path to the file to write to (or TargetFile)
+        content: The content to write to the file (or CodeContent)
         modified_by_user: Whether the proposed content was modified by the user
         ai_proposed_content: Initially proposed content (if modified_by_user is True)
 
     Returns:
         Dict with content and returnDisplay matching gemini-cli format
     """
-    # RFC-0019: 权限检查（在任何资源分配之前）
+    # ponytail: universal parameter alias normalization for cross-model resilience
+    file_path = TargetFile or file_path or ""
+    content = CodeContent if CodeContent is not None else (content if content is not None else "")
+
+    # RFC-0019: permission check
     if ctx is not None:
         check_path_permission(ctx, file_path)
 
@@ -114,10 +129,23 @@ def write_file(
                 },
             }
 
-        # Check if file exists for diff
+        # Check if file exists for diff and overwrite check
         file_exists = sandbox.file_exists(resolved_path)
         is_new_file = not file_exists
         original_content = ""
+
+        # Overwrite safety guard
+        overwrite_flag = kwargs.get("overwrite", True)
+        if file_exists and overwrite_flag is False:
+            error_msg = f"Target file already exists: {resolved_path}. Set 'overwrite: true' if you explicitly intend to overwrite."
+            return {
+                "content": error_msg,
+                "returnDisplay": "Error: File already exists.",
+                "error": {
+                    "message": error_msg,
+                    "type": "FILE_ALREADY_EXISTS",
+                },
+            }
 
         if file_exists:
             read_res = sandbox.read_file(resolved_path, encoding="utf-8", binary=False)
@@ -159,17 +187,23 @@ def write_file(
         if modified_by_user:
             llm_message += f" User modified the `content` to be: {content}"
 
+        display_payload: dict[str, Any] = {
+            "fileDiff": file_diff,
+            "fileName": Path(resolved_path).name,
+            "filePath": resolved_path,
+            "originalContent": original_content,
+            "newContent": final_content,
+            "diffStat": diff_stat,
+            "isNewFile": is_new_file,
+        }
+        if kwargs.get("artifact_metadata"):
+            display_payload["artifactMetadata"] = kwargs["artifact_metadata"]
+        if kwargs.get("description"):
+            display_payload["description"] = kwargs["description"]
+
         return {
             "content": llm_message,
-            "returnDisplay": {
-                "fileDiff": file_diff,
-                "fileName": Path(resolved_path).name,
-                "filePath": resolved_path,
-                "originalContent": original_content,
-                "newContent": final_content,
-                "diffStat": diff_stat,
-                "isNewFile": is_new_file,
-            },
+            "returnDisplay": display_payload,
         }
 
     except PermissionError:

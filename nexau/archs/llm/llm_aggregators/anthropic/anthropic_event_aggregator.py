@@ -6,7 +6,7 @@ into unified Event objects for the agent events middleware pipeline.
 ⚠️ PARITY PROTOCOL: This module has a twin in
 ``nexau/archs/main_sub/execution/llm_caller.py`` (``AnthropicStreamAggregator``)
 that parses the same wire format and MUST stay in lock-step until
-RFC-0023 §阶段 ③ retires the twin. Any change to this module's parsing or
+RFC-0023 § ③ retires the twin. Any change to this module's parsing or
 emission logic requires:
 
 1. Run ``uv run pytest tests/aggregator_parity/`` before commit.
@@ -108,7 +108,7 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
         self._tool_ended: dict[int, bool] = {}
         # Thinking state per index
         self._thinking_ids: dict[int, str] = {}
-        # Per-thinking-block metadata (RFC-0023 §阶段 ②) — captured during
+        # Per-thinking-block metadata (RFC-0023 § ②) — captured during
         # the stream, attached to ThinkingTextMessageEndEvent at block close.
         self._thinking_signatures: dict[int, str] = {}
         self._thinking_redacted_data: dict[int, str] = {}
@@ -116,7 +116,7 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
         # Buffer for input_json_delta fragments that arrive before content_block_start.
         # key = content-block index, value = list of non-empty partial_json strings.
         self._pending_tool_deltas: dict[int, list[str]] = {}
-        # Per-call metadata (RFC-0023 §阶段 ②) — captured across the stream,
+        # Per-call metadata (RFC-0023 § ②) — captured across the stream,
         # emitted as a single ModelCallFinishedEvent at message_stop.
         self._model_name: str | None = None
         self._model_call_id: str | None = None
@@ -131,7 +131,7 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
         # type strict as ``Usage`` instead of falling back to a dict.
         self._usage: AnthropicUsage | None = None
         # Per-block content accumulators for ``build() -> Message`` (RFC-0023
-        # §阶段 ③). Each entry is a strict SDK block type — pydantic v2
+        # § ③). Each entry is a strict SDK block type — pydantic v2
         # BaseModels are mutable so we can update fields as deltas arrive
         # without intermediate ``dict[str, object]`` plumbing. Mirrors the
         # OpenAI Chat aggregator's pattern of storing ``ChatCompletionChoice``
@@ -169,7 +169,7 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
     def build(self) -> AnthropicMessage:
         """Construct the final Anthropic Message from accumulated stream state.
 
-        RFC-0023 §阶段 ③ — Set A becomes the canonical aggregator. The
+        RFC-0023 § ③ — Set A becomes the canonical aggregator. The
         returned object is a strict ``anthropic.types.Message``; downstream
         code that wants a unified ``ModelResponse`` calls
         ``ModelResponse.from_anthropic_message(aggregator.build())``.
@@ -283,7 +283,7 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
             return
 
         self._message_id = message.id
-        # Capture per-call metadata for ModelCallFinishedEvent (RFC-0023 §阶段 ②)
+        # Capture per-call metadata for ModelCallFinishedEvent (RFC-0023 § ②)
         self._model_call_id = message.id
         self._model_name = message.model
         # ``event.message.usage`` is the SDK ``Usage`` (non-Optional). Copy
@@ -399,7 +399,7 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
                     input={},
                 )
             case AnthropicServerToolUseBlock():
-                # 服务端工具（web_search、code_execution 等）使用相同的 id/name 接口
+                # （web_search、code_execution ） id/name interface
                 self._register_tool_and_flush(idx, block.id, block.name)
                 self._active_payloads[idx] = block.model_copy()
             case AnthropicThinkingBlock():
@@ -461,7 +461,7 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
                 # Mark this index as a text block (covers the case where the
                 # corresponding content_block_start hasn't been processed yet).
                 self._block_types.setdefault(idx, "text")
-                # Retain content for build() (RFC-0023 §阶段 ③). Mutate the
+                # Retain content for build() (RFC-0023 § ③). Mutate the
                 # SDK TextBlock in place — pre-allocated here if the start
                 # event hasn't been processed.
                 existing = self._active_payloads.get(idx)
@@ -481,7 +481,7 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
                     return
                 tool_id = self._tool_ids.get(idx, "")
                 if tool_id:
-                    # 正常路径：content_block_start 已到达，直接发射事件
+                    # ：content_block_start ，
                     self._tool_args[idx] = self._tool_args.get(idx, "") + fragment
                     self._on_event(
                         ToolCallArgsEvent(
@@ -491,8 +491,8 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
                         )
                     )
                 else:
-                    # eager_input_streaming 下 delta 先于 content_block_start 到达，
-                    # 仅缓冲，等 start 带着真实 ID 到达后统一 flush。
+                    # eager_input_streaming  delta  content_block_start ，
+                    # ， start  ID  flush。
                     self._pending_tool_deltas.setdefault(idx, []).append(fragment)
             case ThinkingDelta(thinking=thinking):
                 if not thinking:
@@ -560,14 +560,14 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
         idx = event.index
         block_type = self._block_types.get(idx)
 
-        # 1. 有缓冲但 content_block_start 始终未到达 → 合成 ID 兜底后再关闭
+        # 1.  content_block_start  →  ID 
         if idx in self._pending_tool_deltas:
             self._flush_pending_with_synthetic(idx)
-            # tool 已注册，直接走下面的关闭分支
+            # tool ，
 
         if block_type in {"tool_use", "server_tool_use"} or (block_type is None and idx in self._tool_ids):
-            # tool_use / server_tool_use 共用同一收尾逻辑；
-            # block_type 为 None 说明 content_block_start 未到达但 delta 已注册了工具。
+            # tool_use / server_tool_use ；
+            # block_type  None  content_block_start  delta 。
             tool_id = self._tool_ids.get(idx)
             if not tool_id:
                 _logger.warning("Received content_block_stop for unknown tool at index %d", idx)
@@ -594,7 +594,7 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
                 )
             )
 
-        # Seal the in-flight payload (RFC-0023 §阶段 ③) — this finalizes
+        # Seal the in-flight payload (RFC-0023 § ③) — this finalizes
         # the block for build(). If the block is a tool, the input JSON
         # gets parsed here.
         self._seal_active_payload(idx)
@@ -638,7 +638,7 @@ class AnthropicEventAggregator(Aggregator[RawMessageStreamEvent, AnthropicMessag
                 timestamp=self._ts(),
             )
         )
-        # RFC-0023 §阶段 ② — emit per-call metadata as the closing event so
+        # RFC-0023 § ② — emit per-call metadata as the closing event so
         # consumers (parity tests, agent_events_middleware) get model_name /
         # stop_reason / model_call_id without peeking at Set B's ModelResponse.
         # Token usage is owned by ``UsageUpdateEvent`` (canonical TokenUsage).

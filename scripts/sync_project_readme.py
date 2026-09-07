@@ -10,27 +10,27 @@ PROJECT_ID = "PVT_kwDOCmnEdM4BQARn"
 
 REPO_META = {
     "nexau": {
-        "role": "NexAU 核心框架",
-        "dependency": "核心框架，其他两个 repo 依赖它",
+        "role": "NexAU ",
+        "dependency": "， repo ",
     },
     "nexau-cloud-runtime": {
-        "role": "Cloud 平台",
-        "dependency": "通过 git submodule 引用 `nexau`",
+        "role": "Cloud ",
+        "dependency": " git submodule  `nexau`",
     },
     "north-coder": {
-        "role": "桌面端编程助手",
-        "dependency": "backend 通过 pip 依赖引用 `nexau`",
+        "role": "",
+        "dependency": "backend  pip  `nexau`",
     },
 }
 
 VIEW_PURPOSE = {
-    "Backlog": "待排期 issue（`status:Backlog, no:iteration`）",
-    "Iteration board": "当前迭代看板，按 Status × Repo 看进展",
-    "Iteration table": "当前迭代列表，适合批量编辑",
-    "Roadmap": "按模块查看整体排期",
-    "My items": "个人任务视图",
-    "PR": "PR 追踪视图",
-    "数据局项目 MAP 平台融合": "特定项目路线图",
+    "Backlog": " issue（`status:Backlog, no:iteration`）",
+    "Iteration board": "， Status × Repo ",
+    "Iteration table": "，",
+    "Roadmap": "",
+    "My items": "",
+    "PR": "PR ",
+    " MAP ": "",
 }
 
 LAYOUT_NAME = {
@@ -40,16 +40,16 @@ LAYOUT_NAME = {
 }
 
 WORKFLOW_NOTE = {
-    "Auto-add nexau to project": "nexau 新 issue 自动入表",
-    "Auto-add nexau-cloud-runtime to project": "cloud-runtime 新 issue 自动入表",
-    "Auto-add nexau-coder to project": "north-coder 新 issue 自动入表",
-    "Auto-add Gitagents to project": "Gitagents 新 issue 自动入表",
-    "Auto-add sub-issues to project": "子 issue 自动入表",
-    "Item added to project": "新 item 默认设为 Backlog",
-    "Item reopened": "reopen 后自动设为 In progress",
-    "Pull request merged": "PR 合并后自动联动状态",
-    "Auto-close issue": "父 issue 自动关闭",
-    "Item closed": "关闭状态由 repo workflow 接管，避免把 `not_planned/duplicate` 误写成 Done",
+    "Auto-add nexau to project": "nexau  issue ",
+    "Auto-add nexau-cloud-runtime to project": "cloud-runtime  issue ",
+    "Auto-add nexau-coder to project": "north-coder  issue ",
+    "Auto-add Gitagents to project": "Gitagents  issue ",
+    "Auto-add sub-issues to project": " issue ",
+    "Item added to project": " item  Backlog",
+    "Item reopened": "reopen  In progress",
+    "Pull request merged": "PR ",
+    "Auto-close issue": " issue ",
+    "Item closed": " repo workflow ， `not_planned/duplicate`  Done",
 }
 
 WORKFLOW_ORDER = [
@@ -170,104 +170,104 @@ def render() -> str:
 
     return f"""# {project["title"]}
 
-NexAU 产品线统一研发看板，覆盖 `nexau` / `nexau-cloud-runtime` / `north-coder` 三个 repo 的 backlog、iteration、PR、roadmap 管理。
+NexAU ， `nexau` / `nexau-cloud-runtime` / `north-coder`  repo  backlog、iteration、PR、roadmap 。
 
-项目地址：<{project["url"]}>
+：<{project["url"]}>
 
-## 当前节奏
+## 
 
-- **当前 Sprint**：`{current_sprint}`
-- **下一个 Sprint**：`{next_sprint}`
-- **迭代节奏**：每周一个 Sprint（**周一 ~ 周日**）
+- ** Sprint**：`{current_sprint}`
+- ** Sprint**：`{next_sprint}`
+- ****： Sprint（** ~ **）
 
-## 关联仓库
+## 
 
-| Repo | 角色 | 最新 Tag | 依赖关系 |
+| Repo |  |  Tag |  |
 |------|------|----------|----------|
 {chr(10).join(repo_rows)}
 
-## 主要视图
+## 
 
-| # | View | Layout | 用途 |
+| # | View | Layout |  |
 |---|------|--------|------|
 {chr(10).join(view_rows)}
 
-## 字段约定
+## 
 
 ### Status
 
 `Backlog → Todo → In progress → Done / Blocked / Paused / Cancelled`
 
-- **Backlog**：待排期
-- **Todo**：已排入迭代，待开始
-- **In progress**：进行中
-- **Done**：已完成
-- **Blocked**：被依赖阻塞
-- **Paused**：主动暂停
-- **Cancelled**：明确不做 / 重复关闭
+- **Backlog**：
+- **Todo**：，
+- **In progress**：
+- **Done**：
+- **Blocked**：
+- **Paused**：
+- **Cancelled**： / 
 
-### Close reason → Status 映射
+### Close reason → Status 
 
 - `completed` → **Done**
 - `not_planned` → **Cancelled**
 - `duplicate` → **Cancelled**
 - `reopened` → **In progress**
 
-### 其他字段
+### 
 
-- **Iteration**：周维度 Sprint 字段
+- **Iteration**： Sprint 
 - **Priority**：P0 / P1 / P2 / P3
-- **Module**：按模块聚合 Roadmap 与统计
+- **Module**： Roadmap 
 
-## 自动化规则
+## 
 
-### Project 内置 Workflows
+### Project  Workflows
 
-| Workflow | 状态 | 动作 |
+| Workflow |  |  |
 |----------|------|------|
 {chr(10).join(workflow_rows)}
 
 ### Repo Actions Workflows
 
-#### 1. Backlog / Todo / Done 状态同步
-- 文件：`.github/workflows/project-auto-status.yml`
-- 触发：每 10 分钟轮询
-- 逻辑：
-  - issue 已分配 Iteration 且仍为 Backlog → 自动改为 Todo
-  - Todo 但 Iteration 被清空 → 自动改回 Backlog
-  - Project Status 已被手动设为 Done，但 issue 仍是 open → 自动 `close as completed`
+#### 1. Backlog / Todo / Done 
+- ：`.github/workflows/project-auto-status.yml`
+- ： 10 
+- ：
+  - issue  Iteration  Backlog →  Todo
+  - Todo  Iteration  →  Backlog
+  - Project Status  Done， issue  open →  `close as completed`
 
-#### 2. Close reason 自动映射状态
-- 文件：`.github/workflows/project-auto-status-on-close.yml`
-- 触发：`issues.closed`
-- 逻辑：
+#### 2. Close reason 
+- ：`.github/workflows/project-auto-status-on-close.yml`
+- ：`issues.closed`
+- ：
   - `completed` → Done
   - `not_planned` / `duplicate` → Cancelled
 
-#### 3. Milestone 自动管理
-- 文件：`.github/workflows/milestone-auto-manage.yml`
-- 触发：推送版本 tag
-- 逻辑：自动创建 / 关联 / 关闭 Milestone，并补下一个版本的 Milestone
+#### 3. Milestone 
+- ：`.github/workflows/milestone-auto-manage.yml`
+- ： tag
+- ： /  /  Milestone， Milestone
 
-## README 维护策略
+## README 
 
-- **每周五 22:00（Asia/Shanghai / UTC+8）**检查一次 Project README
-- 若 repo/tag、views、iteration 节奏、workflow 规则或模板发生变化，则自动更新 Project Settings 中的 README
-- README sync workflow 托管在 repo Actions 中执行
+- ** 22:00（Asia/Shanghai / UTC+8）** Project README
+-  repo/tag、views、iteration 、workflow ， Project Settings  README
+- README sync workflow  repo Actions 
 
-## Secrets / 运维注意事项
+## Secrets / 
 
-三个 repo 都需要配置：
+ repo ：
 
-| Secret | 说明 |
+| Secret |  |
 |--------|------|
-| `PROJECT_PAT` | 需要 `project` read/write 权限，用于 Project 字段更新与 README 同步 |
+| `PROJECT_PAT` |  `project` read/write ， Project  README  |
 
-如果发现「关闭 issue 后状态不对」或「自动化没生效」，优先检查：
+「 issue 」「」，：
 
-1. Project Settings → Workflows 中 **`Item closed`** 是否保持 **Disabled**
-2. 三个 repo 的 **`PROJECT_PAT`** 是否过期 / 权限不足
-3. 对应 workflow run 是否报 `Could not resolve to a node` / project permission 错误
+1. Project Settings → Workflows  **`Item closed`**  **Disabled**
+2.  repo  **`PROJECT_PAT`**  / 
+3.  workflow run  `Could not resolve to a node` / project permission 
 """
 
 

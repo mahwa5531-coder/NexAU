@@ -14,7 +14,7 @@
 
 """Team message injection middleware.
 
-RFC-0002: 迭代边界消息注入
+RFC-0002: 
 
 Injects pending team messages into agent history at iteration
 boundaries. Messages are pre-drained into a buffer by the AgentTeam
@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 class TeamMessageMiddleware(Middleware):
     """Injects pending team messages into agent history at iteration boundaries.
 
-    RFC-0002: 迭代边界消息注入
+    RFC-0002: 
 
     Messages are pre-drained into a buffer by the AgentTeam before each
     model call. The before_model hook reads from this buffer synchronously.
@@ -55,7 +55,7 @@ class TeamMessageMiddleware(Middleware):
     async def drain_inbox(self) -> None:
         """Pre-drain messages from DB into local buffer.
 
-        RFC-0002: 预拉取消息到本地缓冲
+        RFC-0002: cancel
 
         Called by AgentTeam before each iteration.
         """
@@ -64,7 +64,7 @@ class TeamMessageMiddleware(Middleware):
     def before_model(self, hook_input: BeforeModelHookInput) -> HookResult:
         """Inject buffered messages into history.
 
-        RFC-0002: 同步注入缓冲消息到历史
+        RFC-0002: 
         """
         if not self._pending:
             return HookResult.no_changes()

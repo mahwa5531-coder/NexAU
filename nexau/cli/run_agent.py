@@ -13,7 +13,7 @@
 
 """Cross-platform run-agent launcher.
 
-RFC-0019: CLI 入口与默认 PowerShell backend 闭环
+RFC-0019: CLI default PowerShell backend 
 
 Replaces the previous bash-only `run-agent` script with a Python launcher that
 works on Windows and Unix alike, verifies the default Windows shell backend,

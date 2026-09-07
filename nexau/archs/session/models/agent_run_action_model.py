@@ -20,7 +20,7 @@ session's messages state; the messages list is the fold-derived state. See
 full protocol design (RunActionType algebra, *Extra Pydantic typing,
 fold algorithm, protobuf-philosophy compatibility).
 
-action_type 值:
+action_type value:
 - APPEND      — incremental messages
 - UNDO        — revert to before a specific run_id
 - REPLACE     — full state replacement (user reset / debug / context compaction;
@@ -49,7 +49,7 @@ from .types import PydanticJson
 class RunActionType(StrEnum):
     """Run action operator tags. See RFC-0022 §6.1 for the reduction algebra.
 
-    **Forward-compat classification (RFC-0022 §设计原则 §6)**:
+    **Forward-compat classification (RFC-0022 § §6)**:
     - APPEND / REPLACE / UNDO: existing types from pre-Phase-1 era (handled
       by all SDK versions)
     - RUN_START / RUN_END: **Class A** (Reader-NOOP) — pre-Phase-1 SDKs
@@ -80,7 +80,7 @@ class RunActionType(StrEnum):
 #   future-added fields, new reader sees missing fields as None
 # - Body uses ``str`` instead of ``Literal[...]`` so unknown enum values
 #   don't break old SDKs reading new data; factory method sigs use
-#   Literal for write-side strict validation (双层防御)
+# Literal for write-side strict validation ()
 # - Business "required" enforced at factory layer, not protocol layer
 # ============================================================================
 
@@ -101,7 +101,7 @@ class AppendExtra(BaseModel):
     overlap, missing errored/paused/ask_input, mixed dimensions) and
     ``llm_call_id`` clashed with RFC-0023 ``ModelCallFinishedEvent.model_call_id``.
     Re-add when there's a concrete consumer + a settled design (see RFC-0022
-    §未解决问题).
+    §).
     """
 
     model_config = PROTOBUF_PHILOSOPHY
@@ -225,7 +225,7 @@ class UnknownReplaceVariant(_ReplaceVariantBase):
 
     Without this fallback, callable Discriminator returning a non-existent
     tag would raise ValidationError, making any new ``reason`` a Class C
-    silent-corruption hazard (RFC-0022 §设计原则 §6).
+    silent-corruption hazard (RFC-0022 § §6).
     """
 
     reason: str
@@ -294,7 +294,7 @@ class RunStartExtra(BaseModel):
     paid O(N²) snapshot-copy cost across all RUN_STARTs on every fold pass —
     far worse than the O(N) filter-and-re-fold fallback that's only paid when
     UNDO actually fires. Snapshot caching was removed; UNDO is always
-    filter-and-re-fold (RFC-0022 §Reduction 算法).
+    filter-and-re-fold (RFC-0022 §Reduction ).
 
     **Field history**: an early draft also reserved ``user_message_blocks``
     (rendering hint) and ``fresh_context`` (compaction-boundary flag) here.
@@ -347,7 +347,7 @@ class AgentRunActionModel(SQLModel, table=True):
     """Per-run history mutation record (append-only). See RFC-0022 §6.
 
     Each row represents one mutation on the session's messages state. The
-    messages list is recovered by ``fold(actions)`` (see RFC-0022 §Reduction 算法).
+    messages list is recovered by ``fold(actions)`` (see RFC-0022 §Reduction ).
     """
 
     __tablename__ = "agent_run_actions"  # type: ignore[assignment]
@@ -755,7 +755,7 @@ class AgentRunActionModel(SQLModel, table=True):
     ) -> AgentRunActionModel:
         """Create a RUN_START lifecycle marker.
 
-        reducer 在此处对当前 messages 状态拍快照(供未来 UNDO 使用)。
+        reducer  messages ( UNDO )。
         """
         extra = RunStartExtra(
             trace_id=trace_id,

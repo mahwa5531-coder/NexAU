@@ -67,10 +67,10 @@ def main():
         print("✓ Agent loaded successfully from YAML")
 
         print("\nTesting delegation with web research...")
-        # web_message = '做一个孙悟空介绍的的html网页'
+        # web_message = 'html'
         # web_message = "List all commits in https://github.com/nex-agi/bp-sandbox"
         # web_message = "Show me details of the skill `algorithmic-art`"
-        web_message = "请使用sub_deep_research_agent查一下北京和上海的天气"
+        web_message = "sub_deep_research_agent"
         print(f"\nUser: {web_message}")
         print("\nAgent Response:")
         print("-" * 30)

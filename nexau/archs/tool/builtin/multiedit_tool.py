@@ -86,7 +86,7 @@ def multiedit_tool(
     """
     start_time = time.time()
 
-    # RFC-0019: 路径级权限检查
+    # RFC-0019: permission check
     if ctx is not None:
         check_path_permission(ctx, file_path)
 

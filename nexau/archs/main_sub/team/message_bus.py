@@ -14,7 +14,7 @@
 
 """Team message bus for intra-team communication.
 
-RFC-0002: 队内消息总线
+RFC-0002: 
 
 Provides point-to-point and broadcast messaging between team agents,
 with persistent storage and delivery tracking.
@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 class TeamMessageBus:
     """DB-backed message bus for team agent communication.
 
-    RFC-0002: 队内消息投递
+    RFC-0002: 
 
     Messages are persisted to TeamMessageModel and delivered
     at iteration boundaries via TeamMessageMiddleware.
@@ -72,7 +72,7 @@ class TeamMessageBus:
     ) -> None:
         """Wire agent delivery so send/broadcast also enqueue messages.
 
-        RFC-0002: 消息投递回调注入
+        RFC-0002: 
 
         Args:
             deliver_message: (to_agent_id, content, from_agent_id) -> None
@@ -103,7 +103,7 @@ class TeamMessageBus:
     ) -> TeamMessageModel:
         """Send a point-to-point message and deliver to target agent.
 
-        RFC-0002: 发送点对点消息
+        RFC-0002: 
 
         Persists the message to DB, then enqueues it to the target agent
         via the delivery callback (if wired).
@@ -121,7 +121,7 @@ class TeamMessageBus:
         await self._engine.create(msg)
         logger.info(f"Message sent: {msg.message_id} from={from_agent_id} to={to_agent_id}")
 
-        # 通过 enqueue_message 唤醒目标 agent
+        # enqueue_message  agent
         if self._deliver_message is not None:
             self._deliver_message(to_agent_id, content, from_agent_id)
 
@@ -135,7 +135,7 @@ class TeamMessageBus:
     ) -> TeamMessageModel:
         """Broadcast a message to all teammates and deliver immediately.
 
-        RFC-0002: 广播消息
+        RFC-0002: 
 
         The broadcast message has to_agent_id=None.
         After persisting, enqueues the message to all teammates
@@ -154,7 +154,7 @@ class TeamMessageBus:
         await self._engine.create(msg)
         logger.info(f"Broadcast sent: {msg.message_id} from={from_agent_id}")
 
-        # 通过 enqueue_message 唤醒所有 teammate（排除发送者）
+        # enqueue_message  teammate（）
         if self._deliver_message is not None and self._get_broadcast_recipients is not None:
             for agent_id in self._get_broadcast_recipients():
                 if agent_id != from_agent_id:
@@ -165,12 +165,12 @@ class TeamMessageBus:
     async def drain(self, *, agent_id: str) -> list[TeamMessageModel]:
         """Fetch undelivered messages for agent, mark as delivered.
 
-        RFC-0002: 拉取未投递消息
+        RFC-0002: 
 
         Returns messages targeted to this agent (direct + broadcast,
         excluding self-sent broadcasts).
         """
-        # 1. 查找直接发给该 agent 的未投递消息
+        # 1.  agent 
         direct_msgs = await self._engine.find_many(
             TeamMessageModel,
             filters=AndFilter(
@@ -182,7 +182,7 @@ class TeamMessageBus:
             ),
         )
 
-        # 2. 查找广播消息（to_agent_id 为 None）
+        # 2. （to_agent_id  None）
         broadcast_msgs = await self._engine.find_many(
             TeamMessageModel,
             filters=AndFilter(
@@ -193,12 +193,12 @@ class TeamMessageBus:
                 ]
             ),
         )
-        # 过滤掉自己发送的广播
+        # 
         broadcast_msgs = [m for m in broadcast_msgs if m.from_agent_id != agent_id]
 
         all_msgs = direct_msgs + broadcast_msgs
 
-        # 3. 标记为已投递
+        # 3. 
         now = datetime.now()
         for msg in all_msgs:
             msg.delivered = True

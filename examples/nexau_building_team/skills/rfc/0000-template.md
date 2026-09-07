@@ -1,55 +1,55 @@
-# RFC-0000: [Agent 名称]
+# RFC-0000: [Agent ]
 
-- **状态**: draft | accepted | implemented | superseded | rejected
-- **优先级**: P0 | P1 | P2 | P3
-- **标签**: `agent`, `tool`, `skill`, 等
-- **Agent 角色**: Agent 角色名如 `multi-modal-extractor`, `ads-judger` 等
-- **创建日期**: YYYY-MM-DD
-- **更新日期**: YYYY-MM-DD
+- ****: draft | accepted | implemented | superseded | rejected
+- ****: P0 | P1 | P2 | P3
+- ****: `agent`, `tool`, `skill`, 
+- **Agent **: Agent  `multi-modal-extractor`, `ads-judger` 
+- ****: YYYY-MM-DD
+- ****: YYYY-MM-DD
 
-## 摘要
+## 
 
-一段话描述这个 Agent 的定位：它是谁、为谁服务、解决什么问题。
+ Agent ：、、。
 
-## 动机
+## 
 
-为什么需要构建这个 Agent？当前存在什么痛点或空白？
+ Agent？？
 
-## Agent 设计
+## Agent 
 
-### 定位与职责边界
+### 
 
-描述 Agent 的核心职责和能力边界：
+ Agent ：
 
-- **角色定义**: 这个 Agent 扮演什么角色？（如：代码审查专家、研究助手、运维工程师）
-- **目标用户**: 谁会使用这个 Agent？使用场景是什么？
-- **职责边界**: 这个 Agent 负责什么、不负责什么？明确划定能力范围。
+- ****:  Agent ？（：、、）
+- ****:  Agent？？
+- ****:  Agent 、？。
 
-> ⚠️ 只描述"是什么"和"为什么"，不要写具体的 YAML 配置或代码。
+> ⚠️ """"， YAML 。
 
-### System Prompt 设计原则
+### System Prompt 
 
-描述 system prompt 的设计思路，而非 prompt 本文：
+ system prompt ， prompt ：
 
-- **人设与语气**: Agent 应以什么身份和风格与用户交互？
-- **核心工作流**: Agent 的主要工作步骤是什么？（用自然语言描述流程逻辑，不写 prompt 原文）
-- **关键约束**: Agent 必须遵守哪些规则或限制？（如：必须先读文件再修改、不允许执行危险命令等）
-- **输出规范**: Agent 的输出应遵循什么格式或标准？
+- ****: Agent ？
+- ****: Agent ？（， prompt ）
+- ****: Agent ？（：、）
+- ****: Agent ？
 
-> ⚠️ 这里描述的是 prompt 的设计意图和原则，不是 prompt 的具体内容。实现阶段再根据这些原则编写实际 prompt。
+> ⚠️  prompt ， prompt 。 prompt。
 
-### 工具设计
+### 
 
-列出 Agent 需要的工具能力，以及选型理由：
+ Agent ，：
 
-#### Builtin 工具
+#### Builtin 
 
-列出计划使用的内置工具及选用原因：
+：
 
-| 工具 | 选用理由 |
+|  |  |
 |------|----------|
-| 例：`read_file` | Agent 需要读取用户指定的文件进行分析 |
-| 例：`run_shell_command` | Agent 需要执行构建命令验证结果 |
+| ：`read_file` | Agent  |
+| ：`run_shell_command` | Agent  |
 
 
 ### Builtin Tools Catalog
@@ -88,53 +88,53 @@
 | ask_user | `nexau.archs.tool.builtin.session_tools:ask_user` | `builtin_tools/tools/ask_user.tool.yaml` |
 
 
-#### 自定义工具（如需要）
+#### （）
 
-对于内置工具无法覆盖的能力，描述需要创建的自定义工具：
+，：
 
-| 工具名称 | 能力描述 | 为什么不能用 builtin |
+|  |  |  builtin |
 |----------|----------|---------------------|
-| 例：`query_database` | 查询项目数据库获取统计信息 | 内置工具没有数据库查询能力 |
+| ：`query_database` |  |  |
 
-> ⚠️ 只描述工具的能力和选型理由，不要写 tool YAML schema 或 Python 实现。
+> ⚠️ ， tool YAML schema  Python 。
 
-### Skills 设计（如需要）
+### Skills （）
 
-如果 Agent 需要 Skills，列出每个 Skill 的目的：
+ Agent  Skills， Skill ：
 
-| Skill 名称 | 目的 | 何时激活 |
+| Skill  |  |  |
 |------------|------|----------|
-| 例：`code-review` | 提供代码审查的最佳实践和检查清单 | 用户请求代码审查时 |
-| 例：`rfc` | 提供 RFC 模板和写作规范 | 用户需要撰写设计文档时 |
+| ：`code-review` |  |  |
+| ：`rfc` |  RFC  |  |
 
-> ⚠️ 只描述 Skill 的用途和触发条件，不要写 SKILL.md 的具体内容。
+> ⚠️  Skill ， SKILL.md 。
 
-## 权衡取舍
+## 
 
-### 考虑过的替代方案
+### 
 
-列出在设计过程中考虑过但未采用的方案，以及原因。例如：
+，。：
 
-- 为什么某个能力选择自定义工具而不是 builtin？
-- 为什么 prompt 采用某种工作流而不是另一种？
+-  builtin？
+-  prompt ？
 
-### 已知局限
+### 
 
-当前设计的已知缺点或限制。
+。
 
-## 验证标准
+## 
 
-描述如何判断这个 Agent 构建成功：
+ Agent ：
 
-- **功能验证**: 列出 Agent 应能完成的典型任务场景
-- **边界验证**: 列出 Agent 应正确拒绝或降级处理的场景
+- ****:  Agent 
+- ****:  Agent 
 
-> ⚠️ 描述验证场景，不要写测试代码。
+> ⚠️ ，。
 
-## 未解决的问题
+## 
 
-需要进一步讨论的设计问题。
+。
 
-## 参考资料
+## 
 
-相关链接、文档、已有 Agent 的参考。
+、、 Agent 。

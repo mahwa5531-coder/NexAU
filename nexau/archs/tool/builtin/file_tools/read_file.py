@@ -18,15 +18,13 @@ from nexau.archs.tool.builtin._sandbox_utils import get_sandbox, resolve_path
 
 logger = logging.getLogger(__name__)
 
-# Configuration constants matching gemini-cli
-DEFAULT_LINE_LIMIT = 2000
-MAX_LINE_LENGTH = 2000  # Truncate lines longer than this with '... [truncated]'
+# Configuration constants matching Antigravity / modern agent limits
+DEFAULT_LINE_LIMIT = 800  # 800 lines per view (SWE-agent / Antigravity standard)
+MAX_LINE_LENGTH = 1000  # Truncate lines longer than this with '... [truncated]'
 MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10MB
 
-# Total output budget — prevents 2000 lines × 2000 chars/line ≈ 4M chars from
-# blowing up the context window.  When exceeded, only the first lines that fit
-# within the budget are kept; the rest are truncated.
-MAX_TOTAL_OUTPUT_CHARS = 20_000
+# Total output budget — limits view window to 46KB (~11,500 tokens), preventing context bloat.
+MAX_TOTAL_OUTPUT_CHARS = 46_080
 
 # Audio extensions - returned as placeholder text (nexau has no AudioBlock)
 AUDIO_EXTENSIONS = {".mp3", ".wav", ".aiff", ".aac", ".ogg", ".flac"}
@@ -51,8 +49,6 @@ UNSUPPORTED_BINARY_EXTENSIONS = {
     ".pdf",
     ".doc",
     ".docx",
-    ".xls",
-    ".xlsx",
     ".ppt",
     ".pptx",
     ".odt",
@@ -121,7 +117,7 @@ def _head_truncate_lines(
     if total_chars <= max_chars:
         return lines, 0, 0
 
-    # 从头部按行累加，保留能放进预算的行
+    # ，
     head_count = 0
     head_chars = 0
     for line in lines:
@@ -131,7 +127,7 @@ def _head_truncate_lines(
         head_chars += cost
         head_count += 1
 
-    # 保证至少保留 1 行（单行超大时 head_count 可能为 0）
+    # 1 （ head_count  0）
     if head_count == 0 and n > 0:
         head_count = 1
         head_chars = len(lines[0])
@@ -195,6 +191,7 @@ def read_file(
     file_path: str,
     offset: int | None = None,
     limit: int | None = None,
+    sheet_name: str | None = None,
     agent_state: AgentState | None = None,
     enable_visual: bool = False,
     image_detail: str | None = None,
@@ -290,10 +287,14 @@ def read_file(
                 },
             }
 
+        ext = Path(resolved_path).suffix.lower()
+        is_tabular = ext in {".xlsx", ".xls", ".csv", ".tsv", ".parquet", ".ods"}
+        max_size = 2000 * 1024 * 1024 if is_tabular else MAX_FILE_SIZE_BYTES
+
         # Check file size
         file_size = int(info.size or 0)
-        if file_size > MAX_FILE_SIZE_BYTES:
-            error_msg = f"File too large ({file_size} bytes). Maximum size is {MAX_FILE_SIZE_BYTES} bytes."
+        if file_size > max_size:
+            error_msg = f"File too large ({file_size} bytes). Maximum size is {max_size} bytes."
             return {
                 "content": error_msg,
                 "returnDisplay": "File too large.",
@@ -305,14 +306,59 @@ def read_file(
 
         # Handle audio - return text placeholder
         if _is_audio_file(resolved_path):
-            ext = Path(resolved_path).suffix.lower()
             return {
                 "content": f"Read binary file ({ext}) - content not displayed to model",
                 "returnDisplay": f"Read {ext} file: {file_path}",
             }
 
+        # Handle Excel Spreadsheets (.xlsx, .xls)
+        if ext in [".xlsx", ".xls"]:
+            from nexau.ingestion_pipeline.excel_to_md import parse_excel_to_markdown
+
+            proj_id = None
+            sess_id = None
+            if agent_state:
+                ctx = getattr(agent_state, "context", None)
+                if ctx is not None:
+                    ctx_dict = getattr(ctx, "context", None) or (ctx if isinstance(ctx, dict) else {})
+                    proj_id = ctx_dict.get("project_id")
+                    sess_id = ctx_dict.get("session_id")
+
+            parsed_md = parse_excel_to_markdown(
+                resolved_path,
+                project_id=proj_id,
+                session_id=sess_id,
+                sheet_name=sheet_name,
+            )
+            return {
+                "content": parsed_md,
+                "returnDisplay": f"Read Excel workbook ({ext}): {Path(file_path).name}",
+            }
+
+        # Handle CSV / TSV files (.csv, .tsv)
+        if ext in [".csv", ".tsv"]:
+            from nexau.ingestion_pipeline.csv_to_md_parquet import parse_csv_to_markdown
+
+            proj_id = None
+            sess_id = None
+            if agent_state:
+                ctx = getattr(agent_state, "context", None)
+                if ctx is not None:
+                    ctx_dict = getattr(ctx, "context", None) or (ctx if isinstance(ctx, dict) else {})
+                    proj_id = ctx_dict.get("project_id")
+                    sess_id = ctx_dict.get("session_id")
+
+            parsed_md = parse_csv_to_markdown(
+                resolved_path,
+                project_id=proj_id,
+                session_id=sess_id,
+            )
+            return {
+                "content": parsed_md,
+                "returnDisplay": f"Read CSV dataset ({ext}): {Path(file_path).name}",
+            }
+
         # Reject known binary types that cannot be read as text (avoids UnicodeDecodeError)
-        ext = Path(resolved_path).suffix.lower()
         if ext in UNSUPPORTED_BINARY_EXTENSIONS:
             error_msg = f"File type {ext} is binary and cannot be read as text: {file_path}"
             return {

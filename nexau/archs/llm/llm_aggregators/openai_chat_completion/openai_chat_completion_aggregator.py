@@ -9,7 +9,7 @@ Qwen / vLLM (``reasoning_content`` flat, ``reasoning_details`` structured,
 ⚠️ PARITY PROTOCOL: This module has a twin in
 ``nexau/archs/main_sub/execution/llm_caller.py``
 (``OpenAIChatStreamAggregator``) that MUST stay in lock-step until
-RFC-0023 §阶段 ③ retires the twin. Any change to this module's parsing
+RFC-0023 § ③ retires the twin. Any change to this module's parsing
 or emission logic requires:
 
 1. Run ``uv run pytest tests/aggregator_parity/`` before commit.
@@ -157,7 +157,7 @@ class OpenAIChatCompletionAggregator(Aggregator[ChatCompletionChunk, ChatComplet
         Raises:
             RuntimeError: If no valid chunks were received
         """
-        # RFC-0023 §阶段 ② — emit per-call metadata BEFORE choice validation.
+        # RFC-0023 § ② — emit per-call metadata BEFORE choice validation.
         # If the stream only contained reasoning_content (DeepSeek + logprobs),
         # _choice_aggregators may still be empty but the call did happen and
         # downstream consumers (parity tests, agent_events_middleware) need
@@ -178,7 +178,7 @@ class OpenAIChatCompletionAggregator(Aggregator[ChatCompletionChunk, ChatComplet
         return self._value.model_copy(deep=True)
 
     def _emit_metadata_event(self) -> None:
-        """RFC-0023 §阶段 ② — emit ModelCallFinishedEvent once per call.
+        """RFC-0023 § ② — emit ModelCallFinishedEvent once per call.
 
         Token usage is owned by ``UsageUpdateEvent`` (canonical normalized form).
         """
@@ -269,11 +269,11 @@ class _ChoiceAggregator(Aggregator[ChatCompletionChunkChoice, ChatCompletionChoi
             logprobs=None,
         )
         self._started = False
-        # Thinking (reasoning_content) state — 非标准字段，部分 OpenAI-compatible 提供商使用
+        # Thinking (reasoning_content) state — ， OpenAI-compatible 
         self._thinking_message_id: str | None = None
         self._thinking_started = False
         self._thinking_ended = False
-        # Retain reasoning text + details for build() (RFC-0023 §阶段 ③).
+        # Retain reasoning text + details for build() (RFC-0023 § ③).
         # Two parallel wire formats from OpenAI-compatible providers:
         #   - reasoning_content (str): DeepSeek / Qwen / vLLM
         #   - reasoning_details (list[dict]): OpenRouter
@@ -314,13 +314,13 @@ class _ChoiceAggregator(Aggregator[ChatCompletionChunkChoice, ChatCompletionChoi
                 )
             )
 
-        # Reasoning content — 非标准字段（实施标准），DeepSeek/Qwen/vLLM 等 provider 使用
-        # OpenAI SDK 将未知字段放入 model_extra（ChoiceDelta 配置 extra='allow'）
+        # Reasoning content — （），DeepSeek/Qwen/vLLM  provider 
+        # OpenAI SDK  model_extra（ChoiceDelta configuration extra='allow'）
         self._aggregate_reasoning(delta)
 
         # Aggregate content
         if delta.content:
-            # 收到正式内容意味着推理结束，先关闭 thinking message
+            # ， thinking message
             self._end_thinking_if_needed()
             self._value.message.content = (self._value.message.content or "") + delta.content
             # Emit TextMessageContentEvent
@@ -367,7 +367,7 @@ class _ChoiceAggregator(Aggregator[ChatCompletionChunkChoice, ChatCompletionChoi
 
         # Emit message end event when choice is complete
         if item.finish_reason is not None:
-            # 若 provider 只返回 reasoning_content 就结束（无正式内容），在此兜底关闭 thinking
+            # provider  reasoning_content （）， thinking
             self._end_thinking_if_needed()
             # Ensure all tool calls have emitted their start+end events
             for aggregator in self._tool_call_aggregators.values():
@@ -430,7 +430,7 @@ class _ChoiceAggregator(Aggregator[ChatCompletionChunkChoice, ChatCompletionChoi
         # Set tool calls with type assertion to handle union type
         self._value.message.tool_calls = built_tool_calls
 
-        # Attach reasoning fields (RFC-0023 §阶段 ③). ChatCompletionMessage
+        # Attach reasoning fields (RFC-0023 § ③). ChatCompletionMessage
         # is an OpenAI SDK Pydantic model with extra="allow", so non-standard
         # provider extension fields ride along through model_dump and are
         # picked up by ModelResponse.from_openai_message via getattr.
@@ -498,7 +498,7 @@ class _ChoiceAggregator(Aggregator[ChatCompletionChunkChoice, ChatCompletionChoi
 
     def _aggregate_reasoning(self, delta: ChoiceDelta) -> None:
         """Emit Thinking* events for reasoning_content deltas."""
-        # Retain raw reasoning fields for build() (RFC-0023 §阶段 ③).
+        # Retain raw reasoning fields for build() (RFC-0023 § ③).
         extra = delta.model_extra or {}
         # Bare ``reasoning`` (Step) — store under the same canonical
         # ``reasoning_content`` slot on the built message. Downstream
@@ -530,7 +530,7 @@ class _ChoiceAggregator(Aggregator[ChatCompletionChunkChoice, ChatCompletionChoi
         if not reasoning_delta:
             return
         if self._thinking_ended:
-            # 推理块已关闭后再收到 reasoning_content 属于 provider 异常，忽略即可
+            # reasoning_content  provider exception，
             return
         if not self._thinking_started:
             self._thinking_started = True
@@ -659,8 +659,8 @@ class _ToolCallAggregator(Aggregator[ChoiceDeltaToolCall, ChatCompletionMessageT
                         timestamp=int(datetime.now().timestamp() * 1000),
                     )
                 )
-                # 之前缓存的 args delta（在 START 之前到达的 id+arguments
-                # chunk）一次性补发，保持事件流"START → ARGS …"顺序。
+                # args delta（ START  id+arguments
+                # chunk），"START → ARGS …"。
                 if self._pending_args:
                     flushed = "".join(self._pending_args)
                     self._pending_args.clear()
@@ -678,7 +678,7 @@ class _ToolCallAggregator(Aggregator[ChoiceDeltaToolCall, ChatCompletionMessageT
             if fn.arguments:
                 self._value.function.arguments += fn.arguments
                 if self._started:
-                    # 正常路径：name 已知，直接发 ARGS。
+                    # ：name ， ARGS。
                     self._on_event(
                         ToolCallArgsEvent(
                             tool_call_id=self._value.id,
@@ -687,8 +687,8 @@ class _ToolCallAggregator(Aggregator[ChoiceDeltaToolCall, ChatCompletionMessageT
                         )
                     )
                 else:
-                    # name 还没到（部分 provider 把 name 放在后续 chunk）。
-                    # 缓存 delta，等 START 发出时一起 flush。
+                    # name （ provider  name  chunk）。
+                    # delta， START  flush。
                     self._pending_args.append(fn.arguments)
                 # Update JSON state regardless — tracks bracket-balanced JSON
                 # against the accumulated `_value.function.arguments`.
@@ -730,7 +730,7 @@ class _ToolCallAggregator(Aggregator[ChoiceDeltaToolCall, ChatCompletionMessageT
                     timestamp=int(datetime.now().timestamp() * 1000),
                 )
             )
-            # 兜底路径下 args 通常已通过缓存累积；START 后一次性补发。
+            # args ；START 。
             if self._pending_args:
                 flushed = "".join(self._pending_args)
                 self._pending_args.clear()

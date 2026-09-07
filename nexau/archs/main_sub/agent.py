@@ -14,11 +14,11 @@
 
 """Agent container and runtime wiring for NexAU.
 
-RFC-0006: Agent 层持有 neutral structured tool definitions
+RFC-0006: Agent  neutral structured tool definitions
 
-Agent 在 structured 模式下负责把 Tool / SubAgent 归一化为 neutral
-structured definitions；真正的 provider-specific payload 由 LLMCaller 在边界
-按 ``llm_config.api_type`` 延迟适配。
+Agent  structured  Tool / SubAgent  neutral
+structured definitions； provider-specific payload  LLMCaller 
+ ``llm_config.api_type`` 。
 """
 
 import asyncio
@@ -144,8 +144,8 @@ class Agent:
         self._variables = variables
         self._team_state = team_state
         self._shared_sandbox_manager = sandbox_manager
-        self._user_id = user_id or f"local_user_{uuid.uuid4().hex[:8]}"
-        self._session_id = session_id or f"local_{uuid.uuid4().hex[:8]}"
+        self._user_id = user_id or f"user_{uuid.uuid4().hex[:8]}"
+        self._session_id = session_id or str(uuid.uuid4())
 
         # Initialize session_manager
         if session_manager is not None:
@@ -177,11 +177,11 @@ class Agent:
         # YAML-created ones.
         self.exec_config = ExecutionConfig.from_agent_config(self.config)
 
-        # 1. RFC-0006: 统一 Python / YAML 入口的 tool_call_mode 语义，并收敛 legacy alias。
+        # 1. RFC-0006:  Python / YAML  tool_call_mode ， legacy alias。
         self.tool_call_mode = normalize_tool_call_mode(self.exec_config.tool_call_mode)
         self.use_structured_tool_calls = self.tool_call_mode in STRUCTURED_TOOL_CALL_MODES
         if self.use_structured_tool_calls:
-            # 2. RFC-0006: structured provider 目标由 api_type 决定，而不是由 tool_call_mode 决定。
+            # 2. RFC-0006: structured provider  api_type ， tool_call_mode 。
             resolve_structured_provider_target(self.config.llm_config.api_type if self.config.llm_config else None)
 
         # Initialize services
@@ -189,8 +189,8 @@ class Agent:
         self.openai_client = openai_client if openai_client is not None else self._initialize_openai_client()
         self._async_openai_client = self._initialize_async_openai_client()
 
-        # 为 OpenAI Responses API 注入 prompt_cache_key，在代理上启用 prompt 缓存。
-        # 每个 agent 生命周期使用固定的 key（跨轮次不变），不同 agent 使用不同 key。
+        # OpenAI Responses API  prompt_cache_key， prompt 。
+        # agent  key（）， agent  key。
         if self.config.llm_config and self.config.llm_config.api_type == "openai_responses":
             if not self.config.llm_config.get_param("prompt_cache_key"):
                 cache_key = str(uuid.uuid4())
@@ -213,7 +213,7 @@ class Agent:
         if skill_tool is not None:
             skill_tools.append(skill_tool)
 
-        # RFC-0005: 构建 ToolRegistry，支持 deferred loading
+        # RFC-0005:  ToolRegistry， deferred loading
         self._tool_registry = ToolRegistry()
         self._tool_registry.add_source("config", configured_tools)
         if mcp_tools:
@@ -221,8 +221,8 @@ class Agent:
         if skill_tools:
             self._tool_registry.add_source("builtin", skill_tools)
 
-        # RFC-0005: 仅在存在 deferred 工具时注册 ToolSearch 内置工具
-        # 没有 deferred 工具时不暴露 ToolSearch，避免模型 payload 中出现无用工具
+        # RFC-0005:  deferred  ToolSearch 
+        # deferred  ToolSearch， payload 
         if self._tool_registry.deferred_count > 0:
             tool_search_tool = Tool.from_yaml(
                 str(nexau_package_path / "archs" / "tool" / "builtin" / "schemas" / "ToolSearch.tool.yaml"),
@@ -259,16 +259,16 @@ class Agent:
             agent_name=self.agent_name,
         )
 
-        # RFC-0009: 跨 run 延续的 token trace session
+        # RFC-0009:  run  token trace session
         self._token_trace_session: TokenTraceSession | None = None
 
-        # RFC-0001: 最近一次 run 的 context 引用，供 interrupt() 持久化使用
+        # RFC-0001:  run  context ， interrupt() 
         self._last_context: dict[str, Any] = {}
 
-        # RFC-0001: 标记 _run_async_inner 是否已完成（含 history 更新）
-        # asyncio.Event 只能在同一事件循环中使用，interrupt() 和 run_async 共享同一循环
+        # RFC-0001:  _run_async_inner completed（ history ）
+        # asyncio.Event ，interrupt()  run_async 
         self._run_complete: asyncio.Event = asyncio.Event()
-        self._run_complete.set()  # 初始状态：未运行
+        self._run_complete.set()  # ：
 
         # Queue for messages to be processed in the next execution cycle
         self.queued_messages: list[Message] = []
@@ -306,22 +306,22 @@ class Agent:
 
         All parameters are identical to ``Agent.__init__``.
         """
-        # 1. 暂存 session_manager，用 _DEFERRED_INIT sentinel 跳过 sync init
+        # 1.  session_manager， _DEFERRED_INIT sentinel  sync init
         sm = session_manager
         if sm is None:
             default_engine = InMemoryDatabaseEngine.get_shared_instance()
             sm = SessionManager(engine=default_engine)
 
-        # 2. 构造实例：传 _skip_sync_init=True 来跳过 __init__ 中的 sync session 初始化
-        #    由于 __init__ 不支持该参数，我们用 object.__new__ + 手动初始化
-        #    ... 这太脆弱了。更好的方式：在线程中构造 Agent（与 transport 现在做法一致）
-        #    然后在 create 中做 async session init。
-        #    但实际上，我们可以直接在无 running loop 的线程中构造 Agent。
-        #    不过更干净的方式是：在 __init__ 中检测到 async context 时跳过 session init，
-        #    然后在 create() 中做 async init。
+        # 2. ： _skip_sync_init=True  __init__  sync session 
+        # __init__ ， object.__new__ + 
+        # ... 。： Agent（ transport ）
+        # create  async session init。
+        # ， running loop  Agent。
+        # ： __init__  async context  session init，
+        # create()  async init。
 
-        # 为了避免侵入 __init__ 过深，使用 thread-local flag 作为信号
-        # (线程安全: 不同请求的 Agent.create() 不会互相干扰)
+        # __init__ ， thread-local flag 
+        # (:  Agent.create() )
         cls._create_flag.skip = True
         try:
             instance = cls(
@@ -340,7 +340,7 @@ class Agent:
         finally:
             cls._create_flag.skip = False
 
-        # 3. 异步执行 session 初始化
+        # 3. asynchronous execution session 
         storage, resolved_agent_id = await instance._init_session_state_async(
             provided_storage=global_storage,
             proposed_agent_id=agent_id,
@@ -349,14 +349,14 @@ class Agent:
         instance.agent_id = resolved_agent_id
         instance.agent_name = instance.config.name or resolved_agent_id
 
-        # 3.5 P1 async/sync 技术债修复: async MCP 初始化
-        # __init__ 中 MCP 初始化被跳过（create_flag.skip=True），
-        # 在此异步完成 MCP 工具发现和注册。
+        # 3.5 P1 async/sync : async MCP 
+        # __init__  MCP （create_flag.skip=True），
+        # completed MCP 。
         if instance.config.mcp_servers:
             mcp_tools = await instance._initialize_mcp_tools_async()
             if mcp_tools:
                 instance._tool_registry.add_source("mcp", mcp_tools)
-                # 重建 structured tool payload 以包含 MCP 工具
+                # structured tool payload package MCP 
                 instance.executor.update_structured_tools(instance._build_tool_call_payload())
                 logger.info(
                     "Registered %d MCP tools via async init (total: %d eager, %d deferred)",
@@ -365,8 +365,8 @@ class Agent:
                     instance._tool_registry.deferred_count,
                 )
 
-        # 4. 重新设置依赖 agent_id/global_storage 的组件
-        # Issue #431: 统一重新注入所有瞬态状态（tracer + skill_registry 等）
+        # 4.  agent_id/global_storage 
+        # Issue #431: （tracer + skill_registry ）
         instance._reinject_transient_state()
         instance._rebuild_executor_with_resolved_id()
 
@@ -535,13 +535,13 @@ class Agent:
     def _reinject_transient_state(self) -> None:
         """Re-inject non-serializable runtime state after storage swap.
 
-        Issue #431: Agent.create() 用 session 恢复的 storage 替换 __init__ 中的
-        临时 storage，导致瞬态状态丢失。
-        此方法将所有瞬态状态统一重新注入，未来新增瞬态 key 只需在此维护。
+        Issue #431: Agent.create()  session  storage  __init__ 
+         storage，。
+        method， key 。
 
-        Note: skill_registry 已移至 AgentState（per-agent），不再写入 global_storage。
+        Note: skill_registry  AgentState（per-agent）， global_storage。
         """
-        # 1. 重新注入 tracer（已有逻辑）
+        # 1.  tracer（）
         self._setup_tracer()
 
     @classmethod
@@ -604,7 +604,7 @@ class Agent:
         llm_config = self.config.llm_config or LLMConfig()
 
         try:
-            if llm_config.api_type in {"gemini_rest", "generate_with_token"}:
+            if llm_config.api_type in {"gemini_rest", "google_genai", "generate_with_token"}:
                 return None
             if llm_config.api_type == "anthropic_chat_completion":
                 client_kwargs = llm_config.to_client_kwargs()
@@ -620,13 +620,13 @@ class Agent:
     def _initialize_async_openai_client(self) -> Any:
         """Initialize async OpenAI/Anthropic client for native async LLM calls.
 
-        async/sync 技术债修复: 创建 AsyncOpenAI / AsyncAnthropic 客户端，
-        使 call_llm_async 路径直接 await 而非 to_thread 桥接。
+        async/sync :  AsyncOpenAI / AsyncAnthropic ，
+         call_llm_async  await  to_thread 。
         """
         llm_config = self.config.llm_config or LLMConfig()
 
         try:
-            if llm_config.api_type in {"gemini_rest", "generate_with_token"}:
+            if llm_config.api_type in {"gemini_rest", "google_genai", "generate_with_token"}:
                 return None
             if llm_config.api_type == "anthropic_chat_completion":
                 client_kwargs = llm_config.to_client_kwargs()
@@ -642,11 +642,11 @@ class Agent:
     def _initialize_mcp_tools(self) -> list[Tool]:
         """Initialize tools from MCP servers.
 
-        P1 async/sync 技术债修复: async context 下跳过 sync MCP 初始化
+        P1 async/sync : async context  sync MCP 
 
-        当通过 Agent.create() 构造时（create_flag.skip=True），
-        跳过 sync MCP 初始化，返回空列表。Agent.create() 会在之后
-        通过 _initialize_mcp_tools_async() 异步完成 MCP 初始化。
+         Agent.create() （create_flag.skip=True），
+         sync MCP ，list。Agent.create() 
+         _initialize_mcp_tools_async() completed MCP 。
         """
         # async factory path: defer MCP init to Agent.create()
         if self.__class__._is_skip_sync_session_init():
@@ -679,10 +679,10 @@ class Agent:
     async def _initialize_mcp_tools_async(self) -> list[Tool]:
         """Initialize tools from MCP servers asynchronously.
 
-        P1 async/sync 技术债修复: async MCP 初始化路径
+        P1 async/sync : async MCP 
 
-        由 Agent.create() 调用，直接使用 async initialize_mcp_tools()，
-        在主事件循环上执行 MCP 服务器连接和工具发现，避免创建临时 event loop。
+         Agent.create() ， async initialize_mcp_tools()，
+         MCP ， event loop。
         """
         try:
             from ..tool.builtin import initialize_mcp_tools
@@ -711,13 +711,13 @@ class Agent:
     def _build_tool_call_payload(self) -> list[StructuredToolDefinition]:
         """Build neutral structured tool definitions for the active runtime.
 
-        RFC-0006: Agent 仅缓存 neutral structured definitions
+        RFC-0006: Agent  neutral structured definitions
 
-        structured 模式下，Agent 为 Tool 生成 neutral definitions；
-        provider-specific OpenAI / Anthropic / Gemini schema 在发请求前再适配。
+        structured ，Agent  Tool  neutral definitions；
+        provider-specific OpenAI / Anthropic / Gemini schema 。
 
-        RFC-0015: Agent 作为普通 builtin tool 在 AgentConfig._finalize() 中注册，
-        不再需要单独生成虚拟工具定义。
+        RFC-0015: Agent  builtin tool  AgentConfig._finalize() ，
+        。
         """
 
         if not self.use_structured_tool_calls:
@@ -725,7 +725,7 @@ class Agent:
 
         tools_spec: list[StructuredToolDefinition] = []
 
-        # 1. 从当前 ToolRegistry 读取所有 eager tool（含 builtin / MCP / LoadSkill / ToolSearch / Agent）。
+        # 1.  ToolRegistry  eager tool（ builtin / MCP / LoadSkill / ToolSearch / Agent）。
         for tool in self._tool_registry.compute_eager_tools():
             tools_spec.append(
                 tool.to_structured_definition(
@@ -807,19 +807,19 @@ class Agent:
             merged_envs = {**sandbox_config.envs, **self._variables.sandbox_env}
             sandbox_config = sandbox_config.model_copy(update={"envs": merged_envs})
 
-        # 回写 typed config，确保后续代码可以直接访问 typed 属性
+        # typed config， typed property
         self.config.sandbox_config = sandbox_config
 
-        # Local sandbox 共享文件系统，skill 文件夹直接可访问，无需上传
+        # Local sandbox ，skill ，
         self._is_local_sandbox = isinstance(sandbox_config, LocalSandboxConfig)
 
         if self._shared_sandbox_manager is not None:
-            # 共享模式：使用外部注入的 sandbox_manager（Team 或 caller-owned sub-agent 场景）
+            # ： sandbox_manager（Team  caller-owned sub-agent ）
             self.sandbox_manager: BaseSandboxManager[BaseSandbox] = self._shared_sandbox_manager
             self._is_local_sandbox = isinstance(self.sandbox_manager, LocalSandboxManager)
-            # 不注册 cleanup_manager，由外部 owner 统一管理生命周期
+            # cleanup_manager， owner 
         else:
-            # 独立模式：创建独立 sandbox_manager
+            # ： sandbox_manager
             if isinstance(sandbox_config, E2BSandboxConfig):
                 self.sandbox_manager = E2BSandboxManager(
                     work_dir=sandbox_config.work_dir,
@@ -838,12 +838,12 @@ class Agent:
                 user_id=self._user_id,
                 session_id=self._session_id,
                 sandbox_config=sandbox_config,
-                upload_assets=[],  # upload assets 统一在下方注册
+                upload_assets=[],  # upload assets 
             )
 
             cleanup_manager.register_sandbox_manager(self.sandbox_manager)
 
-        # 远程 sandbox 需要上传 skill 文件夹；local sandbox 共享文件系统，跳过
+        # sandbox  skill ；local sandbox ，
         if not self._is_local_sandbox:
             upload_assets = self._build_skill_upload_assets()
             self.sandbox_manager.add_upload_assets(upload_assets)
@@ -870,7 +870,7 @@ class Agent:
         existing_skill_names: set[str] = set()
 
         for skill in self.config.skills:
-            # Local sandbox 共享文件系统，保留原始路径；远程 sandbox 需要映射到 sandbox 内路径
+            # Local sandbox ，； sandbox  sandbox 
             if skill.folder and not self._is_local_sandbox:
                 sandbox_folder = self._sandbox_skill_folder(skill.folder)
             else:
@@ -1019,21 +1019,21 @@ class Agent:
         Args:
             run_id: Run ID for this execution (generated by run_async)
         """
-        # #601 入口硬闸:用户直传消息里的超限图(>20MiB 字节等效 / >60MP)
-        # 直接拒绝、不进 history —— 直传方收到明确错误可压缩后重试,而不是
-        # 图片被持久化兜底 omit 成占位符后无声消失。工具产出的图不走此闸
-        # (读路径的强制压缩负责)。
+        # #601 :(>20MiB  / >60MP)
+        # 、 history —— errorretry,
+        # omit 。
+        # ()。
         if isinstance(message, list):
             ensure_inbound_images_within_limits(message)
 
-        # RFC-0001: 标记 run 开始，interrupt() 会等待此事件
+        # RFC-0001:  run ，interrupt() 
         self._run_complete.clear()
 
-        # async/sync 技术债修复: lazy re-init async client（上次 run 结束时已 close）
+        # async/sync : lazy re-init async client（ run  close）
         if self.executor.llm_caller.async_openai_client is None:
             self.executor.llm_caller.async_openai_client = self._initialize_async_openai_client()
 
-        # RFC-0019: 硬拦 — 未决权限请求时禁止启动新 run
+        # RFC-0019:  —  run
         pending = await self._session_manager.get_pending_tool_calls(
             user_id=self._user_id,
             session_id=self._session_id,
@@ -1070,7 +1070,12 @@ class Agent:
             sandbox_instance,
             working_directory=getattr(self.sandbox_manager, "work_dir", None),
         )
-        initial_context = {**runtime_context, **(self.config.initial_context or {})}
+        initial_context = {
+            "session_id": self._session_id,
+            "user_id": self._user_id,
+            **runtime_context,
+            **(self.config.initial_context or {}),
+        }
         merged_context = AgentContext.from_sources(
             initial_context=initial_context,
             legacy_context=context,
@@ -1116,7 +1121,7 @@ class Agent:
 
         # Create agent context
         with AgentContext(context=merged_context) as ctx:
-            # RFC-0001: 保存最近的 context 引用，供 interrupt() 使用
+            # RFC-0001:  context ， interrupt() 
             self._last_context = ctx.context
             runtime_client = self.openai_client
             if custom_llm_client_provider:
@@ -1268,15 +1273,15 @@ class Agent:
                 trace_id=trace_id,
             )
 
-            # RFC-0009: 懒创建 token trace session，跨 run 复用
+            # RFC-0009:  token trace session， run 
             if self.config.llm_config and self.config.llm_config.api_type == "generate_with_token" and self._token_trace_session is None:
                 self._token_trace_session = TokenTraceSession(self.config.llm_config)
 
             # Create the AgentState instance
-            # 功能说明1：传递 sandbox_manager 给 AgentState，而不是 sandbox 实例
-            # 功能说明2：AgentState.get_sandbox() 会懒加载获取 sandbox 实例
-            # 功能说明3：这避免了在不同事件循环中访问 asyncio 原语的问题
-            # 功能说明4：sandbox 只在工具实际需要时才获取
+            # 1： sandbox_manager  AgentState， sandbox 
+            # 2：AgentState.get_sandbox()  sandbox 
+            # 3： asyncio 
+            # 4：sandbox 
             sandbox_mgr = self.sandbox_manager
             agent_state = AgentState(
                 agent_name=self.agent_name,
@@ -1295,7 +1300,7 @@ class Agent:
                 skill_registry=self.skill_registry,
             )
 
-            # RFC-0019: Resume — 所有决策已解决时恢复执行
+            # RFC-0019: Resume — 
             if pending and all(v.get("decision") is not None for v in pending.values()):
                 from nexau.archs.main_sub.framework_context import FrameworkContext
 
@@ -1341,13 +1346,13 @@ class Agent:
                 if self.executor.stop_signal:
                     run_status = "cancelled"
 
-                # stop_signal 时由 stop() 负责持久化，run_async 不重复写
+                # stop_signal  stop() ，run_async 
                 if not self.executor.stop_signal:
                     await self._persist_session_state(ctx.context)
 
                 # Handle sandbox lifecycle after agent execution.
-                # 共享 sandbox 由 AgentTeam 统一管理；sub-agent 的 sandbox 生命周期
-                # 由 caller/root agent 统一管理，避免并行 sub-agent 完成时停止 keepalive。
+                # sandbox  AgentTeam ；sub-agent  sandbox 
+                # caller/root agent ， sub-agent completed keepalive。
                 if self._shared_sandbox_manager is None and self._is_root:
                     self.sandbox_manager.on_run_complete()
 
@@ -1370,9 +1375,9 @@ class Agent:
                 # RFC-0022 Phase 2: surface error → status="error" + truncated reason
                 run_status = "error"
                 run_reason = f"{type(e).__name__}: {str(e)[:200]}"
-                # RFC-0001: 中断或异常时也持久化 session state
+                # RFC-0001: exception session state
                 try:
-                    # stop_signal 时由 stop() 负责持久化，run_async 不重复写
+                    # stop_signal  stop() ，run_async 
                     if not self.executor.stop_signal:
                         await self._persist_session_state(ctx.context)
                 except Exception:
@@ -1434,10 +1439,10 @@ class Agent:
                     # mask the original exception (if any) bubbling out of try.
                     logger.warning("RUN_END persist failed (ignored): %s", exc)
 
-                # async/sync 技术债修复: 关闭 async LLM client 防止 event loop 关闭后
-                # httpx.AsyncClient.__del__ 崩溃。下次 run 时在下方 lazy re-init 重建。
+                # async/sync :  async LLM client  event loop 
+                # httpx.AsyncClient.__del__ 。 run  lazy re-init 。
                 await self._close_async_llm_client()
-                # RFC-0001: 标记 run 完成，唤醒 interrupt() 的等待
+                # RFC-0001:  run completed， interrupt() 
                 self._run_complete.set()
 
     def run(
@@ -1455,11 +1460,11 @@ class Agent:
     ) -> str | tuple[str, dict[str, Any]]:
         """Run agent with a message and return response (sync entry point).
 
-        P1 async/sync 技术债修复: 消除 syncify 依赖
+        P1 async/sync :  syncify 
 
-        仅在纯 sync 入口（CLI、脚本）中使用。async 场景一律用 run_async()。
-        内部使用 asyncio.run() 驱动 run_async()，避免 syncify 的额外线程开销
-        和 BlockingPortal 复杂性。
+         sync （CLI、）。async  run_async()。
+         asyncio.run()  run_async()， syncify 
+         BlockingPortal 。
 
         Args:
             message: User message or list of messages
@@ -1548,10 +1553,10 @@ class Agent:
     ) -> str:
         """Inner execution logic without tracing wrapper.
 
-        RFC-0001: 中断时持久化保障
+        RFC-0001: 
 
-        finally 块确保无论正常返回、Exception 还是 CancelledError，
-        都会尝试 flush 未持久化的消息。
+        finally 、Exception  CancelledError，
+         flush 。
         """
         try:
             response, updated_messages = await self.executor.execute_async(
@@ -1615,12 +1620,12 @@ class Agent:
                 self.history.flush()
                 raise
         finally:
-            # RFC-0001: 无论正常返回、异常还是取消，都尝试 flush 未持久化的消息
-            # CancelledError (BaseException) 不会被 except Exception 捕获，
-            # 因此 finally 块是唯一能保证 flush 的位置
-            # 注意: 始终调用 flush()，不依赖 has_pending_messages，
-            # 因为 team_mode 下 executor 通过 replace_all 同步消息会清空 _pending_messages，
-            # 但 flush() 通过 fingerprint 比较仍能检测到新消息并持久化。
+            # RFC-0001: 、exceptioncancel， flush 
+            # CancelledError (BaseException)  except Exception ，
+            # finally  flush 
+            # :  flush()， has_pending_messages，
+            # team_mode  executor  replace_all  _pending_messages，
+            # flush()  fingerprint 。
             try:
                 self.history.flush()
             except Exception:
@@ -1633,10 +1638,10 @@ class Agent:
     ) -> None:
         """Resolve a pending permission request.
 
-        RFC-0019: 用户决策接口
+        RFC-0019: interface
 
-        更新 pending_tool_calls 中指定 tool_call 的 decision 字段。
-        若 decision 为 "allow"，同时将 permission_key 写入永久 allow 规则。
+         pending_tool_calls  tool_call  decision 。
+         decision  "allow"， permission_key  allow 。
 
         Args:
             tool_call_id: The tool_call_id to resolve
@@ -1652,7 +1657,7 @@ class Agent:
         entry = pending[tool_call_id]
         entry["decision"] = decision
 
-        # "allow" → 追加永久规则到 DB，后续同 key 自动通过
+        # "allow" →  DB， key 
         if decision == "allow":
             await self._session_manager.save_permission_rule(
                 user_id=self._user_id,
@@ -1677,12 +1682,12 @@ class Agent:
     ) -> None:
         """Resume execution after all pending permissions are resolved.
 
-        RFC-0019: Resume 逻辑
+        RFC-0019: Resume 
 
-        遍历 pending entries：
-        - allow / allow_once → 重新调用 tool
-        - deny → 合成 denial ToolResult
-        处理完毕后清除 pending_tool_calls。
+         pending entries：
+        - allow / allow_once →  tool
+        - deny →  denial ToolResult
+         pending_tool_calls。
         """
         from nexau.archs.main_sub.framework_context import FrameworkContext
         from nexau.core.messages import ToolResultBlock, coerce_tool_result_content
@@ -1696,7 +1701,7 @@ class Agent:
             parameters = entry.get("parameters", {})
 
             if decision == "deny":
-                # 合成 denial ToolResult
+                # denial ToolResult
                 denial_content = f"Permission denied by user for {tool_name}"
                 tool_result_block = ToolResultBlock(
                     tool_use_id=tool_call_id,
@@ -1705,7 +1710,7 @@ class Agent:
                 )
                 self.history.append(Message(role=Role.TOOL, content=[tool_result_block]))
             elif decision in ("allow", "allow_once"):
-                # 重新调用 tool
+                # tool
                 tool_obj = self.executor.tool_registry.get_tool(tool_name)
                 if tool_obj is None:
                     error_content = f"Tool '{tool_name}' not found during resume"
@@ -1716,7 +1721,7 @@ class Agent:
                     )
                     self.history.append(Message(role=Role.TOOL, content=[tool_result_block]))
                 else:
-                    # 构造 per-tool-call context：allow_once 临时添加 permission_key
+                    # per-tool-call context：allow_once  permission_key
                     permission_key = entry.get("permission_key", "")
                     if decision == "allow_once":
                         tool_ctx: FrameworkContext = framework_context.for_tool_call(
@@ -1725,7 +1730,7 @@ class Agent:
                             deny_rules=[],
                         )
                     else:
-                        # allow → 规则已写入 DB，使用 ["**"] 直接放行
+                        # allow →  DB， ["**"] 
                         tool_ctx = framework_context.for_tool_call(
                             tool_name=tool_name,
                             allow_rules=["**"],
@@ -1738,7 +1743,7 @@ class Agent:
                         exec_params["sandbox"] = agent_state.get_sandbox()
                         exec_params["ctx"] = tool_ctx
 
-                        # MCPTool 等拥有原生 async 实现的工具必须走 async 路径
+                        # MCPTool  async  async 
                         if getattr(tool_obj, "_has_native_async_execute", False):
                             result = await tool_obj.execute_async(**exec_params)
                         else:
@@ -1761,14 +1766,14 @@ class Agent:
                         self.history.append(Message(role=Role.TOOL, content=[tool_result_block]))
 
             entry["consumed"] = True
-            # RFC-0019: 每条 tool 执行后立即持久化 consumed 状态，防止崩溃后重复执行
+            # RFC-0019:  tool  consumed ，
             await self._session_manager.update_pending_tool_calls(
                 user_id=self._user_id,
                 session_id=self._session_id,
                 pending_tool_calls=pending,
             )
 
-        # 清除 pending_tool_calls
+        # pending_tool_calls
         await self._session_manager.update_pending_tool_calls(
             user_id=self._user_id,
             session_id=self._session_id,
@@ -1849,27 +1854,27 @@ class Agent:
     async def stop(self, *, force: bool = False, timeout: float = 30.0) -> StopResult:
         """Stop the agent and persist current state.
 
-        RFC-0001: Agent 中断时状态持久化
+        RFC-0001: Agent 
 
-        统一的停止接口，通过 force 参数区分立即停止和优雅停止。
-        无论 force 取值如何，都会持久化 session state。
+        interface， force 。
+         force value， session state。
 
         Args:
-            force: True 立即停止（不等待当前执行完成），
-                   False 优雅停止（等待当前执行安全退出）
-            timeout: 等待当前执行完成的最大秒数（仅 force=False 时生效）
+            force: True （completed），
+                   False （）
+            timeout: completed（ force=False ）
 
         Returns:
-            StopResult 包含中断时的消息快照和停止原因
+            StopResult package
         """
         return await self._interrupt(force=force, timeout=timeout)
 
     async def _close_async_llm_client(self) -> None:
         """Close the async LLM client to prevent httpx.__del__ crashes.
 
-        async/sync 技术债修复: 在 event loop 仍然活跃时关闭 AsyncOpenAI /
-        AsyncAnthropic 内部的 httpx.AsyncClient，避免 GC 在 event loop
-        关闭后触发 __del__ → RuntimeError('Event loop is closed')。
+        async/sync :  event loop  AsyncOpenAI /
+        AsyncAnthropic  httpx.AsyncClient， GC  event loop
+         __del__ → RuntimeError('Event loop is closed')。
         """
         client = self.executor.llm_caller.async_openai_client
         if client is not None:
@@ -1882,43 +1887,43 @@ class Agent:
     async def _interrupt(self, *, force: bool = False, timeout: float = 30.0) -> StopResult:
         """Internal implementation of stop with state persistence.
 
-        RFC-0001: Agent 中断时状态持久化
+        RFC-0001: Agent 
 
         Args:
-            force: True 立即停止，False 优雅停止
-            timeout: 等待当前执行完成的最大秒数（仅 force=False 时生效）
+            force: True ，False 
+            timeout: completed（ force=False ）
 
         Returns:
-            StopResult 包含中断时的消息快照和停止原因
+            StopResult package
         """
         logger.info(f"🛑 Stopping agent '{self.config.name}' (force={force})...")
 
-        # 1. 设置中断信号并唤醒 executor；force_stop 会递归下发给所有 running sub-agents，
-        # 避免 graceful 路径下子 executor 收不到信号、卡到 timeout 才被 cleanup。
+        # 1.  executor；force_stop  running sub-agents，
+        # graceful  executor 、 timeout  cleanup。
         self.executor.force_stop()
 
         if force:
-            # 2a. 立即停止：硬清理 executor
+            # 2a. ： executor
             self.executor.cleanup()
         else:
-            # 2b. 优雅停止：等待当前执行安全退出（带超时）
+            # 2b. ：（timeout）
             await self._wait_for_execution_complete(timeout=timeout)
 
-            # 3. 等待 _run_async_inner 完成 history 更新
-            # execute() 结束后，_run_inner 还需要将 messages 写回 self.history
+            # 3.  _run_async_inner completed history 
+            # execute() ，_run_inner  messages  self.history
             try:
                 await asyncio.wait_for(self._run_complete.wait(), timeout=5.0)
             except TimeoutError:
                 logger.warning("Timed out waiting for run to complete after execute() finished")
 
-        # 4. 确保 flush 未持久化的消息
+        # 4.  flush 
         try:
             if self.history.has_pending_messages:
                 self.history.flush()
         except Exception as e:
             logger.warning(f"Failed to flush history during stop: {e}")
 
-        # 5. 持久化 session state
+        # 5.  session state
         try:
             await self._persist_session_state(
                 self._last_context if hasattr(self, "_last_context") else {},
@@ -1929,7 +1934,7 @@ class Agent:
 
         logger.info(f"✅ Agent '{self.config.name}' stopped successfully")
 
-        # async/sync 技术债修复: stop 路径也需关闭 async client
+        # async/sync : stop  async client
         await self._close_async_llm_client()
 
         return StopResult(
@@ -1940,25 +1945,25 @@ class Agent:
     async def _wait_for_execution_complete(self, *, timeout: float = 30.0) -> None:
         """Wait for current execution to complete or timeout.
 
-        RFC-0001: 等待当前执行安全退出
+        RFC-0001: 
 
-        通过 executor._execution_done 事件等待主执行循环退出。
-        stop_signal 已设置，execute() 会在下一次迭代边界检测到并返回，
-        此时 _execution_done 被 set，wait() 返回。
+         executor._execution_done 。
+        stop_signal ，execute() ，
+         _execution_done  set，wait() 。
 
         Args:
-            timeout: 最大等待秒数
+            timeout: 
         """
-        # 如果 execute() 没在运行，直接返回
+        # execute() ，
         if not self.executor.is_executing:
             return
 
-        # 在线程中等待 _execution_done 被 set（避免阻塞事件循环）
+        # _execution_done  set（）
         event = self.executor.execution_done_event
         completed = await asyncio.to_thread(event.wait, timeout)
 
         if not completed:
-            # 超时：执行硬清理
+            # timeout：
             logger.warning(
                 f"Interrupt timeout ({timeout}s) reached for agent '{self.agent_name} id {self.agent_id}', performing hard cleanup",
             )

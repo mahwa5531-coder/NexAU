@@ -44,7 +44,7 @@ Explain what you're doing and provide context for the results.""",
 )
 agent = Agent(config=agent_config)
 
-response = agent.run("现在从漕河泾现代服务园A6到上南路 4265弄要多久？")
+response = agent.run("A6 4265？")
 print(response)
 ```
 

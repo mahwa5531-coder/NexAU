@@ -14,7 +14,7 @@
 
 """Team member data models.
 
-RFC-0002: Agent Team 协作系统
+RFC-0002: Agent Team 
 
 Stores team member state including role and status.
 """
@@ -29,7 +29,7 @@ from sqlmodel import Field, SQLModel
 class TeamMemberModel(SQLModel, table=True):
     """Team member model for tracking agent membership in teams.
 
-    RFC-0002: 团队成员模型
+    RFC-0002: 
 
     Attributes:
         user_id: User identifier (primary key).
@@ -50,7 +50,7 @@ class TeamMemberModel(SQLModel, table=True):
     team_id: str = Field(primary_key=True)
     agent_id: str = Field(primary_key=True)
 
-    # RFC-0002: agent 独立 session，用于 history/state 隔离和 team 恢复
+    # RFC-0002: agent  session， history/state  team 
     member_session_id: str = Field(default="")
 
     role_name: str

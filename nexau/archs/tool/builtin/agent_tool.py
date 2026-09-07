@@ -1,6 +1,6 @@
 """Agent builtin tool — unified entry point for creating and resuming sub-agents.
 
-RFC-0015: 合并 Sub-agent 工具为统一 Agent 工具
+RFC-0015:  Sub-agent  Agent 
 
 Provides a single `Agent` tool that handles both creating new sub-agents
 and resuming existing ones. When `sub_agent_id` is omitted, a new sub-agent
@@ -20,8 +20,8 @@ from nexau.archs.main_sub.framework_context import FrameworkContext
 def _extract_sub_agent_id(text: str) -> str | None:
     """Extract sub_agent_id from the [sub_agent_id: ...] prefix.
 
-    RFC-0015: SubAgentManager 在返回字符串开头插入 [sub_agent_id: <id>]
-    以确保主代理 LLM 无论成功或失败都能第一时间看到 sub_agent_id。
+    RFC-0015: SubAgentManager string [sub_agent_id: <id>]
+     LLM successfailure sub_agent_id。
     """
     match = re.match(r"\[sub_agent_id:\s*([^\]]+)\]", text)
     return match.group(1) if match else None
@@ -36,10 +36,10 @@ def call_sub_agent(
 ) -> dict[str, Any]:
     """Delegate work to a sub-agent.
 
-    RFC-0015: Agent 统一工具实现
+    RFC-0015: Agent 
 
-    当 sub_agent_id 为空时创建新子代理，非空时恢复已有子代理。
-    执行层路由到 SubAgentManager.call_sub_agent()。
+     sub_agent_id ，。
+     SubAgentManager.call_sub_agent()。
 
     Args:
         sub_agent_name: Name of the sub-agent as configured on the parent agent.
@@ -53,15 +53,15 @@ def call_sub_agent(
     Returns:
         Dict with `status` and either `result` or `error`.
     """
-    # 0. 规范化 sub_agent_id：LLM 常将可选字符串参数发送为空字符串 ""，需统一为 None
+    # 0.  sub_agent_id：LLM stringstring ""， None
     if not sub_agent_id:
         sub_agent_id = None
 
-    # 1. 验证 agent_state 可用
+    # 1.  agent_state 
     if agent_state is None:
         return {"status": "error", "error": "Agent state not available"}
 
-    # 2. 获取 SubAgentManager
+    # 2.  SubAgentManager
     subagent_manager: SubAgentManager | None = agent_state.subagent_manager
     if subagent_manager is None:
         return {
@@ -69,8 +69,8 @@ def call_sub_agent(
             "error": "Sub-agent manager not available on agent_state",
         }
 
-    # 3. 路由到 SubAgentManager.call_sub_agent()
-    # RFC-0024: 显式透传 trace_id 而非通过 AgentState backref。
+    # 3.  SubAgentManager.call_sub_agent()
+    # RFC-0024:  trace_id  AgentState backref。
     trace_id = ctx.trace_id if ctx is not None else None
     try:
         result = subagent_manager.call_sub_agent(
@@ -80,7 +80,7 @@ def call_sub_agent(
             parent_agent_state=agent_state,
             trace_id=trace_id,
         )
-        # RFC-0015: 从返回字符串开头提取实际 sub_agent_id（新建子代理时输入参数为 None）
+        # RFC-0015: string sub_agent_id（ None）
         actual_sub_agent_id = _extract_sub_agent_id(result)
         return {
             "status": "success",
@@ -90,7 +90,7 @@ def call_sub_agent(
             "result": result,
         }
     except Exception as exc:
-        # RFC-0015: 异常消息也包含 [sub_agent_id: ...] 前缀
+        # RFC-0015: exceptionpackage [sub_agent_id: ...] 
         actual_sub_agent_id = _extract_sub_agent_id(str(exc))
         return {
             "status": "error",

@@ -89,10 +89,10 @@ class BeforeModelHookInput:
     # rather than a per-event-type field so adding new event types
     # (``UndoEvent`` / ``AppendEvent`` / future) doesn't churn this schema.
     history_event: HistoryEvent | None = None
-    # RFC-0027: outparam — 与 history_event 同机制。当某个 before_model /
-    # after_model 中间件要求强制停止本次 run（如敏感词命中）时，
-    # MiddlewareManager 把 HookResult.force_stop_reason 回写到这里，
-    # 由 executor 在 hook 边界读取并 BREAK。None 表示无中间件要求停止。
+    # RFC-0027: outparam —  history_event 。 before_model /
+    # after_model middleware run（sensitive words），
+    # MiddlewareManager  HookResult.force_stop_reason ，
+    # executor  hook  BREAK。None middleware。
     force_stop_reason: AgentStopReason | None = None
 
 
@@ -148,9 +148,9 @@ class HookResult:
     # path when this is None.
     history_event: HistoryEvent | None = None
 
-    # RFC-0027: 中间件强制停止信号。before_model / after_model 中间件设置此值时，
-    # MiddlewareManager 会把它 surface 到 hook_input.force_stop_reason（outparam），
-    # executor 据此在 hook 边界终止本次 run，并将该 reason 作为最终停止原因。
+    # RFC-0027: middleware。before_model / after_model middlewarevalue，
+    # MiddlewareManager  surface  hook_input.force_stop_reason（outparam），
+    # executor  hook  run， reason 。
     force_stop_reason: AgentStopReason | None = None
 
     def has_messages(self) -> bool:
@@ -866,11 +866,11 @@ class MiddlewareManager:
         if result is None:
             return HookResult.no_changes()
 
-        # 检测开发者误将 middleware hook 声明为 async def 的情况。
-        # 此时 result 是一个未 await 的 coroutine 而非 HookResult，
-        # 如果不检测会被静默忽略（既不报错也不生效）。
+        # middleware hook  async def 。
+        # result  await  coroutine  HookResult，
+        # （）。
         if inspect.iscoroutine(result):
-            # 关闭未 await 的 coroutine 以避免 RuntimeWarning
+            # await  coroutine  RuntimeWarning
             result.close()
             raise TypeError(
                 "Middleware hook returned a coroutine — middleware hooks must be "

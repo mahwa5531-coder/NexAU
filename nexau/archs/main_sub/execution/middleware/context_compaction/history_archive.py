@@ -14,22 +14,22 @@
 
 """History archive writer for context compaction.
 
-RFC-0021: 上下文压缩时归档历史消息到 sandbox
+RFC-0021: context compaction sandbox
 
-每次压缩把"被移除的原始消息" + 一行 boundary 元数据 append 到单文件
-``transcript.jsonl``。Agent 后续用 ``read_file`` / ``search_file_content`` 自助召回。
+"" +  boundary  append 
+``transcript.jsonl``。Agent  ``read_file`` / ``search_file_content`` 。
 
-设计要点：
+：
 
-- **单文件 append-only**: ``{sandbox_tmp}/.nexau_history_archive/<namespace>/transcript.jsonl``
-- **一行一记录**, 两种类型:
-    - 序列化 ``Message`` (含 id/role/content/...)
-    - boundary 元数据: ``{"_boundary": {round, compacted_at, ...}}``
-- **Resume**: 扫 transcript 找最大 boundary round, 下一轮 = max+1
-- **异常静默**: sandbox 不可用 / 写失败时跳过, 不抛异常 (归档失败绝不应中断压缩)
+- ** append-only**: ``{sandbox_tmp}/.nexau_history_archive/<namespace>/transcript.jsonl``
+- ****, type:
+    -  ``Message`` ( id/role/content/...)
+    - boundary : ``{"_boundary": {round, compacted_at, ...}}``
+- **Resume**:  transcript  boundary round,  = max+1
+- **exception**: sandbox  / failure, exception (failure)
 
-为什么单文件: agent 直接 ``search_file_content`` grep transcript.jsonl 就能召回
-任意历史细节, 不需要先看索引再开 round 文件; append-only 自然崩溃安全。
+: agent  ``search_file_content`` grep transcript.jsonl 
+,  round ; append-only 。
 """
 
 from __future__ import annotations
@@ -49,10 +49,10 @@ from nexau.core.messages import ImageBlock, Message, Role, TextBlock, ToolResult
 logger = logging.getLogger(__name__)
 
 ARCHIVE_SUBDIR = ".nexau_history_archive"
-"""sandbox 临时目录下的归档目录名 (RFC-0021)。
+"""sandbox  (RFC-0021)。
 
-写死为常量而不暴露成 config: 避免用户传 ``"../foo"`` 之类的路径穿越输入,
-且默认值就是设计上的唯一选择, 没有真实 use case 需要改名。
+ config:  ``"../foo"`` class,
+defaultvalue,  use case 。
 """
 
 TRANSCRIPT_FILENAME = "transcript.jsonl"
@@ -62,7 +62,7 @@ BOUNDARY_KEY = "_boundary"
 PREVIEW_MAX_CHARS = 300
 _SAFE_ARCHIVE_COMPONENT_RE = re.compile(r"[^A-Za-z0-9_.-]+")
 
-# 常见 mime → 后缀; 未知用 .bin
+# mime → ;  .bin
 _MIME_EXT: dict[str, str] = {
     "image/jpeg": "jpg",
     "image/jpg": "jpg",
@@ -119,8 +119,8 @@ def _archive_namespace(*, agent_state: Any, sandbox: BaseSandbox) -> str:
 
 @dataclass(frozen=True)
 class BoundaryRecord:
-    """RFC-0021: 一轮压缩归档的 boundary 元数据, 在 transcript.jsonl 中以
-    ``{"_boundary": {...}}`` 形式占一行。"""
+    """RFC-0021:  boundary ,  transcript.jsonl 
+    ``{"_boundary": {...}}`` 。"""
 
     round: int
     compacted_at: str
@@ -159,10 +159,10 @@ class BoundaryRecord:
 
 
 class HistoryArchiveWriter:
-    """RFC-0021: 把每轮被压缩移除的原始消息 + boundary append 到 sandbox 内的
+    """RFC-0021:  + boundary append  sandbox 
     transcript.jsonl。
 
-    通过 sandbox 抽象 IO, 兼容 LocalSandbox / E2BSandbox 等所有后端。
+     sandbox  IO,  LocalSandbox / E2BSandbox 。
     """
 
     def __init__(
@@ -185,14 +185,14 @@ class HistoryArchiveWriter:
         *,
         agent_state: Any,
     ) -> HistoryArchiveWriter | None:
-        """从 agent_state 构造 writer; sandbox 不可用时静默返回 None。
+        """ agent_state  writer; sandbox  None。
 
-        归档子目录固定在 sandbox 临时目录下的 ``ARCHIVE_SUBDIR``
-        (``.nexau_history_archive``), 不暴露成 config — 避免用户输入路径穿越;
-        默认值是设计上的唯一选择。
+         sandbox  ``ARCHIVE_SUBDIR``
+        (``.nexau_history_archive``),  config — ;
+        defaultvalue。
 
-        try 边界故意收紧: 只裹 sandbox 交互 (get_sandbox / get_temp_dir / create_directory),
-        把"sandbox 不可用"和"内部 bug"分开。``_scan_transcript`` 自己有 try, 信它。
+        try :  sandbox  (get_sandbox / get_temp_dir / create_directory),
+        "sandbox "" bug"。``_scan_transcript``  try, 。
         """
         if agent_state is None:
             return None
@@ -236,7 +236,7 @@ class HistoryArchiveWriter:
 
     @staticmethod
     def _scan_transcript(sandbox: BaseSandbox, archive_dir: str) -> tuple[int, int]:
-        """扫现有 transcript.jsonl, 返回 (next_round, total_archived)。"""
+        """ transcript.jsonl,  (next_round, total_archived)。"""
         path = sandbox.join_path(archive_dir, TRANSCRIPT_FILENAME)
         try:
             if not sandbox.file_exists(path):
@@ -282,23 +282,23 @@ class HistoryArchiveWriter:
         run_id: str | None,
         agent_id: str | None,
     ) -> BoundaryRecord | None:
-        """写一轮归档: 把 removed 消息 + boundary 行 append 到 transcript.jsonl。
+        """:  removed  + boundary  append  transcript.jsonl。
 
-        base64 ImageBlock 会被外置到 ``images/{msg_id}-{idx}.{ext}`` 单独文件,
-        transcript.jsonl 里只留 ``url=file:images/...`` 引用 (避免 transcript 膨胀)。
-        URL ImageBlock 不动。
+        base64 ImageBlock  ``images/{msg_id}-{idx}.{ext}`` ,
+        transcript.jsonl  ``url=file:images/...``  ( transcript )。
+        URL ImageBlock 。
 
-        失败时记日志并返回 None, 绝不抛异常 —— 归档失败不应中断压缩。
+        failure None, exception —— failure。
         """
         if not removed:
             return None
         try:
             round_num = self._next_round
 
-            # 1. base64 图片外置: 不修改原 removed messages, 只 dump 给归档用的拷贝
+            # 1. base64 :  removed messages,  dump 
             processed, extracted_images = self._externalize_images(removed)
 
-            # 2. 构造 boundary record
+            # 2.  boundary record
             preview = self._build_preview(removed)
             summary_id = self._find_summary_id(removed)
             record = BoundaryRecord(
@@ -318,12 +318,12 @@ class HistoryArchiveWriter:
                 extracted_images=extracted_images,
             )
 
-            # 3. 拼装本轮新增内容: removed messages + boundary 行
+            # 3. : removed messages + boundary 
             new_lines: list[str] = [m.model_dump_json() for m in processed]
             new_lines.append(json.dumps(record.to_line_dict(), ensure_ascii=False))
             new_content = "\n".join(new_lines) + "\n"
 
-            # 3. read+rewrite append (sandbox API 无 append 模式, 兼容所有后端)
+            # 3. read+rewrite append (sandbox API  append , )
             existing = ""
             try:
                 if self._sandbox.file_exists(self._transcript_path):
@@ -379,17 +379,17 @@ class HistoryArchiveWriter:
         return self._total_archived
 
     def _externalize_images(self, removed: list[Message]) -> tuple[list[Message], int]:
-        """把 base64 ImageBlock 外置到 ``images/{msg_id}-{path}.{ext}`` 单文件,
-        返回 (新的消息列表, 外置图片数量)。
+        """ base64 ImageBlock  ``images/{msg_id}-{path}.{ext}`` ,
+         (list, )。
 
-        覆盖两层:
-        - **顶层** ImageBlock (USER / ASSISTANT 等消息直接挂的图)
-        - **嵌套** ImageBlock 在 ``ToolResultBlock.content`` 里 (multimodal 工具返回图)
+        :
+        - **** ImageBlock (USER / ASSISTANT )
+        - **** ImageBlock  ``ToolResultBlock.content``  (multimodal )
 
-        - 仅当 ``ImageBlock.base64`` 非空时才外置; URL-only 不动
-        - 外置失败 (写盘 / decode error) 时该 block 保持原样 (回退到内联存储)
-        - 不修改原 messages (用 ``model_copy(update=...)`` 浅拷); 原始消息继续在
-          active context 用, 字段值按引用共享
+        -  ``ImageBlock.base64`` ; URL-only 
+        - failure ( / decode error)  block  ()
+        -  messages ( ``model_copy(update=...)`` ); 
+          active context , value
         """
 
         def _has_b64_image(block: Any) -> bool:
@@ -399,7 +399,7 @@ class HistoryArchiveWriter:
                 return any(isinstance(c, ImageBlock) and c.base64 for c in block.content)
             return False
 
-        # 先扫一遍是否有需要外置的图片, 避免无谓的复制
+        # , 
         needs_processing = any(_has_b64_image(b) for msg in removed for b in msg.content)
         if not needs_processing:
             return removed, 0
@@ -411,11 +411,11 @@ class HistoryArchiveWriter:
             logger.warning("[HistoryArchiveWriter] cannot create images dir: %s", exc)
             return removed, 0
 
-        # 计数器在 nested function 引用前先初始化, mypy 才能解析 nonlocal
+        # nested function , mypy  nonlocal
         extracted = 0
 
         def _externalize_one(msg_id: str, path_label: str, img: ImageBlock) -> ImageBlock:
-            """写盘并返回替换 block; 失败则原样返回。"""
+            """ block; failure。"""
             nonlocal extracted
             ext = _ext_from_mime(img.mime_type)
             rel = f"{IMAGES_SUBDIR}/{msg_id}-{path_label}.{ext}"
@@ -442,7 +442,7 @@ class HistoryArchiveWriter:
                     path_label,
                     exc,
                 )
-                return img  # fallback: 原 block 内联存储
+                return img  # fallback:  block 
 
         result: list[Message] = []
         for msg in removed:
@@ -450,7 +450,7 @@ class HistoryArchiveWriter:
                 result.append(msg)
                 continue
 
-            # 只深拷被修改的 block; 其他 block 共享引用 — 避免无谓的整 message 深拷贝。
+            # block;  block  —  message 。
             new_content: list[Any] = []
             for idx, block in enumerate(msg.content):
                 if isinstance(block, ImageBlock) and block.base64:
@@ -460,7 +460,7 @@ class HistoryArchiveWriter:
                     and isinstance(block.content, list)
                     and any(isinstance(c, ImageBlock) and c.base64 for c in block.content)
                 ):
-                    # 递归处理 tool result 内嵌的 ImageBlock
+                    # tool result  ImageBlock
                     new_inner: list[Any] = []
                     for jdx, inner in enumerate(block.content):
                         if isinstance(inner, ImageBlock) and inner.base64:
@@ -471,14 +471,14 @@ class HistoryArchiveWriter:
                 else:
                     new_content.append(block)
 
-            # message 自身浅拷 (Pydantic update= 创建新 instance, 但其他字段按引用复制
-            # — 比 deep=True 快得多, 大 message 尤其明显)
+            # message  (Pydantic update=  instance, 
+            # —  deep=True ,  message )
             result.append(msg.model_copy(update={"content": new_content}))
         return result, extracted
 
     @staticmethod
     def _build_preview(removed: list[Message]) -> str:
-        """选第一条非 system/framework 角色消息做 preview。"""
+        """ system/framework  preview。"""
         for msg in removed:
             if msg.role in (Role.SYSTEM, Role.FRAMEWORK):
                 continue
@@ -489,7 +489,7 @@ class HistoryArchiveWriter:
 
     @staticmethod
     def _find_summary_id(removed: list[Message]) -> str | None:
-        """如果本轮归档包含上一轮产生的 summary 消息, 记录其 id。"""
+        """package summary ,  id。"""
         for msg in removed:
             md = msg.metadata or {}
             if md.get("isSummary") is True or md.get("is_compacted") is True:
@@ -498,7 +498,7 @@ class HistoryArchiveWriter:
 
 
 def _extract_text_for_preview(msg: Message) -> str:
-    """从 Message 抽取文本用于 preview。"""
+    """ Message  preview。"""
     parts: list[str] = []
     for block in msg.content:
         if isinstance(block, TextBlock):
@@ -517,13 +517,13 @@ def build_archive_hint(
     archive_dir: str,
     transcript_path: str,
 ) -> str:
-    """RFC-0021: 构造归档路径提示文本 (不带前后空白)。
+    """RFC-0021:  ()。
 
-    告诉 agent 单文件 transcript.jsonl 在哪里, 以及如何用 search_file_content / read_file 召回。
-    调用方必须传入同一 writer 产出的实际 sandbox 临时目录路径和 transcript 路径。
+     agent  transcript.jsonl ,  search_file_content / read_file 。
+     writer  sandbox  transcript 。
 
-    **返回的 hint 不带任何前后空白** —— 由调用方决定怎么分隔。新 TextBlock 是天然
-    边界, 不需要 ``\\n\\n`` 前缀; 如果调用方要拼到现有文本末尾, 自己加。
+    ** hint ** —— 。 TextBlock 
+    ,  ``\\n\\n`` ; , 。
     """
     return (
         f"📁 [Archive] {total_archived} earlier message(s) archived across "

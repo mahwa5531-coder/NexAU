@@ -21,6 +21,7 @@ from unittest.mock import Mock, patch
 from nexau.archs.main_sub.framework_context import FrameworkContext
 from nexau.archs.sandbox import SandboxStatus
 from nexau.archs.tool.builtin.shell_tools.run_shell_command import (
+    DEFAULT_TIMEOUT_MS,
     _truncate_shell_output,
     run_shell_command,
 )
@@ -159,7 +160,7 @@ class TestRunShellCommandIntegration:
         assert "stderr" not in result
         sandbox.file_exists.assert_called_once_with(expected_cwd)
         sandbox.get_file_info.assert_called_once_with(expected_cwd)
-        sandbox.execute_shell.assert_called_once_with("echo cwd", timeout=1800000, background=True, cwd=expected_cwd)
+        sandbox.execute_shell.assert_called_once_with("echo cwd", timeout=DEFAULT_TIMEOUT_MS, background=True, cwd=expected_cwd)
 
     @patch("nexau.archs.tool.builtin.shell_tools.run_shell_command.time.sleep", return_value=None)
     @patch("nexau.archs.tool.builtin.shell_tools.run_shell_command.time.monotonic", side_effect=[0.0, 0.002, 0.002])

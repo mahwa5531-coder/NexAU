@@ -61,9 +61,9 @@ from .base_sandbox import (
 
 logger = logging.getLogger(__name__)
 
-# get_file_info 编码探测的采样上限(64KB):探测本就是采样语义,全量读会让
-# metadata 查询变成 O(文件大小) 的 IO/内存操作(21MB 图先整个进进程)。
-# 与 E2BSandbox 侧同名常量保持一致语义。
+# get_file_info (64KB):,
+# metadata  O()  IO/(21MB )。
+# E2BSandbox 。
 _ENCODING_PROBE_MAX_BYTES = 64 * 1024
 
 
@@ -123,7 +123,7 @@ class LocalSandbox(BaseSandbox):
         Returns:
             The absolute output directory path.
         """
-        output_dir = str(get_local_bash_tool_results_dir() / uuid.uuid4().hex[:8])
+        output_dir = str(get_local_bash_tool_results_dir(self.sandbox_id) / uuid.uuid4().hex[:8])
         Path(output_dir).mkdir(parents=True, exist_ok=True)
         Path(f"{output_dir}/command.txt").write_text(command, encoding="utf-8")
         return output_dir
@@ -162,10 +162,14 @@ class LocalSandbox(BaseSandbox):
             Merged envs dict including os.environ, or None to inherit parent env
         """
         merged = self._merge_envs(per_call_envs)
+        base = dict(os.environ)
+        # Guarantee UTF-8 console output for Python and tools on Windows (prevents cp932/cp1252 crashes)
+        base.setdefault("PYTHONIOENCODING", "utf-8")
+        base.setdefault("PYTHONUTF8", "1")
         if merged is None:
-            return None
+            return base
         # For local subprocess, we must include os.environ as base
-        return {**os.environ, **merged}
+        return {**base, **merged}
 
     @override
     def prepare_shell_command(self, command: str, script_dir: str | None = None) -> str:
@@ -325,12 +329,12 @@ class LocalSandbox(BaseSandbox):
         timeout_seconds = timeout / 1000.0
 
         try:
-            # 1. 按当前 shell backend 预处理命令（例如 heredoc 脚本化 / PowerShell 安全重写）
+            # 1.  shell backend （ heredoc  / PowerShell ）
             command = self.prepare_shell_command(command)
             launch_config = self._shell_backend.build_launch_config(command)
 
             if background:
-                # 1. 创建输出目录，stdout/stderr 直接重定向到文件
+                # 1. ，stdout/stderr 
                 output_dir = self._prepare_output_dir(command)
                 stdout_path = f"{output_dir}/stdout.txt"
                 stderr_path = f"{output_dir}/stderr.txt"
@@ -372,7 +376,7 @@ class LocalSandbox(BaseSandbox):
                     except Exception as exc:
                         info["error"] = str(exc)
                     finally:
-                        # 进程结束后关闭文件句柄，确保数据刷盘
+                        # ，
                         for f in (info.get("stdout_file"), info.get("stderr_file")):
                             if f:
                                 try:
@@ -402,7 +406,7 @@ class LocalSandbox(BaseSandbox):
                     stderr_file=f"{output_dir}/stderr.txt" if output_dir else None,
                 )
 
-            # Foreground mode: 直接重定向 stdout/stderr 到文件
+            # Foreground mode:  stdout/stderr 
             output_dir = self._prepare_output_dir(command)
             stdout_path = f"{output_dir}/stdout.txt"
             stderr_path = f"{output_dir}/stderr.txt"
@@ -433,7 +437,7 @@ class LocalSandbox(BaseSandbox):
                     stdout_raw = Path(stdout_path).read_bytes().decode("utf-8", errors="replace")
                     stderr_raw = Path(stderr_path).read_bytes().decode("utf-8", errors="replace")
 
-                    # 智能截断
+                    # 
                     t_stdout, t_stderr, was_truncated, o_out, o_err = smart_truncate_output(
                         stdout_raw,
                         stderr_raw,
@@ -458,7 +462,7 @@ class LocalSandbox(BaseSandbox):
                         stderr_file=f"{output_dir}/stderr.txt" if output_dir else None,
                     )
             finally:
-                # 确保文件句柄关闭（正常退出路径）
+                # （）
                 if not fout.closed:
                     fout.close()
                 if not ferr.closed:
@@ -466,11 +470,11 @@ class LocalSandbox(BaseSandbox):
 
             duration_ms = int((time.time() - start_time) * 1000)
 
-            # 从文件读取完整输出
+            # 
             stdout_raw = Path(stdout_path).read_bytes().decode("utf-8", errors="replace")
             stderr_raw = Path(stderr_path).read_bytes().decode("utf-8", errors="replace")
 
-            # 智能截断
+            # 
             t_stdout, t_stderr, was_truncated, orig_stdout_len, orig_stderr_len = smart_truncate_output(
                 stdout_raw,
                 stderr_raw,
@@ -533,7 +537,7 @@ class LocalSandbox(BaseSandbox):
         """
         Get the status and output of a background task.
 
-        读取 output_dir 下的 stdout.txt / stderr.txt 获取输出（文件由 OS 重定向写入）。
+         output_dir  stdout.txt / stderr.txt （ OS ）。
 
         Args:
             pid: The process ID of the background task
@@ -553,7 +557,7 @@ class LocalSandbox(BaseSandbox):
         duration_ms = int((time.time() - task_info["start_time"]) * 1000)
         output_dir: str | None = task_info.get("std_output_dir")
 
-        # 从文件读取输出（进程仍在写入时也可读取已刷盘部分）
+        # （）
         stdout = ""
         stderr = ""
         if output_dir:
@@ -566,7 +570,7 @@ class LocalSandbox(BaseSandbox):
             except Exception:
                 pass
 
-        # 智能截断
+        # 
         if output_dir:
             t_stdout, t_stderr, was_truncated, o_out, o_err = smart_truncate_output(
                 stdout,
@@ -637,14 +641,14 @@ class LocalSandbox(BaseSandbox):
 
         try:
             self._graceful_kill(process)
-            # 关闭文件句柄（如果还没被 _wait_process 关闭）
+            # （ _wait_process ）
             for f in (task_info.get("stdout_file"), task_info.get("stderr_file")):
                 if f and not f.closed:
                     try:
                         f.close()
                     except Exception:
                         pass
-            # 等待 wait_thread 结束
+            # wait_thread 
             t = task_info.get("wait_thread")
             if t is not None:
                 t.join(timeout=2)
@@ -1024,10 +1028,10 @@ class LocalSandbox(BaseSandbox):
             stat_result = path.stat()
 
             if path.is_file():
-                # 编码探测只读前 64KB 采样:此前的全量 read 让 get_file_info
-                # 变成 O(文件大小) 的内存/IO 操作 —— read_visual_file 对 >20MB
-                # 图刻意不读原图的保证,曾被这一行悄悄打破(拿 metadata 先把
-                # 21MB 读进进程)。chardet 类探测本就是采样语义,前缀足够。
+                # read-only 64KB : read  get_file_info
+                # O() /IO  —— read_visual_file  >20MB
+                # ,( metadata 
+                # 21MB )。chardet class,。
                 with open(path, "rb") as f:
                     raw_data = f.read(_ENCODING_PROBE_MAX_BYTES)
                     encoding = self._detect_file_encoding(raw_data)
@@ -1465,9 +1469,24 @@ class LocalSandboxManager(BaseSandboxManager[LocalSandbox]):
         # Create new sandbox
         logger.info(f"Creating new local sandbox with ID: {session_id}")
 
+        # Scaffold brain sandbox directory
+        from nexau.archs.platform.path_helpers import get_brain_dir
+        brain_dir = get_brain_dir(session_id)
+        brain_dir.mkdir(parents=True, exist_ok=True)
+        (brain_dir / ".system_generated" / "logs").mkdir(parents=True, exist_ok=True)
+        (brain_dir / ".system_generated" / "tasks").mkdir(parents=True, exist_ok=True)
+        (brain_dir / ".system_generated" / "messages").mkdir(parents=True, exist_ok=True)
+        (brain_dir / ".user_uploaded").mkdir(parents=True, exist_ok=True)
+        (brain_dir / "media").mkdir(parents=True, exist_ok=True)
+        (brain_dir / "scratch").mkdir(parents=True, exist_ok=True)
+
+        sandbox_envs = dict(sandbox_config.envs or {})
+        sandbox_envs["NEXAU_SCRATCH_DIR"] = str(brain_dir / "scratch")
+
         sandbox = LocalSandbox(
+            sandbox_id=session_id,
             work_dir=sandbox_config.work_dir,
-            envs=sandbox_config.envs,
+            envs=sandbox_envs,
             output_char_threshold=sandbox_config.output_char_threshold,
             truncate_head_chars=sandbox_config.truncate_head_chars,
             truncate_tail_chars=sandbox_config.truncate_tail_chars,

@@ -88,7 +88,7 @@ class AgentConfigBase[TTool, TSkill, TSubAgent, THook](BaseModel):
     error_handler: Callable[..., Any] | None = None
     token_counter: HookDefinition | None = None
     global_storage: dict[str, Any] = Field(default_factory=dict)
-    max_context_tokens: int = Field(default=128000, ge=1)
+    max_context_tokens: int = Field(default=1048576, ge=1)
     max_running_subagents: int = Field(default=5, ge=0)
     max_iterations: int = Field(default=100, ge=1)
     tool_call_mode: str = "structured"

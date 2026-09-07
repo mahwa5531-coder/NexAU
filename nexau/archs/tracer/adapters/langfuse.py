@@ -34,46 +34,46 @@ logger = logging.getLogger(__name__)
 _TTFT_ATTRIBUTE_KEY = "time_to_first_token_ms"
 
 
-# 已知字段名 → Langfuse 标准字段名（覆盖 TokenUsage 内部名 + 各 provider 原始名）
+# → Langfuse （ TokenUsage  +  provider ）
 _TO_LANGFUSE_FIELD: dict[str, str | None] = {
     # Provider aliases
     "prompt_tokens": "input_tokens",
     "output_tokens": "completion_tokens",
     "cached_tokens": "cache_read_input_tokens",
-    # TokenUsage 内部名
+    # TokenUsage 
     "cache_read_tokens": "cache_read_input_tokens",
     "cache_creation_tokens": "cache_creation_input_tokens",
     "input_tokens_uncached": None,
-    # Anthropic 嵌套 details 子桶。_flatten_usage_dict 会把它们从 `cache_creation` /
-    # `output_tokens_details` 子 dict 提升到顶层，此时与顶层聚合字段**重叠**：
-    # ephemeral_5m/1h 之和 == cache_creation_input_tokens，thinking_tokens ⊆
-    # output_tokens。Anthropic usage 无字面量 total，Langfuse ingestion 对
-    # usage_details 全部值求和当 total，于是这些子桶被二次累加、total 虚高
-    # （实测 cache_creation_input_tokens=37112 与其明细 ephemeral_5m=37112 同时入账，
-    # total 多算 37112，接近 2×）。映射为 None 丢弃——顶层聚合字段已承载其值，
-    # 与上面 `input_tokens_uncached` 同理。
+    # Anthropic  details 。_flatten_usage_dict  `cache_creation` /
+    # `output_tokens_details`  dict ，****：
+    # ephemeral_5m/1h  == cache_creation_input_tokens，thinking_tokens ⊆
+    # output_tokens。Anthropic usage  total，Langfuse ingestion 
+    # usage_details value total，、total 
+    # （ cache_creation_input_tokens=37112  ephemeral_5m=37112 ，
+    # total  37112， 2×）。 None ——value，
+    # `input_tokens_uncached` 。
     "ephemeral_5m_input_tokens": None,
     "ephemeral_1h_input_tokens": None,
     "thinking_tokens": None,
-    # provider/会话预聚合的总数必须用 Langfuse 规范的字面量 `total` key 上报。
-    # Langfuse ingestion（worker IngestionService）的逻辑是：usage_details 里若不存在
-    # 字面量 `total` key，就把 map 里**所有值求和**当作 total。`total_tokens`（带后缀）
-    # 不被识别为 total，于是会和 input/completion/reasoning 等拆分项一起被二次累加，
-    # 导致 UI 上 total ≈ 2×（拆分项之和 + total_tokens）。映射成 `total` 后 Langfuse
-    # 直接采用该权威值，不再求和。
+    # provider/ Langfuse  `total` key 。
+    # Langfuse ingestion（worker IngestionService）：usage_details 
+    # `total` key， map **value** total。`total_tokens`（）
+    # total， input/completion/reasoning ，
+    # UI  total ≈ 2×（ + total_tokens）。 `total`  Langfuse
+    # value，。
     "total_tokens": "total",
-    # Gemini REST 原始 camelCase（与 TokenUsage._resolve_total_tokens 的识别保持一致）。
-    # nexau 自身 pipeline 在 _enrich_gemini_trace_outputs 已归一化为 total_tokens，
-    # 此别名保护直接使用 SDK tracer、传入原始 usageMetadata 的第三方调用方。
+    # Gemini REST  camelCase（ TokenUsage._resolve_total_tokens ）。
+    # nexau  pipeline  _enrich_gemini_trace_outputs  total_tokens，
+    # SDK tracer、 usageMetadata 。
     "totalTokenCount": "total",
 }
 
 
 def _flatten_usage_dict(usage: Mapping[str, object]) -> dict[str, int]:
-    """展开 provider usage dict 中的嵌套 details 字段。
+    """ provider usage dict  details 。
 
-    OpenAI 将 cache/reasoning 数放在 prompt_tokens_details 等子 dict 中。
-    此函数提升嵌套 int 字段到顶层，顶层字段优先。
+    OpenAI  cache/reasoning  prompt_tokens_details  dict 。
+    function int ，。
     """
     flat: dict[str, int] = {}
     for k, v in usage.items():
@@ -90,12 +90,12 @@ def _flatten_usage_dict(usage: Mapping[str, object]) -> dict[str, int]:
 def _sanitize_usage(usage: Mapping[str, object] | TokenUsage) -> dict[str, int]:
     """Sanitize and map usage data for Langfuse SDK compatibility.
 
-    1. 只保留 int 值字段，避免 pydantic 校验失败。
-       参见: https://github.com/langfuse/langfuse/issues/4961
-    2. 展开 provider 嵌套的 details 字段（OpenAI prompt_tokens_details 等）。
-    3. 统一映射字段名为 Langfuse 标准名，确保所有 provider 的
-       cache 命中率在 Langfuse UI 正确显示；并把预聚合的 `total_tokens`
-       映射为字面量 `total`，避免被 Langfuse 当成额外拆分项二次累加。
+    1.  int value， pydantic failure。
+       : https://github.com/langfuse/langfuse/issues/4961
+    2.  provider  details （OpenAI prompt_tokens_details ）。
+    3.  Langfuse ， provider 
+       cache  Langfuse UI ； `total_tokens`
+        `total`， Langfuse 。
     """
     if isinstance(usage, TokenUsage):
         raw: dict[str, int] = usage.to_dict()
@@ -107,13 +107,13 @@ def _sanitize_usage(usage: Mapping[str, object] | TokenUsage) -> dict[str, int]:
         mapped_key = _TO_LANGFUSE_FIELD.get(key, key)
         if mapped_key is None or mapped_key in result:
             continue
-        # 严格 int 过滤（排除 bool 子类）：raw-dict 路径 _flatten_usage_dict 已过滤，
-        # 但 TokenUsage 路径是裸信任 to_dict()——动态运行时仍可能被构造进 None/str，
-        # 在此统一兜底，确保 docstring 的「只保留 int」承诺对两条路径都成立。
+        # int （ bool class）：raw-dict  _flatten_usage_dict ，
+        # TokenUsage  to_dict()—— None/str，
+        # ， docstring 「 int」。
         if type(value) is not int:
             continue
-        # total<=0（例如直接构造、未填总数的 TokenUsage）时不写 `total`，
-        # 让 Langfuse 回落到对拆分项求和，避免把 total 钉死成 0 而盖掉真实用量。
+        # total<=0（、 TokenUsage） `total`，
+        # Langfuse ， total  0 。
         if mapped_key == "total" and value <= 0:
             continue
         result[mapped_key] = value
@@ -666,9 +666,9 @@ class LangfuseTracer(BaseTracer):
         Langfuse accepts strings, dicts, and lists. Complex objects
         need to be converted to JSON strings.
 
-        base64 图片数据不做截断 — Langfuse SDK 内置 MediaManager 会自动检测
-        Anthropic/OpenAI/Vertex 格式的 base64 图片，异步上传到对象存储后替换
-        为 media reference，保证 trace 中能看到完整图片。
+        base64  — Langfuse SDK  MediaManager 
+        Anthropic/OpenAI/Vertex  base64 ，object
+         media reference， trace 。
 
         Args:
             data: Data to serialize

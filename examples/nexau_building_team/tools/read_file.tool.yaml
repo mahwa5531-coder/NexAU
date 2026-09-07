@@ -1,31 +1,33 @@
 type: tool
 name: read_file
 description: >-
-  Reads and returns the content of a specified file. If the file is large, the
-  content will be truncated. The tool's response will clearly indicate if
-  truncation has occurred and will provide details on how to read more of the
-  file using the 'offset' and 'limit' parameters. Handles text files by default.
-  When visual support is explicitly enabled at binding time, image and video
-  files are delegated to read_visual_file. Audio files are returned as binary
-  placeholders. PDF files are unsupported. For text files, specific line ranges
-  can be read.
+  Reads file contents from the workspace or local filesystem.
+  Supports source code, text, Markdown, and tabular spreadsheets/CSVs with automated DuckDB Parquet caching.
+
+  Statutory & Financial Ingestion:
+  1. Spreadsheets (.xlsx, .xls, .csv, .tsv, .parquet):
+     - Multi-sheet Excel files: When read without `sheet_name`, returns the workbook index with all sheets, row counts, and column counts.
+     - Specific Schedules: Pass `sheet_name='<Exact Sheet Name>'` to extract financial statements (e.g. 'P&L Statement', 'Sales Register').
+     - Small tables (<=100 rows): Rendered directly inline as structured Markdown tables.
+     - Large datasets (>100 rows): Automatically converted to In-RAM '.parquet' cache with column schemas and 5-row preview.
+  2. Source Code & Text (.py, .ts, .json, .md, .txt, .sql, .yaml):
+     - Returns text content with 1-based line numbers.
+     - For large files, use `offset` and `limit` to paginate.
 input_schema:
   type: object
   properties:
     file_path:
       type: string
-      description: The path to the file to read.
+      description: "The path to the file to read (absolute or workspace-relative)."
+    sheet_name:
+      type: string
+      description: "Optional (Excel only): The specific sheet name to read (e.g. 'Sales Register', 'P&L'). If omitted on multi-sheet workbooks, returns the sheet index."
     offset:
-      type: number
-      description: >-
-        Optional: For text files, the 0-based line number to start reading from.
-        Requires 'limit' to be set. Use for paginating through large files.
+      type: integer
+      description: "Optional (Text/Code only): 0-based line number to start reading from."
     limit:
-      type: number
-      description: >-
-        Optional: For text files, maximum number of lines to read. Use with
-        'offset' to paginate through large files. If omitted, reads the entire
-        file (if feasible, up to a default limit).
+      type: integer
+      description: "Optional (Text/Code only): Maximum number of lines to read. Defaults to 2000."
   required:
     - file_path
   additionalProperties: false

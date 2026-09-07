@@ -71,9 +71,9 @@ from .base_sandbox import (
 
 logger = logging.getLogger(__name__)
 
-# get_file_info 编码探测的文件大小上限(1MiB):E2B SDK 的 read 没有 range
-# 参数,超过此值的文件跳过探测(encoding=None),避免为 metadata 把整个
-# 文件从沙盒下载进 runtime 进程。语义与 LocalSandbox 的 64KB 采样一致。
+# get_file_info (1MiB):E2B SDK  read  range
+# ,value(encoding=None), metadata 
+# runtime 。 LocalSandbox  64KB 。
 _ENCODING_PROBE_MAX_BYTES = 1024 * 1024
 
 BASH_TOOL_RESULTS_BASE_PATH = "/tmp/nexau_bash_tool_results"
@@ -130,8 +130,8 @@ def _locked_build_http_sandbox(
 ) -> E2BRawSandbox:
     """Build an HTTP raw Sandbox bound to a private transport (self-host only).
 
-    NAC#1304: 自建部署的 raw sandbox 统一构造原语（manager start 路径与
-    wrapper reconnect 路径共用）。
+    NAC#1304:  raw sandbox （manager start 
+    wrapper reconnect ）。
 
     Ensures all internal SDK components (``_envd_api``, ``_filesystem``,
     ``_commands``, ...) use the HTTP URL plus the ``X-Access-Token`` header,
@@ -148,7 +148,7 @@ def _locked_build_http_sandbox(
       object keeps its transport as a de-facto private reference. Known
       residual: between pre-seed and detach a concurrent ``get_transport()``
       caller may still grab the fresh transport (microsecond window; accepted,
-      净效果远优于共享单例的现状).
+      singleton).
     """
     assert Sandbox is not None, "E2B SDK not installed. Install it with: pip install e2b"
 
@@ -161,7 +161,7 @@ def _locked_build_http_sandbox(
         extra_sandbox_headers={"X-Access-Token": envd_access_token},
     )
     with _TRANSPORT_REBUILD_LOCK:
-        # 1. pre-seed：锁内先占位 singleton，杜绝构造期收养他人污染的 transport
+        # 1. pre-seed： singleton， transport
         fresh = TransportWithLogger(limits=limits, proxy=connection_config.proxy)
         TransportWithLogger.singleton = fresh
         try:
@@ -174,11 +174,11 @@ def _locked_build_http_sandbox(
                 envd_version=envd_version,
             )
         finally:
-            # 2. detach：解绑全局单例，新对象的 pool 私有化
+            # 2. detach：singleton，object pool 
             TransportWithLogger.singleton = None
         if sandbox._transport is not fresh:
-            # 理论不可达（singleton 非 None 时 get_transport 不覆写，置 None 仅在本锁内），
-            # 保留探测以防 SDK 行为变化。
+            # （singleton  None  get_transport ， None ），
+            # SDK 。
             logger.warning(
                 "Transport singleton was contested during locked build; sandbox %s may share its connection pool",
                 sandbox_id[:16],
@@ -192,14 +192,14 @@ def _rebuild_raw_sandbox_for_http(
 ) -> E2BRawSandbox:
     """Extract domain/token from a connect() response and rebuild for HTTP.
 
-    NAC#1304: reconnect 专用（fail-closed）。token 优先取新 connect 响应
-    （resume 后可能轮换），响应缺失时回退旧对象的 token 并告警；两者皆缺则抛
-    ``SandboxError`` —— 在 force_http 部署上绝不安装 SDK 默认的 HTTPS 对象。
+    NAC#1304: reconnect （fail-closed）。token  connect 
+    （resume ），object token ；
+    ``SandboxError`` ——  force_http  SDK default HTTPS object。
     """
     domain = raw.sandbox_domain
     if fallback is not None and fallback.sandbox_domain and domain != fallback.sandbox_domain:
-        # 防御：connect 响应缺 domain 时会被 SDK 默认域(property 回退)静默兜底，
-        # 此处显式暴露新旧不一致而不是放任构错 URL。
+        # ：connect  domain  SDK default(property )，
+        # URL。
         logger.warning(
             "connect response domain %r differs from previous %r; using response value",
             domain,
@@ -311,8 +311,8 @@ class E2BSandbox(BaseSandbox):
             raise SandboxError("Sandbox not started. Call start() first.")
 
         output_dir = f"{BASH_TOOL_RESULTS_BASE_PATH}/{uuid.uuid4().hex[:8]}"
-        # NAC#1312: 主命令前的准备步骤同样要能扛数据面瞬断（幂等，可安全重试），
-        # 否则 execute_shell 在真正带重试的 commands.run 之前就快速失败了
+        # NAC#1312: （，retry），
+        # execute_shell retry commands.run failure
         self._retry_on_transient(
             lambda: self._sandbox.commands.run(  # type: ignore[union-attr]
                 f"mkdir -p {output_dir} && : > {output_dir}/stdout.txt && : > {output_dir}/stderr.txt",
@@ -343,7 +343,7 @@ class E2BSandbox(BaseSandbox):
             return command
 
         script_path = f"{output_dir}/run.sh"
-        # NAC#1312: 幂等写，纳入瞬断重试
+        # NAC#1312: ，retry
         self._retry_on_transient(lambda: self._sandbox._filesystem.write(script_path, command))  # type: ignore[union-attr]
         logger.info(
             "[e2b] Command scriptified (%d bytes, heredoc=%s) – wrote to %s",
@@ -361,24 +361,24 @@ class E2BSandbox(BaseSandbox):
     ) -> tuple[str, str, str | None]:
         """Read stdout.txt and stderr.txt from the output directory in the sandbox.
 
-        NAC#1312（CR 加固 x2）：
-        - 两个文件共享**一份**重试预算，而不是各吃一个完整窗口；
-        - 输出可用性作为独立维度返回（第三个元素），绝不抛出——"输出读
-          不到" ≠ "命令失败"。上一版的 strict 异常会把已成功（且可能有
-          副作用）的命令报成 ERROR，诱导 agent 重跑造成双重执行；同时
-          stderr 读失败会连带丢弃已读到的 stdout。现在两个文件各自尽力
-          读取，成功的保留，失败的记录进 note。
+        NAC#1312（CR  x2）：
+        - ****retry，；
+        - （），——"
+          " ≠ "failure"。 strict exceptionsuccess（
+          ） ERROR， agent ；
+          stderr failure stdout。
+          ，success，failure note。
 
         Args:
-            budget: 共享重试预算（秒）。``None`` = ``self.transient_retry_window``。
-                轮询类调用方应传小值——状态轮询本身就是重复调用，单次失败
-                下一轮自然补上，不该单次吃满窗口。
+            budget: retry（）。``None`` = ``self.transient_retry_window``。
+                classvalue——，failure
+                ，。
 
         Returns:
-            (stdout, stderr, unavailable_note)——note 为 ``None`` 表示两个
-            文件都读到了（NotFound 视为空输出，不算不可用）；否则描述哪些
-            输出因预算耗尽不可用，调用方应把它并入结果的 error 字段显性
-            呈现，而不是让输出静默变空。
+            (stdout, stderr, unavailable_note)——note  ``None`` 
+            （NotFound ，）；
+            ， error 
+            ，。
         """
         assert self._sandbox is not None
 
@@ -396,7 +396,7 @@ class E2BSandbox(BaseSandbox):
                             retry_window=remaining,
                         )
                     else:
-                        # 预算已被前一个文件耗尽：只试一次，不再退避
+                        # ：，
                         raw = self._retry_on_transient(
                             lambda: self._sandbox._filesystem.read(path, format="bytes"),  # type: ignore[union-attr]
                             max_retries=0,
@@ -472,17 +472,17 @@ class E2BSandbox(BaseSandbox):
     def _reconnect(self, gen_seen: int | None = None) -> None:
         """Attempt to reconnect to the sandbox by sandbox_id (single-flight).
 
-        NAC#1304: 重连必须保真——force_http 部署下用与初始构造相同的 HTTP
-        ConnectionConfig 重建，而不是安装 ``Sandbox.connect()`` 返回的 SDK
-        默认 HTTPS 对象（自建部署 :443 无监听，安装后本 run 内所有沙箱操作
-        将永久 Connection refused）。
+        NAC#1304: ——force_http  HTTP
+        ConnectionConfig ， ``Sandbox.connect()``  SDK
+        default HTTPS object（ :443 ， run 
+         Connection refused）。
 
-        NAC#1312 CR: ``_static_reconnect=True``（explicit-target 直绑路径）时
-        完全不走控制面 ``Sandbox.connect()``，直接用当前对象自带的
-        domain/token 原位重建——该路径的连接参数是显式配置的静态事实，
-        走 connect 反而引入两类回归：响应缺 domain 被 SDK 默认域
-        （``e2b.app``）静默兜底绕过 fail-closed；带外沙箱在 SM 无记录时
-        connect 抛 NotFound（非 transient）中止整个重试窗口。
+        NAC#1312 CR: ``_static_reconnect=True``（explicit-target ）
+         ``Sandbox.connect()``，object
+        domain/token ——configuration，
+         connect class： domain  SDK default
+        （``e2b.app``） fail-closed； SM 
+        connect  NotFound（ transient）retry。
 
         Args:
             gen_seen: ``_sandbox_generation`` observed by the caller right
@@ -494,12 +494,12 @@ class E2BSandbox(BaseSandbox):
         if not self.sandbox_id:
             raise SandboxError("Sandbox ID not set; cannot reconnect.")
         with self._reconnect_lock:
-            # 1. double-check：他人已重连则直接复用其结果
+            # 1. double-check：
             if gen_seen is not None and self._sandbox_generation != gen_seen:
                 return
-            # 2. 网络调用持 wrapper 锁：single-flight 语义即要求串行。慢 resume
-            #    会让同 wrapper 的其他等待者阻塞于此，净效果仍优于 N 路并发
-            #    connect 风暴。
+            # 2.  wrapper ：single-flight 。 resume
+            # wrapper ， N 
+            # connect 。
             if self._static_reconnect:
                 old = self._sandbox
                 if old is None:
@@ -518,7 +518,7 @@ class E2BSandbox(BaseSandbox):
                     api_key=self._api_key,
                     api_url=self._api_url,
                 )
-                # 3. 自建部署：保真重建（fail-closed，失败时旧对象保留、gen 不增）
+                # 3. ：（fail-closed，failureobject、gen ）
                 if self._force_http:
                     raw = _rebuild_raw_sandbox_for_http(raw, fallback=self._sandbox)
             self._sandbox = raw
@@ -532,10 +532,10 @@ class E2BSandbox(BaseSandbox):
     ) -> _T:
         """Execute *fn* with automatic reconnect + retry on transient errors.
 
-        NAC#1312: 重试预算以时间窗口为主。断连类故障（如 sandbox-proxy 重启）
-        的恢复时间与重试次数无关——瞬时失败（connection refused）会在几秒内
-        耗光任何次数制预算。窗口内不限次数，指数退避封顶 5s，数据面恢复后
-        当前操作直接成功返回，而不是把错误抛给工具层。
+        NAC#1312: retry。class（ sandbox-proxy ）
+        retry——failure（connection refused）
+        。， 5s，
+        success，error。
 
         Args:
             fn: Zero-arg callable that performs the SDK operation.
@@ -544,8 +544,8 @@ class E2BSandbox(BaseSandbox):
                 auxiliary reads that must stay low-latency (e.g. best-effort
                 pid probes). ``None`` = unlimited attempts within the window.
             retry_window: Retry time budget in seconds, measured from the
-                first transient failure (fn() 自身耗时不计入，预算只约束
-                "还要不要再试"). Defaults to ``self.transient_retry_window``;
+                first transient failure (fn() ，
+                ""). Defaults to ``self.transient_retry_window``;
                 ``<= 0`` falls back to legacy count-based retries
                 (``max_retries`` or ``self.max_retries``).
 
@@ -557,16 +557,16 @@ class E2BSandbox(BaseSandbox):
             exhausted.
         """
         window = retry_window if retry_window is not None else self.transient_retry_window
-        # 窗口关闭(<=0)时退回纯次数制，保底 self.max_retries
+        # (<=0)， self.max_retries
         count_cap = max_retries if max_retries is not None else (self.max_retries if window <= 0 else None)
         deadline: float | None = None
         attempt = 0
         while True:
-            # 每次 fn() 之前采集 generation：表达"失败的这次调用跑在哪个对象上"。
-            # 循环前只采一次会让第 2+ 次重试被 double-check 误拦（漏重连）；
-            # 在 except 里采集则会让惊群去重失效（冗余重连）。
-            # 已知有界代价：采集与 fn() 解引用之间他线程完成 swap 时，本次失败
-            # 的 reconnect 会被去重跳过、白耗一轮 backoff，下一轮自愈。
+            # fn()  generation："failureobject"。
+            # 2+ retry double-check （）；
+            # except （）。
+            # ： fn() completed swap ，failure
+            # reconnect 、 backoff，。
             gen_seen = self._sandbox_generation
             try:
                 return fn()
@@ -581,14 +581,14 @@ class E2BSandbox(BaseSandbox):
                         raise
                 if count_cap is not None and attempt >= count_cap:
                     raise
-                # 指数退避封顶 5s + 抖动；不睡过 deadline。
-                # attempt 参与 2**n 前先 cap——大窗口配置下 attempt 可达数百，
-                # 2**1024 转 float 会 OverflowError（NAC#1312 CR finding）。
+                # 5s + ； deadline。
+                # attempt  2**n  cap——configuration attempt ，
+                # 2**1024  float  OverflowError（NAC#1312 CR finding）。
                 base = min(0.5 * (2 ** min(attempt, 10)), 5.0)
                 delay = base + random.uniform(0, base * 0.25)
                 if deadline is not None:
-                    # clamp 到剩余预算（此处恒 > 0，超窗已在上方 raise）：
-                    # 总耗时严格 ≤ window，临期的余量本身就是末班车尝试
+                    # clamp （ > 0， raise）：
+                    # ≤ window，
                     delay = min(delay, deadline - now)
                 logger.warning(
                     "Transient error (attempt %d%s), reconnecting and retrying in %.1fs: %s",
@@ -602,12 +602,12 @@ class E2BSandbox(BaseSandbox):
                     self._reconnect(gen_seen)
                 except Exception as reconnect_err:
                     if self._is_transient_error(reconnect_err):
-                        # 断连窗口期控制面也可能抖（SM/sidecar 短暂不可达）：
-                        # 不中止预算，下一轮重试时再尝试 reconnect
+                        # （SM/sidecar ）：
+                        # ，retry reconnect
                         logger.warning("Reconnect failed with transient error (will retry): %s", reconnect_err)
                     else:
-                        # 确定性失败（沙箱已销毁、鉴权失效、force_http fail-closed）：
-                        # 立即上抛，不对着已死沙箱空耗窗口
+                        # failure（、、force_http fail-closed）：
+                        # ，
                         logger.error(f"Reconnect failed: {reconnect_err}")
                         raise e from reconnect_err
                 attempt += 1
@@ -625,8 +625,8 @@ class E2BSandbox(BaseSandbox):
         """
         Execute a shell command in the E2B sandbox.
 
-        命令启动时即通过 shell 级重定向将 stdout/stderr 写入临时文件，
-        执行完毕后从文件读取输出并按需智能截断。
+         shell  stdout/stderr ，
+        。
 
         Args:
             command: The shell command to execute
@@ -663,7 +663,7 @@ class E2BSandbox(BaseSandbox):
             command_stripped = command.strip()
 
             if background:
-                # 1. 创建输出目录，命令通过 shell 重定向写入文件
+                # 1. ， shell 
                 output_dir = self._prepare_output_dir(command, user=user)
                 command_stripped = self._maybe_scriptify(command_stripped, output_dir, user=user)
                 wrapped_cmd = f"{{ {command_stripped}; }} > {output_dir}/stdout.txt 2> {output_dir}/stderr.txt"
@@ -683,7 +683,7 @@ class E2BSandbox(BaseSandbox):
                 bg_pid: int = handle.pid  # background=True → CommandHandle
 
                 # E2B CommandHandle requires iterating events to populate _result.
-                # 输出已重定向到文件，consumer 线程只需等待进程结束获取 exit code。
+                # ，consumer  exit code。
                 task_info: dict[str, Any] = {
                     "handle": handle,
                     "command": command,
@@ -697,7 +697,7 @@ class E2BSandbox(BaseSandbox):
                 def _consume_events(h: object, info: dict[str, Any]) -> None:
                     try:
                         for _stdout_chunk, _stderr_chunk, _pty in h:  # type: ignore[attr-defined]
-                            pass  # 输出已重定向到文件，仅消费事件以跟踪完成状态
+                            pass  # ，completed
                     except StopIteration:
                         pass
                     except Exception as exc:
@@ -744,14 +744,14 @@ class E2BSandbox(BaseSandbox):
                     stderr_file=f"{output_dir}/stderr.txt" if output_dir else None,
                 )
 
-            # Foreground mode: 统一走 "pid 守卫后台启动 + 自适应轮询"
-            # （NAC#1312 CR 彻底修，取代原先 600s 阈值分叉的同步/后台两套路径）：
-            # - 命令在沙箱内后台执行，stdout/stderr/exitcode 全部落沙箱本地
-            #   文件，与连接解耦——数据面断连不影响命令本体，轮询容错等恢复
-            # - pid 文件守卫使启动幂等：瞬断重试绝不双跑非幂等命令
-            #   （旧同步路径的重试 = 整条命令原样重跑，会重复执行副作用）
-            # - 轮询间隔 0.2s 起 ×1.5 递增封顶 10s：短命令保持低延迟，长命令
-            #   避免高频轮询，同时天然规避网关 ~15min 长连接掐断
+            # Foreground mode:  "pid  + "
+            # （NAC#1312 CR ， 600s value/）：
+            # - ，stdout/stderr/exitcode 
+            # ，——，
+            # - pid ：retry
+            # （retry = ，）
+            # -  0.2s  ×1.5  10s：，
+            # ， ~15min 
             import shlex as _shlex
 
             output_dir = self._prepare_output_dir(command, user=user)
@@ -760,13 +760,13 @@ class E2BSandbox(BaseSandbox):
 
             exitcode_path = f"{output_dir}/exitcode.txt"
             pid_path = f"{output_dir}/pid.txt"
-            # 用户命令必须套进孙 shell（bash -c）：`exit N` 这类命令若直接
-            # 内联在子 shell 里会把整个子 shell 退掉，`echo $? > exitcode`
-            # 永不执行 → 轮询永远等不到 DONE（真实 envd 上实测复现）。
-            # CR 加固：外层再包 GNU timeout——服务端强制超时（等价旧同步路径
-            # envd 的 timeout 语义），到点 TERM 命令、10s 后 KILL 兜底，防止
-            # runtime 侧只能 best-effort kill launcher 子 shell 而留下孤儿
-            # 进程树；GNU timeout 超时退出码 124 由下方映射回 TIMEOUT。
+            # shell（bash -c）：`exit N` class
+            # shell  shell ，`echo $? > exitcode`
+            # →  DONE（ envd ）。
+            # CR ：package GNU timeout——timeout（
+            # envd  timeout ）， TERM 、10s  KILL ，
+            # runtime  best-effort kill launcher  shell 
+            # ；GNU timeout timeout 124  TIMEOUT。
             inner_cmd = f"timeout -k 10 {max(int(timeout_seconds), 1)} bash -c " + _shlex.quote(wrapped_cmd)
             bg_script = (
                 f"cd {_shlex.quote(cwd or str(self.work_dir))} && "
@@ -780,24 +780,24 @@ class E2BSandbox(BaseSandbox):
                 lambda: self._sandbox.commands.run(bg_start_cmd, timeout=0, user=user, envs=self._merge_envs(envs))  # type: ignore[union-attr]
             )
 
-            # 状态判定完全在沙箱侧完成（pid 由沙箱自己 cat，runtime 不需要
-            # 单独读 pid 文件——省一次 RTT 也省掉旧路径的 sleep(1) 预热）：
-            # exitcode 非空 → DONE；进程活着 → RUNNING；否则 DEAD（异常死亡，
-            # `-s` 而非 `-f`：排除 "文件已创建、退出码尚未落盘" 的空文件窗口）
+            # completed（pid  cat，runtime 
+            # pid —— RTT  sleep(1) ）：
+            # exitcode  → DONE； → RUNNING； DEAD（exception，
+            # `-s`  `-f`： "、" ）
             status_cmd = (
                 f"if [ -s {exitcode_path} ]; then echo DONE; "
                 f"elif [ -s {pid_path} ] && kill -0 $(cat {pid_path}) 2>/dev/null; then echo RUNNING; "
                 f"else echo DEAD; fi"
             )
 
-            # 轮询循环（CR 加固 x3）：
-            # - 先查后睡：短命令 launch 返回时多半已完成，首查零延迟
-            # - deadline 用 monotonic（系统时钟被 NTP 回拨时 wall-clock 会把
-            #   超时拉长/缩短）；服务端 GNU timeout 是权威超时，本地 deadline
-            #   只是断连期间的兜底判定，故加 5s 余量避免与服务端竞态
-            # - 轮询连续失败达阈值时触发一次保真 _reconnect：普通 refused
-            #   由连接池自愈，但 token 轮换/对象陈旧类故障必须重建对象——
-            #   裸 except-continue 会把这类可恢复故障拖到超时
+            # （CR  x3）：
+            # - ： launch completed，
+            # - deadline  monotonic（ NTP  wall-clock 
+            # timeout/）； GNU timeout timeout， deadline
+            # ， 5s 
+            # - failurevalue _reconnect： refused
+            # ， token /objectclassobject——
+            # except-continue classtimeout
             exit_code = 0
             poll_interval = 0.2
             _bg_timed_out = False
@@ -811,7 +811,7 @@ class E2BSandbox(BaseSandbox):
                     if st in ("DONE", "DEAD"):
                         break
                 except Exception:
-                    # 断连期间命令在沙箱内不受影响；容错等待数据面恢复
+                    # ；
                     poll_fail_streak += 1
                     if poll_fail_streak >= 3:
                         poll_fail_streak = 0
@@ -826,9 +826,9 @@ class E2BSandbox(BaseSandbox):
                 poll_interval = min(poll_interval * 1.5, 10.0)
 
             # Always try to read exit code (process may have finished right as
-            # we timed out or after DEAD detection). 完整瞬断窗口：命令大概率
-            # 已被服务端 GNU timeout 终结并写下 124/真实退出码，值得等断连
-            # 恢复拿到权威结论，而不是急着误报
+            # we timed out or after DEAD detection). ：
+            # GNU timeout  124/，value
+            # ，
             try:
                 raw_ec = self._retry_on_transient(
                     lambda: self._sandbox._filesystem.read(exitcode_path),  # type: ignore[union-attr]
@@ -839,8 +839,8 @@ class E2BSandbox(BaseSandbox):
                 exit_code = -1
 
             if exit_code == 124 or (_bg_timed_out and exit_code == -1):
-                # 124 = GNU timeout 已在服务端终结命令（权威超时）；
-                # -1 + 本地超时 = 断连期间无法确认，best-effort 清理后按超时报
+                # 124 = GNU timeout （timeout）；
+                # -1 + timeout = ，best-effort timeout
                 if exit_code == -1:
                     try:
                         self._sandbox.commands.run(  # type: ignore[union-attr]
@@ -855,12 +855,12 @@ class E2BSandbox(BaseSandbox):
 
             duration_ms = int((time.time() - start_time) * 1000)
 
-            # 从文件读取完整输出。输出不可用是独立维度（output_note），并入
-            # error 显性呈现——但绝不改写命令本身的成败结论（exit code 是
-            # 权威事实；把已成功的副作用命令报成 ERROR 会诱导 agent 重跑）
+            # 。（output_note），
+            # error ——（exit code 
+            # ；success ERROR  agent ）
             stdout, stderr, output_note = self._read_output_files(output_dir)
 
-            # 智能截断
+            # 
             t_stdout, t_stderr, was_truncated, orig_stdout_len, orig_stderr_len = smart_truncate_output(
                 stdout,
                 stderr,
@@ -940,7 +940,7 @@ class E2BSandbox(BaseSandbox):
         """
         Get the status and output of a background task.
 
-        从 output_dir 下的 stdout.txt / stderr.txt 读取输出（文件由 shell 重定向写入）。
+         output_dir  stdout.txt / stderr.txt （ shell ）。
 
         Args:
             pid: The process ID of the background task
@@ -961,12 +961,12 @@ class E2BSandbox(BaseSandbox):
         output_dir: str | None = task_info.get("std_output_dir")
         finished = bool(task_info["finished"])
 
-        # 从文件读取输出。NAC#1312 CR：预算按语义分——
-        # - 未结束的轮询：短预算（本方法被高频重复调用，单次失败下一轮自然
-        #   补上，不该单次吃满 60s 窗口把轮询方拖成分钟级卡顿）
-        # - 已结束：这次读取就是最终输出，用完整预算；输出不可用并入 error
-        #   显性呈现，但不改写命令本身的成败结论（exit code 是权威事实，
-        #   把已成功的副作用命令报成 ERROR 会诱导 agent 重跑双重执行）
+        # 。NAC#1312 CR：——
+        # - ：（method，failure
+        # ， 60s ）
+        # - ：，； error
+        # ，（exit code ，
+        # success ERROR  agent ）
         stdout = ""
         stderr = ""
         output_read_error: str | None = None
@@ -978,7 +978,7 @@ class E2BSandbox(BaseSandbox):
             if note and finished:
                 output_read_error = f"command completed but output unavailable: {note}"
 
-        # 智能截断
+        # 
         if output_dir:
             t_stdout, t_stderr, was_truncated, o_out, o_err = smart_truncate_output(
                 stdout,
@@ -1018,10 +1018,10 @@ class E2BSandbox(BaseSandbox):
         # definitive failure.
         if task_info.get("stream_error") and self._sandbox is not None:
             try:
-                # NAC#1312: 纳入瞬断重试——stream 掉线常与数据面故障同源，
-                # 状态探测若也快速失败会把仍在运行的任务误报为 indeterminate。
-                # CR 加固：短预算（max_retries=2）——本方法是轮询 API，单次
-                # 探测失败下一轮补上，不叠加成 3x 窗口的卡顿
+                # NAC#1312: retry——stream ，
+                # failure indeterminate。
+                # CR ：（max_retries=2）——method API，
+                # failure， 3x 
                 check = self._retry_on_transient(
                     lambda: self._sandbox.commands.run(  # type: ignore[union-attr]
                         f"kill -0 {pid} 2>/dev/null && echo ALIVE || echo DEAD",
@@ -1372,10 +1372,10 @@ class E2BSandbox(BaseSandbox):
                     error=f"File does not exist: {resolved_path}",
                 )
 
-            # Use E2B filesystem remove（NAC#1312: 纳入瞬断重试）。
-            # CR 加固：重试中撞 NotFound = 首发已删成功、响应丢失后重发撞空
-            # （上方 file_exists 已确认过文件存在）——目标状态已达成，视为
-            # 成功而不是把删除成功报成 ERROR 误导调用方重试。
+            # Use E2B filesystem remove（NAC#1312: retry）。
+            # CR ：retry NotFound = success、
+            # （ file_exists ）——，
+            # successsuccess ERROR retry。
             try:
                 self._retry_on_transient(lambda: self._sandbox._filesystem.remove(resolved_path))  # type: ignore[union-attr]
             except Exception as e:
@@ -1427,7 +1427,7 @@ class E2BSandbox(BaseSandbox):
             if not self.file_exists(resolved_path):
                 raise SandboxFileError(f"Directory does not exist: {directory_path}")
 
-            # Use E2B filesystem list（NAC#1312: 纳入瞬断重试）
+            # Use E2B filesystem list（NAC#1312: retry）
             entries = self._retry_on_transient(lambda: self._sandbox._filesystem.list(resolved_path))  # type: ignore[union-attr]
 
             files: list[FileInfo] = []
@@ -1493,14 +1493,14 @@ class E2BSandbox(BaseSandbox):
         if not self._sandbox:
             raise SandboxError("Sandbox not started. Call start() first.")
 
-        # NAC#1304 掩蔽治理：只有"确实不存在"才返回 False；其余 stat 失败
-        # （连接错误/权限/超时等）一律上抛。旧行为把 Connection refused 吞成
-        # False，工具层随即误报 "Directory not found: /"，掩盖真实故障并误导
-        # 模型分支决策。注意 SDK 的 exists() 已在内部把 not_found 转为 False，
-        # NotFoundException 分支是防御性兜底；禁止改写成"已知错误类型白名单
-        # 吞掉"——那会让文案不在名单里的连接错误（如 SSL EOF）重新被掩蔽。
-        # NAC#1312: 纳入瞬断重试——它是工具 dir check 的入口，曾是断连期间
-        # 最先毫秒级快速失败的裸调。NotFound 非 transient，会立刻穿出重试循环。
+        # NAC#1304 ："" False； stat failure
+        # （error//timeout）。 Connection refused 
+        # False， "Directory not found: /"，
+        # 。 SDK  exists()  not_found  False，
+        # NotFoundException ；"errortype
+        # "——error（ SSL EOF）。
+        # NAC#1312: retry—— dir check ，
+        # failure。NotFound  transient，retry。
         try:
             resolved_path = self._resolve_path(file_path)
             return self._retry_on_transient(lambda: self._sandbox._filesystem.exists(resolved_path))  # type: ignore[union-attr]
@@ -1538,9 +1538,9 @@ class E2BSandbox(BaseSandbox):
                 )
 
             # Use E2B filesystem get_info API
-            # NAC#1312 掩蔽治理（同 file_exists 口径）：只有 NotFound 才视为
-            # "不存在"；连接类错误走瞬断重试，窗口耗尽后如实上抛，不再吞成
-            # exists=False 误导调用方
+            # NAC#1312 （ file_exists ）： NotFound 
+            # ""；classerrorretry，，
+            # exists=False 
             try:
                 entry = self._retry_on_transient(lambda: self._sandbox._filesystem.get_info(resolved_path))  # type: ignore[union-attr]
             except Exception as e:
@@ -1560,11 +1560,11 @@ class E2BSandbox(BaseSandbox):
                 # Check owner write permission (bit 7)
                 writable = bool(entry.mode & 0o200)
 
-            # 编码探测上限:E2B SDK 的 read 没有 range 参数,探测一个大文件的
-            # 编码意味着为了 metadata 把整个文件(如 21MB 图)从沙盒下载进
-            # runtime 进程 —— read_visual_file 对超大图"不读原图"的保证曾被
-            # 这里悄悄打破。大文件直接跳过探测(encoding 无消费方依赖精确值,
-            # 文本读取走 UTF-8 lossy 不看它)。
+            # :E2B SDK  read  range ,
+            # metadata ( 21MB )
+            # runtime  —— read_visual_file ""
+            # 。(encoding value,
+            # UTF-8 lossy )。
             if entry.type == FileType.FILE and (entry.size or 0) <= _ENCODING_PROBE_MAX_BYTES:
                 raw_data = self._retry_on_transient(
                     lambda: self._sandbox._filesystem.read(resolved_path, format="bytes")  # type: ignore[union-attr]
@@ -2029,15 +2029,15 @@ class E2BSandbox(BaseSandbox):
             if not files_to_write:
                 return True
 
-            # 2. Create all parent directories in one shot（NAC#1312: 幂等，纳入瞬断重试）
+            # 2. Create all parent directories in one shot（NAC#1312: ，retry）
             dirs_cmd = " ".join(f'"{d}"' for d in sorted(parent_dirs))
             self._retry_on_transient(lambda: self._sandbox.commands.run(cmd=f"mkdir -p {dirs_cmd}", user="user"))  # type: ignore[union-attr]
 
-            # 3. Batch-write all files（幂等，纳入瞬断重试）。
-            # CR 权衡（两轮意见相反后的裁决）：request_timeout=300s 的单次
-            # 尝试可长阻塞，纯窗口制下慢失败会叠加 600s+；但 cap=1 又让
-            # refused 类快失败 1 秒内耗尽预算失去断连自愈。取 cap=3——
-            # 快失败场景 4 次尝试跨 ~7s 退避可自愈短断连，慢失败场景有界
+            # 3. Batch-write all files（，retry）。
+            # CR （）：request_timeout=300s 
+            # ，failure 600s+； cap=1 
+            # refused classfailure 1 。 cap=3——
+            # failure 4  ~7s ，failure
             self._retry_on_transient(
                 lambda: self._sandbox._filesystem.write_files(files_to_write, request_timeout=300.0),  # type: ignore[union-attr]
                 max_retries=3,
@@ -2133,7 +2133,7 @@ class E2BSandboxManager(BaseSandboxManager[E2BSandbox]):
     # E2B configuration fields
     work_dir: str | Path = field(default=E2B_DEFAULT_WORK_DIR)
     template: str = field(default_factory=lambda: os.getenv("E2B_TEMPLATE", "base"))
-    # crash-safe: 与 E2B_TRANSIENT_RETRY_WINDOW 同款治理（空串/非法值回退默认）
+    # crash-safe:  E2B_TRANSIENT_RETRY_WINDOW （/valuedefault）
     timeout: int = field(default_factory=lambda: int(_env_float("E2B_TIMEOUT", 300.0)))
     api_key: str | None = field(default_factory=lambda: os.getenv("E2B_API_KEY"))
     api_url: str | None = field(default_factory=lambda: os.getenv("E2B_API_URL"))
@@ -2212,9 +2212,9 @@ class E2BSandboxManager(BaseSandboxManager[E2BSandbox]):
         Returns:
             Configured Sandbox instance with HTTP ConnectionConfig
         """
-        # NAC#1304: 与 wrapper reconnect 路径共用同一构造原语（pre-seed + detach），
-        # 消除两份实现漂移；本方法保持原签名与调用方 _maybe_rebuild_for_http 的
-        # fail-open 语义不变。
+        # NAC#1304:  wrapper reconnect （pre-seed + detach），
+        # ；method _maybe_rebuild_for_http 
+        # fail-open 。
         return _locked_build_http_sandbox(
             sandbox_id=sandbox_id,
             domain=domain,
@@ -2275,7 +2275,7 @@ class E2BSandboxManager(BaseSandboxManager[E2BSandbox]):
                     truncate_tail_chars=sandbox_config.truncate_tail_chars,
                     max_retries=sandbox_config.max_retries,
                     transient_retry_window=sandbox_config.transient_retry_window,
-                    # NAC#1304: reconnect 保真重建的判据，随 dict() 持久化
+                    # NAC#1304: reconnect ， dict() 
                     _force_http=sandbox_config.force_http,
                 )
                 sandbox.set_api_credentials(self.api_key, self.api_url)
@@ -2360,7 +2360,7 @@ class E2BSandboxManager(BaseSandboxManager[E2BSandbox]):
             truncate_tail_chars=sandbox_config.truncate_tail_chars,
             max_retries=sandbox_config.max_retries,
             transient_retry_window=sandbox_config.transient_retry_window,
-            # NAC#1304: reconnect 保真重建的判据，随 dict() 持久化
+            # NAC#1304: reconnect ， dict() 
             _force_http=sandbox_config.force_http,
         )
         sandbox.set_api_credentials(self.api_key, self.api_url)
@@ -2476,7 +2476,7 @@ class E2BSandboxManager(BaseSandboxManager[E2BSandbox]):
             if instance.sandbox:
                 instance.sandbox.kill(api_key=self.api_key, api_url=self.api_url)
                 logger.info(f"E2B sandbox {instance.sandbox_id} destroyed")
-            # 清除 _instance，沙箱已销毁，无法重连
+            # _instance，，
             self._instance = None
             return True
         except Exception as e:
@@ -2507,14 +2507,14 @@ class E2BSandboxManager(BaseSandboxManager[E2BSandbox]):
             # fails when E2B_API_KEY env var is not set (e.g. self-hosted).
             instance.sandbox.beta_pause(api_key=self.api_key, api_url=self.api_url)
 
-            # 1. 将 sandbox_id 写入 session_context，使下次 start() 能通过
-            #    Priority 1 (config.sandbox_id) 重新连接到暂停的沙箱
+            # 1.  sandbox_id  session_context， start() 
+            # Priority 1 (config.sandbox_id) 
             if sandbox_id and self._session_context:
                 cfg = self._session_context.get("sandbox_config")
                 if isinstance(cfg, E2BSandboxConfig):
                     self._session_context["sandbox_config"] = cfg.model_copy(update={"sandbox_id": sandbox_id})
 
-            # 2. 清除 _instance，防止后续 start_sync() 返回已暂停的陈旧引用
+            # 2.  _instance， start_sync() 
             self._instance = None
             logger.info(f"E2B sandbox {sandbox_id} paused and instance cleared")
             return True

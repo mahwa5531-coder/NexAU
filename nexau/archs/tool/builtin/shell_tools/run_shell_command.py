@@ -17,11 +17,11 @@ from nexau.archs.permissions.helpers import check_shell_permission
 from nexau.archs.sandbox import BaseSandbox, CommandResult, SandboxStatus
 from nexau.archs.tool.builtin._sandbox_utils import get_sandbox, resolve_path
 
-# Configuration constants (matching gemini-cli)
-DEFAULT_TIMEOUT_MS = 1800000  # 30 minutes default timeout
-TRUNCATE_OUTPUT_THRESHOLD = 4_000_000  # Truncate when output exceeds this many chars
-TRUNCATE_OUTPUT_LINES = 1000  # Keep last N lines when truncating
-MAX_TRUNCATED_LINE_WIDTH = 1000  # Max chars per line in truncated output
+# Configuration constants (matching Antigravity / modern agent limits)
+DEFAULT_TIMEOUT_MS = 120000  # 2 minutes default timeout (prevents hanging runaway scripts)
+TRUNCATE_OUTPUT_THRESHOLD = 48_000  # Truncate when output exceeds 48KB (~12,000 tokens)
+TRUNCATE_OUTPUT_LINES = 200  # Keep last 200 lines when truncating
+MAX_TRUNCATED_LINE_WIDTH = 500  # Max chars per line in truncated output
 MAX_TRUNCATED_CHARS = 4000  # Keep last N chars for single massive line
 FOREGROUND_COMMAND_POLL_INTERVAL_SECONDS = 0.2
 
@@ -91,14 +91,10 @@ def _execute_foreground_command(
     sandbox: BaseSandbox,
     command: str,
     timeout_ms: int | None,
-    execution: ExecutionAPI,
-    cwd: str | None,
+    execution: ExecutionAPI | None = None,
+    cwd: str | None = None,
 ) -> CommandResult:
-    """Execute a foreground shell command via background task polling.
-
-    前台命令统一走 background task + 轮询，这样 stop/execution.is_shutting_down()
-    可以复用 sandbox 现有的 kill_background_task 能力中断长时间阻塞命令。
-    """
+    """Execute a foreground shell command via background task polling."""
     start_time = time.monotonic()
     start_result = sandbox.execute_shell(command, timeout=timeout_ms, background=True, cwd=cwd)
     background_pid = start_result.background_pid
@@ -108,7 +104,7 @@ def _execute_foreground_command(
 
     latest_result: CommandResult | None = None
     while True:
-        if execution.is_shutting_down():
+        if execution is not None and execution.is_shutting_down():
             sandbox.kill_background_task(background_pid)
             duration_ms = int((time.monotonic() - start_time) * 1000)
             return _build_terminal_command_result(
@@ -137,7 +133,7 @@ def _execute_foreground_command(
 
 
 def run_shell_command(
-    command: str,
+    command: str | None = None,
     description: str | None = None,
     is_background: bool = False,
     dir_path: str | None = None,
@@ -145,7 +141,15 @@ def run_shell_command(
     update_output: Callable[[str], None] | None = None,
     agent_state: AgentState | None = None,
     *,
-    ctx: FrameworkContext,
+    ctx: FrameworkContext | None = None,
+    # Antigravity aliases
+    CommandLine: str | None = None,
+    Cwd: str | None = None,
+    WaitMsBeforeAsync: int | None = None,
+    IsDaemon: bool | None = None,
+    toolAction: str | None = None,
+    toolSummary: str | None = None,
+    **kwargs: Any,
 ) -> dict[str, Any]:
     """
     Executes a shell command.
@@ -164,18 +168,30 @@ def run_shell_command(
     - Process Group PGID: Only included if available.
 
     Args:
-        command: The exact command to execute
-        description: Brief description of the command for the user
-        dir_path: Directory to run the command in (optional)
-        is_background: Whether to run in background
+        command: The exact command to execute (or CommandLine)
+        description: Brief description of the command for the user (or toolSummary / toolAction)
+        dir_path: Directory to run the command in (or Cwd) (optional)
+        is_background: Whether to run in background (or IsDaemon)
         timeout_ms: Timeout in milliseconds (0 for no timeout)
         update_output: Callback for streaming output updates
 
     Returns:
         Dict with content and returnDisplay matching gemini-cli format
     """
-    # RFC-0019: 权限检查（在任何资源分配之前）
-    check_shell_permission(ctx, command)
+    # Normalize Antigravity parameter aliases
+    command = CommandLine or command or ""
+    if Cwd is not None:
+        dir_path = Cwd
+    if toolSummary or toolAction:
+        description = toolSummary or toolAction or description
+    if IsDaemon is not None:
+        is_background = IsDaemon
+    if WaitMsBeforeAsync is not None and WaitMsBeforeAsync > 0 and WaitMsBeforeAsync < 1000:
+        is_background = True
+
+    # RFC-0019: permission check（）
+    if ctx is not None:
+        check_shell_permission(ctx, command)
 
     try:
         # Validate command
@@ -228,7 +244,7 @@ def run_shell_command(
             if bg_pid is not None:
                 llm_content = (
                     f"Background task started (pid: {bg_pid}). "
-                    f"Use BackgroundTaskManage with action='status' and pid={bg_pid} to check output."
+                    f"Use `background_task_manage_tool` with action='status' and pid={bg_pid} to check output."
                 )
                 bg_result: dict[str, Any] = {
                     "content": llm_content,
@@ -266,8 +282,8 @@ def run_shell_command(
         # Streaming output is not supported by execute_shell; ignore update_output.
         _ = update_output
 
-        # RFC-0006: 通过 ctx.execution 获取停止信号
-        execution = ctx.execution
+        # RFC-0006: framework execution API
+        execution = ctx.execution if ctx is not None else None
 
         # Prepare commands for the active backend before execution. This includes
         # Bash heredoc scriptification and PowerShell-compatible safe rewrites.

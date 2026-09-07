@@ -1,30 +1,30 @@
-# RFC-0002: AgentTeam — 多 Agent 协作框架
+# RFC-0002: AgentTeam —  Agent 
 
-- **状态**: implemented
-- **优先级**: P0
-- **标签**: `architecture`, `agent`, `collaboration`
-- **影响服务**: `nexau/archs/main_sub/`, `nexau/archs/session/`, `nexau/archs/transports/http/`, `nexau/archs/tool/`
-- **创建日期**: 2026-02-17
-- **更新日期**: 2026-02-25
+- ****: implemented
+- ****: P0
+- ****: `architecture`, `agent`, `collaboration`
+- ****: `nexau/archs/main_sub/`, `nexau/archs/session/`, `nexau/archs/transports/http/`, `nexau/archs/tool/`
+- ****: 2026-02-17
+- ****: 2026-02-25
 
-## 摘要
+## 
 
-在 NexAU 中新增 AgentTeam 能力：一个 leader agent 协调多个 teammate agents，通过共享任务列表 + 队内消息协作完成工作。同一 `(user_id, session_id)` 仅允许一个 AgentTeam，所有 agent 状态在该 session 内持久化。
+ NexAU  AgentTeam ： leader agent  teammate agents， + 。 `(user_id, session_id)`  AgentTeam， agent  session 。
 
-## 动机
+## 
 
-当前 NexAU 的 Agent 体系以单 agent 或 parent→sub-agent 的树形调用为主。Sub-agent 模式适合"委派-等待-汇总"的串行场景，但无法满足以下需求：
+ NexAU  Agent  agent  parent→sub-agent 。Sub-agent "--"，：
 
-1. **并行协作**：多个 agent 同时工作，各自领取任务独立执行
-2. **动态任务分配**：leader 可在运行时创建任务、分配给 teammate，teammate 也可自助领取
-3. **队内通信**：agent 之间需要点对点消息和广播，而非仅通过 parent 中转
-4. **统一流式输出**：客户端需要在同一 SSE 连接中看到所有 agent 的实时输出，并能区分来源
+1. ****： agent ，
+2. ****：leader 、 teammate，teammate 
+3. ****：agent ， parent 
+4. ****： SSE  agent ，
 
-AgentTeam 填补了这一空白，提供 leader-teammate 协作模式，支持共享任务列表、队内消息、并发执行与统一流式输出。
+AgentTeam ， leader-teammate ，、、。
 
-## 设计
+## 
 
-### 概述
+### 
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -58,19 +58,19 @@ AgentTeam 填补了这一空白，提供 leader-teammate 协作模式，支持�
 └─────────────────────┘
 ```
 
-核心组件：
+：
 
-- **AgentTeam**：Team 生命周期管理器，持有 leader + teammates 引用
-- **TaskBoard**：共享任务列表，DB-backed，支持并发安全的 claim/release
-- **TeamMessageBus**：队内消息投递，DB-backed，持久化到接收方 history
-- **Team Tools**：注入到 leader 和 teammates 的协作工具集
-- **TeamSSEMultiplexer**：多 agent 流式事件聚合，输出 `TeamStreamEnvelope`
+- **AgentTeam**：Team ， leader + teammates 
+- **TaskBoard**：，DB-backed， claim/release
+- **TeamMessageBus**：，DB-backed， history
+- **Team Tools**： leader  teammates 
+- **TeamSSEMultiplexer**： agent ， `TeamStreamEnvelope`
 
-### 详细设计
+### 
 
-#### 1. 数据模型
+#### 1. 
 
-##### 1.1 TeamModel（新增 SQLModel）
+##### 1.1 TeamModel（ SQLModel）
 
 ```python
 class TeamModel(SQLModel, table=True):
@@ -78,7 +78,6 @@ class TeamModel(SQLModel, table=True):
 
     __tablename__ = "teams"
 
-    # 主键
     user_id: str = Field(primary_key=True)
     session_id: str = Field(primary_key=True)
     team_id: str = Field(primary_key=True)
@@ -86,17 +85,15 @@ class TeamModel(SQLModel, table=True):
     # Leader
     leader_agent_id: str
 
-    # 可用角色配置 (role_name -> agent_config_ref)
-    # 所有 candidates 均可被实例化为一个或多个 team member
+    #  (role_name -> agent_config_ref)
+    #  candidates  team member
     candidates: dict[str, str] = Field(
         default_factory=dict,
         sa_column=Column(JSON),
     )
 
-    # 配置
     max_teammates: int = Field(default=10)
 
-    # 元数据
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
 
@@ -106,27 +103,24 @@ class TeamMemberModel(SQLModel, table=True):
 
     __tablename__ = "team_members"
 
-    # 主键
     user_id: str = Field(primary_key=True)
     session_id: str = Field(primary_key=True)
     team_id: str = Field(primary_key=True)
     agent_id: str = Field(primary_key=True)  # e.g. "coder-1"
 
-    # 角色
     role_name: str
 
-    # Agent 独立 session_id（用于 history/state 隔离和 team 恢复）
+    # Agent  session_id（ history/state  team ）
     member_session_id: str = Field(default="")
 
-    # 状态: idle | running | stopped
+    # : idle | running | stopped
     status: str = Field(default="idle")
 
-    # 元数据
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
 ```
 
-##### 1.2 TeamTaskModel（新增 SQLModel）
+##### 1.2 TeamTaskModel（ SQLModel）
 
 ```python
 class TeamTaskModel(SQLModel, table=True):
@@ -134,38 +128,34 @@ class TeamTaskModel(SQLModel, table=True):
 
     __tablename__ = "team_tasks"
 
-    # 主键
     user_id: str = Field(primary_key=True)
     session_id: str = Field(primary_key=True)
     team_id: str = Field(primary_key=True)
-    task_id: str = Field(primary_key=True)  # 格式: "T-001"
+    task_id: str = Field(primary_key=True)  # : "T-001"
 
-    # 任务内容
     title: str
     description: str = ""
     priority: int = Field(default=0)  # 0=normal, 1=high, 2=critical
 
-    # 状态机: pending -> in_progress -> completed
+    # : pending -> in_progress -> completed
     status: str = Field(default="pending")  # pending | in_progress | completed
 
-    # 依赖关系: 未全部 completed 的依赖视为 blocked
+    # :  completed  blocked
     dependencies: list[str] = Field(
         default_factory=list,
         sa_column=Column(JSON),
     )  # list of task_id
 
-    # 分配
     assignee_agent_id: str | None = Field(default=None)
 
-    # 元数据
     result_summary: str | None = Field(default=None)
-    deliverable_path: str | None = Field(default=None)  # 相对路径: .nexau/tasks/{task_id}-{slug}.md
+    deliverable_path: str | None = Field(default=None)  # : .nexau/tasks/{task_id}-{slug}.md
     created_by: str = ""  # agent_id of creator
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
 ```
 
-##### 1.3 TeamTaskLockModel（新增 SQLModel）
+##### 1.3 TeamTaskLockModel（ SQLModel）
 
 ```python
 class TeamTaskLockModel(SQLModel, table=True):
@@ -173,23 +163,22 @@ class TeamTaskLockModel(SQLModel, table=True):
 
     __tablename__ = "team_task_locks"
 
-    # 主键 — 与 task 一一对应
+    #  —  task 
     user_id: str = Field(primary_key=True)
     session_id: str = Field(primary_key=True)
     team_id: str = Field(primary_key=True)
     task_id: str = Field(primary_key=True)
 
-    # 锁持有者
-    holder_id: str  # 格式: "{pid}:{uuid}"，沿用 AgentLockService 约定
+    holder_id: str  # : "{pid}:{uuid}"， AgentLockService 
 
-    # TTL（由 TaskLockService 在创建时显式设置，无默认值）
+    # TTL（ TaskLockService ，）
     acquired_at_ns: int
     expires_at_ns: int
 ```
 
-> 语义：仅用于 `claim_task` / `release_task` / `update_task_status` 的临界区保护（短持有 3–10s），不等价于"任务执行期锁"。
+> ： `claim_task` / `release_task` / `update_task_status` （ 3–10s），""。
 
-##### 1.4 TeamMessageModel（新增 SQLModel）
+##### 1.4 TeamMessageModel（ SQLModel）
 
 ```python
 class TeamMessageModel(SQLModel, table=True):
@@ -197,50 +186,45 @@ class TeamMessageModel(SQLModel, table=True):
 
     __tablename__ = "team_messages"
 
-    # 主键
     user_id: str = Field(primary_key=True)
     session_id: str = Field(primary_key=True)
     team_id: str = Field(primary_key=True)
     message_id: str = Field(primary_key=True)  # UUID
 
-    # 路由
     from_agent_id: str
     to_agent_id: str | None = Field(default=None)  # None = broadcast
 
-    # 内容
     content: str
     message_type: str = Field(default="text")  # text | idle_notification
 
-    # 投递状态
     delivered: bool = Field(default=False)
     delivered_at: datetime | None = Field(default=None)
 
-    # 元数据
     created_at: datetime = Field(default_factory=datetime.now)
 ```
 
-#### 2. 锁机制：DB-backed TTL Lock
+#### 2. ：DB-backed TTL Lock
 
-沿用 `AgentLockService` 的设计哲学，新增 `TaskLockService`：
+ `AgentLockService` ， `TaskLockService`：
 
 ```
 acquire(task_id)
   │
-  ├─ 查询 TeamTaskLockModel(task_id)
-  │   ├─ 存在且 expires_at_ns > now → 返回冲突 (LockConflictError)
-  │   └─ 不存在 / 已过期 → 创建锁记录
+  ├─  TeamTaskLockModel(task_id)
+  │   ├─  expires_at_ns > now →  (LockConflictError)
+  │   └─  /  → 
   │
-  ├─ 执行临界区操作 (claim / update_status / release)
+  ├─  (claim / update_status / release)
   │
-  └─ 删除锁记录
+  └─ 
 ```
 
-设计要点：
+：
 
-- **TTL 短持有**：默认 5s，无需 heartbeat（临界区操作为单次 DB 写入）
-- **无等待**：acquire 失败立即返回冲突，调用方重试选择其他任务
-- **跨引擎兼容**：`InMemoryDatabaseEngine` / `SQLDatabaseEngine` / `RemoteDatabaseEngine` 均可工作
-- **使用点**：`claim_task`、`release_task`、`update_task_status` 均在锁内执行
+- **TTL **： 5s， heartbeat（ DB ）
+- ****：acquire ，
+- ****：`InMemoryDatabaseEngine` / `SQLDatabaseEngine` / `RemoteDatabaseEngine` 
+- ****：`claim_task`、`release_task`、`update_task_status` 
 
 ```python
 class TaskLockService:
@@ -259,12 +243,12 @@ class TaskLockService:
         team_id: str,
         task_id: str,
     ) -> AsyncGenerator[None, None]:
-        # 1. 检查是否存在未过期锁
+        # 1. 
         existing = await self._find_valid_lock(user_id, session_id, team_id, task_id)
         if existing is not None:
             raise LockConflictError(f"Task {task_id} is locked by {existing.holder_id}")
 
-        # 2. 创建锁记录
+        # 2. 
         holder_id = f"{os.getpid()}:{uuid4()}"
         now_ns = time.time_ns()
         lock = TeamTaskLockModel(
@@ -281,53 +265,53 @@ class TaskLockService:
         try:
             yield
         finally:
-            # 3. 释放锁（仅删除自己持有的锁，防止竞争条件下误删他人锁）
+            # 3. （，）
             await self._engine.delete_where(
                 TeamTaskLockModel,
                 user_id=user_id,
                 session_id=session_id,
                 team_id=team_id,
                 task_id=task_id,
-                holder_id=holder_id,  # 必须匹配持有者
+                holder_id=holder_id,  # 
             )
 ```
 
-#### 3. AgentTeam 生命周期
+#### 3. AgentTeam 
 
 ```
 POST /team/stream (or /team/query)
   │
   ▼
 AgentTeam.initialize()
-  ├─ 从 TeamModel / TeamMemberModel 恢复 / 首次创建 team 记录
-  ├─ 注册 DatabaseEngine models (TeamModel, TeamMemberModel, TeamTaskModel, TeamTaskLockModel, TeamMessageModel)
-  ├─ 恢复已有 teammate 实例（若 session 中已存在）
-  └─ 创建 Leader Agent 实例（注入 Team Tools，含 spawn_teammate）
+  ├─  TeamModel / TeamMemberModel  /  team 
+  ├─  DatabaseEngine models (TeamModel, TeamMemberModel, TeamTaskModel, TeamTaskLockModel, TeamMessageModel)
+  ├─  teammate （ session ）
+  └─  Leader Agent （ Team Tools， spawn_teammate）
 
 AgentTeam.run(message)
-  ├─ 保存主事件循环引用 (self._loop = asyncio.get_running_loop())
-  ├─ Leader Agent 以 team_mode 执行（forever-run 循环）
-  │   ├─ Leader 分析任务，调用 spawn_teammate(role_name) 按需实例化 teammates
-  │   │   （spawn_teammate 通过 run_coroutine_threadsafe 在主循环上启动 teammate）
-  │   ├─ Leader 调用 create_task() 创建任务
-  │   ├─ Leader 调用 claim_task(task_id, assignee_agent_id) 分配任务给已 spawn 的 teammate
-  │   │   （claim_task 通过 message 通知 teammate）
-  │   ├─ Leader/Teammate 调用 message() / broadcast() 通信
-  │   │   （消息通过 enqueue_message 即时注入目标 agent）
-  │   └─ Leader 调用 finish_team(summary) 结束团队运行
-  │       （finish_team 为 stop tool，触发 leader executor 退出循环）
+  ├─  (self._loop = asyncio.get_running_loop())
+  ├─ Leader Agent  team_mode （forever-run ）
+  │   ├─ Leader ， spawn_teammate(role_name)  teammates
+  │   │   （spawn_teammate  run_coroutine_threadsafe  teammate）
+  │   ├─ Leader  create_task() 
+  │   ├─ Leader  claim_task(task_id, assignee_agent_id)  spawn  teammate
+  │   │   （claim_task  message  teammate）
+  │   ├─ Leader/Teammate  message() / broadcast() 
+  │   │   （ enqueue_message  agent）
+  │   └─ Leader  finish_team(summary) 
+  │       （finish_team  stop tool， leader executor ）
   │
-  ├─ Teammate Agent 并发执行（asyncio.run_coroutine_threadsafe）
-  │   ├─ spawn_teammate 后立即以 forever-run 模式启动
-  │   ├─ 每个 teammate 独立 Agent 实例 + 独立 executor
-  │   ├─ 空闲时在 _message_available.wait() 上等待消息
-  │   └─ 收到消息后唤醒，drain queued_messages，调用 LLM 处理
+  ├─ Teammate Agent （asyncio.run_coroutine_threadsafe）
+  │   ├─ spawn_teammate  forever-run 
+  │   ├─  teammate  Agent  +  executor
+  │   ├─  _message_available.wait() 
+  │   └─ ，drain queued_messages， LLM 
   │
-  ├─ Leader 退出后，force_stop 所有 teammate
-  └─ 持久化 team 元信息到 TeamModel / TeamMemberModel
+  ├─ Leader ，force_stop  teammate
+  └─  team  TeamModel / TeamMemberModel
 ```
 
-##### 3.1 Teammate 管理
+##### 3.1 Teammate 
 
 ```python
 class AgentTeam:
@@ -342,7 +326,7 @@ class AgentTeam:
         session_manager: SessionManager,
         user_id: str,
         session_id: str,
-        max_teammates: int = 10,  # teammate 并发上限
+        max_teammates: int = 10,  # teammate 
     ) -> None: ...
 
     async def spawn_teammate(self, role_name: str) -> str:
@@ -367,45 +351,45 @@ class AgentTeam:
         ...
 ```
 
-- `candidates` 为初始化时预配置的 `dict[role_name, AgentConfig]`，仅定义可用角色，不预实例化
-- Leader 通过 `spawn_teammate` tool 按需实例化 teammate（如分析任务后决定需要 2 个 coder + 1 个 reviewer）
-- 同一 role 可多实例，通过 `agent_id` 寻址（如 `coder-1`, `coder-2`）
-- 跨请求恢复时，已 spawn 的 teammate 从 `TeamMemberModel` 恢复
+- `candidates`  `dict[role_name, AgentConfig]`，，
+- Leader  `spawn_teammate` tool  teammate（ 2  coder + 1  reviewer）
+-  role ， `agent_id` （ `coder-1`, `coder-2`）
+- ， spawn  teammate  `TeamMemberModel` 
 
-##### 3.1.1 Session 隔离
+##### 3.1.1 Session 
 
-每个 agent（leader + teammates）拥有独立的 session，不共享 GlobalStorage 或 session context。
-Agent 之间的所有通信仅通过 MessageBus 进行。
+ agent（leader + teammates） session， GlobalStorage  session context。
+Agent  MessageBus 。
 
 ```
-team_session_id  →  原始 session_id，仅用于 team 级数据（TeamModel, TaskBoard, MessageBus）
-                    不直接传给任何 Agent
+team_session_id  →   session_id， team （TeamModel, TaskBoard, MessageBus）
+                     Agent
 
 leader session   →  f"{team_session_id}:leader"
 teammate session →  f"{team_session_id}:{agent_id}"   e.g. "sess-abc:code_agent-1"
 ```
 
-设计要点：
+：
 
-- `AgentTeam._team_session_id` 仅用于 team 级数据 scope（TaskBoard、MessageBus、TeamModel 等）
-- 每个 Agent 构造时传入独立的 `session_id`，拥有独立的 SessionModel（history、GlobalStorage、context）
-- `TeamMemberModel.member_session_id` 记录每个 agent 的独立 session_id，用于 team 恢复
-- 不传 `global_storage=` 参数，每个 Agent 自行创建独立的 GlobalStorage
-- 此设计为未来分布式 teammate 提供基础：每个 agent 可独立部署，仅通过 MessageBus 通信
+- `AgentTeam._team_session_id`  team  scope（TaskBoard、MessageBus、TeamModel ）
+-  Agent  `session_id`， SessionModel（history、GlobalStorage、context）
+- `TeamMemberModel.member_session_id`  agent  session_id， team 
+-  `global_storage=` ， Agent  GlobalStorage
+-  teammate ： agent ， MessageBus 
 
-##### 3.2 Teammate 并发执行模型 — Forever-Run 模式
+##### 3.2 Teammate  — Forever-Run 
 
-每个 teammate 以 "forever run" 模式运行：agent 的 executor 在 team_mode 下持续循环，
-空闲时等待消息，所有通信通过 `enqueue_message` 实现。Agent 仅在 `force_stop()` 被调用时退出。
+ teammate  "forever run" ：agent  executor  team_mode ，
+， `enqueue_message` 。Agent  `force_stop()` 。
 
-###### 3.2.1 Executor team_mode 扩展
+###### 3.2.1 Executor team_mode 
 
-`Executor` 新增以下支持：
+`Executor` ：
 
-- `team_mode: bool = False` — 启用永久运行循环
-- `_message_available = threading.Event()` — 跨线程消息唤醒信号
-- `enqueue_message()` 调用 `_message_available.set()` 唤醒等待中的循环
-- `force_stop()` — 设置 `stop_signal` 并唤醒 `_message_available`
+- `team_mode: bool = False` — 
+- `_message_available = threading.Event()` — 
+- `enqueue_message()`  `_message_available.set()` 
+- `force_stop()` —  `stop_signal`  `_message_available`
 
 ```
 Executor loop (team_mode):
@@ -421,24 +405,24 @@ Executor loop (team_mode):
     5. If stop_tool_result → break (finish_team triggered)
 ```
 
-关键设计：team_mode 下非 stop_tool 触发的 `should_stop` 不退出循环，
-而是在 while 循环中持续等待新消息或 `stop_signal`。
-必须在内层 while 中等待，避免超时后以 assistant 消息结尾调用 LLM（LLM 会返回空响应）。
+：team_mode  stop_tool  `should_stop` ，
+ while  `stop_signal`。
+ while ， assistant  LLM（LLM ）。
 
-###### 3.2.2 跨线程 asyncio 调度
+###### 3.2.2  asyncio 
 
-`spawn_teammate` 在 tool executor 的线程中执行。Tool 的 async 函数通过
-`asyncio.run()` 在临时事件循环中运行（见 `Tool.execute()` line 296）。
-**不能使用 `asyncio.create_task()`** — 该 task 会随临时循环销毁，teammate 永远不会启动。
+`spawn_teammate`  tool executor 。Tool  async 
+`asyncio.run()` （ `Tool.execute()` line 296）。
+** `asyncio.create_task()`** —  task ，teammate 。
 
-解决方案：`AgentTeam.run()` 保存主事件循环引用，`spawn_teammate` 通过
-`asyncio.run_coroutine_threadsafe()` 调度到主循环：
+：`AgentTeam.run()` ，`spawn_teammate` 
+`asyncio.run_coroutine_threadsafe()` ：
 
 ```python
-# AgentTeam.run() 中保存主循环引用
+# AgentTeam.run() 
 self._loop = asyncio.get_running_loop()
 
-# spawn_teammate 中跨线程调度
+# spawn_teammate 
 teammate_future = asyncio.run_coroutine_threadsafe(
     self._run_teammate_forever(agent_id),
     self._loop,
@@ -446,10 +430,10 @@ teammate_future = asyncio.run_coroutine_threadsafe(
 self._teammate_futures[agent_id] = teammate_future  # concurrent.futures.Future
 ```
 
-使用 `concurrent.futures.Future`（而非 `asyncio.Task`）跟踪 teammate 运行状态。
-`remove_teammate` 和 `_stop_all_teammates` 通过 `future.cancel()` + `future.result(timeout=...)` 管理生命周期。
+ `concurrent.futures.Future`（ `asyncio.Task`） teammate 。
+`remove_teammate`  `_stop_all_teammates`  `future.cancel()` + `future.result(timeout=...)` 。
 
-###### 3.2.3 Teammate 永久运行
+###### 3.2.3 Teammate 
 
 ```python
 async def _run_teammate_forever(self, agent_id: str) -> None:
@@ -468,34 +452,34 @@ async def _run_teammate_forever(self, agent_id: str) -> None:
         self._watchdog.unregister(agent_id)
 ```
 
-##### 3.3 队内消息投递
+##### 3.3 
 
 ```
-Agent A 调用 message(to_agent_id="B", content="...")
+Agent A  message(to_agent_id="B", content="...")
   │
   ▼
 TeamMessageBus.send(from="A", to="B", content="...")
-  ├─ 写入 TeamMessageModel (持久化)
+  ├─  TeamMessageModel ()
   │
   ▼
 AgentTeam.message(to="B", content, from="A")
-  ├─ 构造 system message: "[Team Message from A]: ..."
-  ├─ 调用 agent.enqueue_message(msg)
-  │   ├─ 追加到 executor.queued_messages
-  │   └─ executor._message_available.set()  ← 唤醒等待中的 forever-run 循环
+  ├─  system message: "[Team Message from A]: ..."
+  ├─  agent.enqueue_message(msg)
+  │   ├─  executor.queued_messages
+  │   └─ executor._message_available.set()  ←  forever-run 
   │
   ▼
-Agent B 的 executor 被唤醒
-  ├─ 退出 _message_available.wait()
-  ├─ 循环顶部 drain queued_messages → 追加到 history
-  └─ 调用 LLM（history 中包含新消息）
+Agent B  executor 
+  ├─  _message_available.wait()
+  ├─  drain queued_messages →  history
+  └─  LLM（history ）
 ```
 
-关键约束：
+：
 
-- **即时唤醒**：消息通过 `_message_available.set()` 立即唤醒目标 agent，无需等待迭代边界
-- **持久化**：所有消息写入 `TeamMessageModel`，跨请求可恢复
-- **注入方式**：通过 `executor.enqueue_message()` 直接注入，替代原有的 middleware drain 方案
+- ****： `_message_available.set()`  agent，
+- ****： `TeamMessageModel`，
+- ****： `executor.enqueue_message()` ， middleware drain 
 
 ```python
 def message(
@@ -506,10 +490,10 @@ def message(
 ) -> None:
     """Enqueue a message to a teammate or leader agent.
 
-    RFC-0002: 向 teammate 或 leader 注入消息
+    RFC-0002:  teammate  leader 
 
-    消息通过 executor.enqueue_message 注入，
-    executor 的 _message_available 事件会唤醒等待中的永久运行循环。
+     executor.enqueue_message ，
+    executor  _message_available 。
     """
     enqueue_text = f"[Team Message from {from_agent_id}]: {content}"
     msg = {"role": "system", "content": enqueue_text}
@@ -523,12 +507,12 @@ def message(
             agent.enqueue_message(msg)
 ```
 
-##### 3.4 全员空闲通知
+##### 3.4 
 
-Teammate 完成任务后进入 idle 等待状态。当所有 teammate 均处于 idle 时，watchdog 自动通知 leader：
+Teammate  idle 。 teammate  idle ，watchdog  leader：
 
 ```
-所有 teammate 进入 idle 等待
+ teammate  idle 
   │
   ▼
 TeammateWatchdog._check_all_idle() → True
@@ -540,28 +524,28 @@ TeammateWatchdog._notify_leader(
 )
   │
   ▼
-Leader 收到通知，决策下一步（分配新任务 / 检查结果 / 调用 finish_team）
+Leader ，（ /  /  finish_team）
 ```
 
 ##### 3.5 Teammate Watchdog
 
-`AgentTeam` 内置 watchdog 机制，检测全员空闲死锁（所有 agent 均在等待消息、无任何进展）：
+`AgentTeam`  watchdog ，（ agent 、）：
 
 ```python
 @dataclass(frozen=True)
 class WatchdogConfig:
     """Idle detection configuration."""
-    idle_check_interval_seconds: float = 10.0  # 检查间隔
+    idle_check_interval_seconds: float = 10.0  # 
 
 
 class TeammateWatchdog:
     """Detects all-idle deadlock among teammates.
 
-    RFC-0002: 全员空闲检测
+    RFC-0002: 
 
-    以独立 asyncio.Task 运行，定期检查所有 running 状态的 teammate。
-    若所有 teammate 均处于 idle（等待消息），向 leader 发送全员空闲通知。
-    Leader 可据此决定是否分配新任务、检查结果或调用 finish_team。
+     asyncio.Task ， running  teammate。
+     teammate  idle（）， leader 。
+    Leader 、 finish_team。
     """
 
     def __init__(
@@ -574,8 +558,8 @@ class TeammateWatchdog:
         self._config = config
         self._start_times: dict[str, float] = {}  # agent_id -> start_timestamp
         self._stopped = False
-        self._check_all_idle = check_all_idle    # 检查所有 agent 是否 idle 的回调
-        self._notify_leader = notify_leader      # 通知 leader 的回调
+        self._check_all_idle = check_all_idle    #  agent  idle 
+        self._notify_leader = notify_leader      #  leader 
 
     def stop(self) -> None:
         """Signal the watchdog loop to exit."""
@@ -593,7 +577,7 @@ class TeammateWatchdog:
         """Watchdog loop — runs as background asyncio.Task."""
         while not self._stopped:
             await asyncio.sleep(self._config.idle_check_interval_seconds)
-            # 全员空闲检测 — 仅在有注册 teammate 时才唤醒 leader
+            #  —  teammate  leader
             if self._check_all_idle is not None and self._notify_leader is not None and len(self._start_times) > 0:
                 if self._check_all_idle():
                     self._notify_leader(
@@ -602,10 +586,10 @@ class TeammateWatchdog:
                     )
 ```
 
-Watchdog 在 `AgentTeam.run()` 中作为后台任务启动，team run 结束时取消：
+Watchdog  `AgentTeam.run()` ，team run ：
 
 ```python
-# AgentTeam.run() 中
+# AgentTeam.run() 
 watchdog_task = asyncio.create_task(self._watchdog.run())
 try:
     result = await self._run_leader(message)
@@ -613,29 +597,29 @@ finally:
     watchdog_task.cancel()
 ```
 
-与 RFC 初稿的差异：
+ RFC ：
 
-- **初稿设计**：监控单个 teammate 超时（5 分钟），超时后发送 per-agent 超时通知
-- **实际实现**：检测全员空闲死锁（所有 agent 均在等待），发送全员空闲通知
-- **原因**：全员空闲死锁是更常见的卡死场景（leader 等 teammate，teammate 等 leader），单 agent 超时监控在 LLM 调用慢时会产生误报
+- ****： teammate （5 ）， per-agent 
+- ****：（ agent ），
+- ****：（leader  teammate，teammate  leader）， agent  LLM 
 
-Leader 收到全员空闲通知后，可选择：
-- 调用 `list_tasks()` 检查任务状态，分配新任务
-- 调用 `finish_team(summary)` 结束团队运行
-- 发送 `message(to_agent_id, "...")` 催促特定 teammate
+Leader ，：
+-  `list_tasks()` ，
+-  `finish_team(summary)` 
+-  `message(to_agent_id, "...")`  teammate
 
 #### 4. AgentTeamState
 
-扩展 `AgentState`，将所有 team 相关依赖作为强类型字段暴露，避免 `get_context_value` 的 `Any` 返回值：
+ `AgentState`， team ， `get_context_value`  `Any` ：
 
 ```python
 class AgentTeamState(AgentState):
     """Extended AgentState with typed team collaboration context.
 
-    RFC-0002: Team 上下文强类型扩展
+    RFC-0002: Team 
 
-    所有 Team Tools 通过此类型获取 team 相关依赖，
-    避免 get_context_value 的动态类型访问。
+     Team Tools  team ，
+     get_context_value 。
     """
 
     team: AgentTeam
@@ -644,9 +628,9 @@ class AgentTeamState(AgentState):
     is_leader: bool
 ```
 
-##### 4.1 Team Tool 结果类型
+##### 4.1 Team Tool 
 
-所有 Tool 返回值使用强类型 dataclass，避免 `dict[str, str]` 的模糊语义：
+ Tool  dataclass， `dict[str, str]` ：
 
 ```python
 @dataclass(frozen=True)
@@ -669,48 +653,48 @@ class TaskInfo:
     assignee_agent_id: str | None
     result_summary: str | None
     created_by: str
-    is_blocked: bool  # 依赖未全部 completed
-    deliverable_path: str | None  # 可交付物路径
+    is_blocked: bool  #  completed
+    deliverable_path: str | None  # 
 
 
 @dataclass(frozen=True)
 class SpawnResult:
-    """spawn_teammate 返回值。"""
+    """spawn_teammate 。"""
     agent_id: str
     role_name: str
 
 
 @dataclass(frozen=True)
 class RemoveTeammateResult:
-    """remove_teammate 返回值。"""
+    """remove_teammate 。"""
     agent_id: str
     role_name: str
 
 
 @dataclass(frozen=True)
 class CreateTaskResult:
-    """create_task 返回值。"""
+    """create_task 。"""
     task_id: str
     title: str
     description: str
     priority: int
     status: str
-    deliverable_path: str  # 任务可交付物文件路径
+    deliverable_path: str  # 
 
 
 @dataclass(frozen=True)
 class ClaimTaskResult:
-    """claim_task 返回值。"""
+    """claim_task 。"""
     task_id: str
     title: str
     status: str
     assignee_agent_id: str
-    deliverable_path: str | None  # 可交付物路径（若已创建）
+    deliverable_path: str | None  # （）
 
 
 @dataclass(frozen=True)
 class UpdateTaskStatusResult:
-    """update_task_status 返回值。"""
+    """update_task_status 。"""
     task_id: str
     title: str
     status: str
@@ -719,7 +703,7 @@ class UpdateTaskStatusResult:
 
 @dataclass(frozen=True)
 class ReleaseTaskResult:
-    """release_task 返回值。"""
+    """release_task 。"""
     task_id: str
     title: str
     status: str
@@ -727,14 +711,14 @@ class ReleaseTaskResult:
 
 @dataclass(frozen=True)
 class MessageResult:
-    """message / broadcast 返回值。"""
+    """message / broadcast 。"""
     message_id: str
-    delivered_to: list[str]  # 目标 agent_id 列表
+    delivered_to: list[str]  #  agent_id 
 
 
 @dataclass(frozen=True)
 class FinishTeamResult:
-    """finish_team 返回值。"""
+    """finish_team 。"""
     summary: str
     completed_tasks: int
     total_tasks: int
@@ -742,18 +726,18 @@ class FinishTeamResult:
 
 @dataclass(frozen=True)
 class ToolError:
-    """Tool 操作失败时的错误返回。"""
+    """Tool 。"""
     error: str
     code: str  # permission_denied | conflict | blocked | not_found | invalid_state | busy
-    status: str = "error"  # 固定为 "error"，用于 executor stop-tool 守卫
+    status: str = "error"  #  "error"， executor stop-tool 
 ```
 
-框架在创建 team agent 时构造 `AgentTeamState` 替代普通 `AgentState`：
+ team agent  `AgentTeamState`  `AgentState`：
 
 ```python
-# AgentTeam.initialize() 中
+# AgentTeam.initialize() 
 team_state = AgentTeamState(
-    # 继承 AgentState 的所有参数
+    #  AgentState 
     agent_name=agent_name,
     agent_id=agent_id,
     run_id=run_id,
@@ -761,7 +745,7 @@ team_state = AgentTeamState(
     context=context,
     global_storage=global_storage,
     executor=executor,
-    # Team 扩展字段
+    # Team 
     team=self,
     task_board=self._task_board,
     message_bus=self._message_bus,
@@ -769,29 +753,29 @@ team_state = AgentTeamState(
 )
 ```
 
-> Tool 函数签名中使用 `agent_state: AgentTeamState`，框架自动注入时按类型匹配。
+> Tool  `agent_state: AgentTeamState`，。
 
 #### 5. Team Tools
 
-所有 Team Tools 通过 `AgentTeamState` 的强类型字段获取 team 上下文。Leader 和 Teammate 注入不同的工具子集。
+ Team Tools  `AgentTeamState`  team 。Leader  Teammate 。
 
-##### 5.1 工具清单
+##### 5.1 
 
-| 工具名 | Leader | Teammate | 说明 |
+|  | Leader | Teammate |  |
 |--------|--------|----------|------|
-| `spawn_teammate` | ✅ | ❌ | 从 candidates 实例化 teammate（leader-only） |
-| `remove_teammate` | ✅ | ❌ | 移除 teammate 实例（leader-only） |
-| `message` | ✅ | ✅ | 点对点消息 |
-| `broadcast` | ✅ | ✅ | 广播消息 |
-| `list_teammates` | ✅ | ✅ | 列出所有 teammate 及状态 |
-| `list_tasks` | ✅ | ✅ | 列出任务列表（含状态、依赖、分配） |
-| `create_task` | ✅ | ❌ | 创建任务（leader-only） |
-| `claim_task` | ✅ | ✅ | 领取/分配任务（leader 可指定 assignee，teammate 只能 self-claim）|
-| `update_task_status` | ✅ | ✅ | 更新任务状态 |
-| `release_task` | ✅ | ✅ | 释放任务（取消分配） |
-| `finish_team` | ✅ | ❌ | 结束团队运行（leader-only stop tool） |
+| `spawn_teammate` | ✅ | ❌ |  candidates  teammate（leader-only） |
+| `remove_teammate` | ✅ | ❌ |  teammate （leader-only） |
+| `message` | ✅ | ✅ |  |
+| `broadcast` | ✅ | ✅ |  |
+| `list_teammates` | ✅ | ✅ |  teammate  |
+| `list_tasks` | ✅ | ✅ | （、、） |
+| `create_task` | ✅ | ❌ | （leader-only） |
+| `claim_task` | ✅ | ✅ | /（leader  assignee，teammate  self-claim）|
+| `update_task_status` | ✅ | ✅ |  |
+| `release_task` | ✅ | ✅ | （） |
+| `finish_team` | ✅ | ❌ | （leader-only stop tool） |
 
-##### 5.2 工具定义
+##### 5.2 
 
 ```python
 # --- spawn_teammate (leader-only) ---
@@ -801,14 +785,14 @@ async def spawn_teammate(
 ) -> SpawnResult | ToolError:
     """Spawn a new teammate instance from candidates.
 
-    RFC-0002: 从 candidates 动态实例化 teammate
+    RFC-0002:  candidates  teammate
 
-    Leader 根据任务需求调用此工具，从预配置的 candidates 中
-    实例化一个新的 teammate agent。同一 role 可多次 spawn
-    产生多个实例（如 coder-1, coder-2）。
+    Leader ， candidates 
+     teammate agent。 role  spawn
+    （ coder-1, coder-2）。
 
-    Teammate 实例化后立即以独立 asyncio.Task 启动运行，
-    等待通过 message 或 claim_task 接收工作指令。
+    Teammate  asyncio.Task ，
+     message  claim_task 。
     """
     if not agent_state.is_leader:
         return ToolError(error="Only leader can spawn teammates", code="permission_denied")
@@ -830,10 +814,10 @@ async def remove_teammate(
 ) -> RemoveTeammateResult | ToolError:
     """Remove a teammate instance.
 
-    RFC-0002: 移除 teammate 实例
+    RFC-0002:  teammate 
 
-    仅可移除 idle 状态的 teammate。正在执行任务的 teammate
-    需先完成或被 stop 后才能移除。
+     idle  teammate。 teammate
+     stop 。
     """
     if not agent_state.is_leader:
         return ToolError(error="Only leader can remove teammates", code="permission_denied")
@@ -850,9 +834,9 @@ async def message(
 ) -> MessageResult:
     """Send a message to a specific teammate.
 
-    RFC-0002: 队内点对点消息
+    RFC-0002: 
 
-    消息将在目标 agent 的下一次迭代边界注入其上下文。
+     agent 。
     """
     msg = await agent_state.message_bus.send(
         from_agent_id=agent_state.agent_id,
@@ -869,7 +853,7 @@ async def broadcast(
 ) -> MessageResult:
     """Broadcast a message to all teammates.
 
-    RFC-0002: 队内广播消息
+    RFC-0002: 
     """
     msg, recipients = await agent_state.message_bus.broadcast(
         from_agent_id=agent_state.agent_id,
@@ -884,7 +868,7 @@ async def list_teammates(
 ) -> list[TeammateInfo]:
     """List all teammate agents and their current status.
 
-    RFC-0002: 列出队友
+    RFC-0002: 
     """
     return agent_state.team.get_teammate_info()
 
@@ -896,10 +880,10 @@ async def list_tasks(
 ) -> list[TaskInfo]:
     """List tasks on the shared task board.
 
-    RFC-0002: 列出共享任务列表
+    RFC-0002: 
 
     Args:
-        status: 可选过滤条件 (pending / in_progress / completed)
+        status:  (pending / in_progress / completed)
     """
     return await agent_state.task_board.list_tasks(status=status)
 
@@ -914,7 +898,7 @@ async def create_task(
 ) -> CreateTaskResult | ToolError:
     """Create a new task on the shared task board.
 
-    RFC-0002: 创建任务（仅 leader 可调用）
+    RFC-0002: （ leader ）
     """
     if not agent_state.is_leader:
         return ToolError(error="Only leader can create tasks", code="permission_denied")
@@ -944,24 +928,24 @@ async def claim_task(
 ) -> ClaimTaskResult | ToolError:
     """Claim a task from the shared task board.
 
-    RFC-0002: 领取/分配任务
+    RFC-0002: /
 
-    - task_id 必须显式指定（禁止 claim-next）
-    - assignee_agent_id 为空时 self-claim（leader 和 teammate 均可）
-    - assignee_agent_id 非空时为 leader assignment（校验 caller 为 leader）
-    - 单任务约束：每个 agent 同时只能持有一个 in_progress 任务
+    - task_id （ claim-next）
+    - assignee_agent_id  self-claim（leader  teammate ）
+    - assignee_agent_id  leader assignment（ caller  leader）
+    - ： agent  in_progress 
 
-    Teammate 自助领取流程: list_tasks() → 选择 task_id → claim_task(task_id)
-    若 claim 冲突则重试选择其他任务。
+    Teammate : list_tasks() →  task_id → claim_task(task_id)
+     claim 。
     """
     caller_id = agent_state.agent_id
     actual_assignee = assignee_agent_id or caller_id
 
-    # leader assignment 校验
+    # leader assignment 
     if assignee_agent_id is not None and not agent_state.is_leader:
         return ToolError(error="Only leader can assign tasks to others", code="permission_denied")
 
-    # 单任务约束：检查 assignee 是否已有 in_progress 任务
+    # ： assignee  in_progress 
     active_tasks = await agent_state.task_board.list_tasks(status="in_progress")
     existing = [t for t in active_tasks if t.assignee_agent_id == actual_assignee]
     if existing:
@@ -976,7 +960,7 @@ async def claim_task(
             task_id=task_id, assignee_agent_id=actual_assignee,
         )
 
-        # leader assignment 时通过 enqueue_message 通知 teammate
+        # leader assignment  enqueue_message  teammate
         if assignee_agent_id is not None:
             agent_state.team.send_message_to_agent(
                 actual_assignee,
@@ -1007,7 +991,7 @@ async def update_task_status(
 ) -> UpdateTaskStatusResult | ToolError:
     """Update task status (pending -> in_progress -> completed).
 
-    RFC-0002: 更新任务状态
+    RFC-0002: 
     """
     task_info = await agent_state.task_board.update_status(
         task_id=task_id,
@@ -1024,7 +1008,7 @@ async def release_task(
 ) -> ReleaseTaskResult | ToolError:
     """Release a claimed task (unassign).
 
-    RFC-0002: 释放任务
+    RFC-0002: 
     """
     task_info = await agent_state.task_board.release_task(task_id=task_id)
     return ReleaseTaskResult(task_id=task_id, title=task_info.title, status="released")
@@ -1037,11 +1021,11 @@ async def finish_team(
 ) -> FinishTeamResult | ToolError:
     """Finish the team run and return a summary.
 
-    RFC-0002: 结束团队运行（leader-only stop tool）
+    RFC-0002: （leader-only stop tool）
 
-    Leader 在所有工作完成后调用此工具结束团队运行。
-    注册为 executor 的 stop tool，触发 leader 的 forever-run 循环退出。
-    Leader 退出后 AgentTeam.run() 会 force_stop 所有 teammate。
+    Leader 。
+     executor  stop tool， leader  forever-run 。
+    Leader  AgentTeam.run()  force_stop  teammate。
     """
     if not agent_state.is_leader:
         return ToolError(error="Only the team leader can finish the team", code="permission_denied")
@@ -1055,21 +1039,21 @@ async def finish_team(
     )
 ```
 
-##### 5.3 工具注入
+##### 5.3 
 
-Team Tools 在 `AgentTeam.initialize()` 时动态注入到各 agent：
+Team Tools  `AgentTeam.initialize()`  agent：
 
 ```python
-# Leader: 注入全部工具（含 spawn/remove teammate + finish_team stop tool）
+# Leader: （ spawn/remove teammate + finish_team stop tool）
 leader_tools = [
     spawn_teammate_tool, remove_teammate_tool,
     message_tool, broadcast_tool, list_teammates_tool,
     list_tasks_tool, create_task_tool, claim_task_tool,
     update_task_status_tool, release_task_tool,
-    finish_team_tool,  # stop tool — 触发 leader executor 退出
+    finish_team_tool,  # stop tool —  leader executor 
 ]
 
-# Teammate: 注入协作工具（无 spawn/remove/create_task/finish_team）
+# Teammate: （ spawn/remove/create_task/finish_team）
 teammate_tools = [
     message_tool, broadcast_tool, list_teammates_tool,
     list_tasks_tool, claim_task_tool,
@@ -1077,13 +1061,13 @@ teammate_tools = [
 ]
 ```
 
-通过 `AgentConfig.tools` 扩展注入。框架在构造 agent 时创建 `AgentTeamState`（而非普通 `AgentState`），Team Tools 的 `agent_state: AgentTeamState` 参数由框架自动注入。
+ `AgentConfig.tools` 。 agent  `AgentTeamState`（ `AgentState`），Team Tools  `agent_state: AgentTeamState` 。
 
 #### 5. Multi-Agent SSE
 
 ##### 5.1 TeamStreamEnvelope
 
-Team SSE 不复用原 `/stream` 的裸 Event 输出，定义独立的封装格式：
+Team SSE  `/stream`  Event ，：
 
 ```python
 class TeamStreamEnvelope(BaseModel):
@@ -1093,10 +1077,10 @@ class TeamStreamEnvelope(BaseModel):
     agent_id: str
     role_name: str | None = None
     run_id: str | None = None
-    event: Event  # 原始 Event payload (TextMessageContentEvent, etc.)
+    event: Event  #  Event payload (TextMessageContentEvent, etc.)
 ```
 
-SSE 输出示例：
+SSE ：
 
 ```
 data: {"team_id":"team_abc","agent_id":"leader-001","role_name":"leader","run_id":"run_x1","event":{"type":"TEXT_MESSAGE_CONTENT","delta":"Let me "}}
@@ -1106,7 +1090,7 @@ data: {"team_id":"team_abc","agent_id":"coder-1","role_name":"coder","run_id":"r
 data: {"team_id":"team_abc","agent_id":"reviewer-1","role_name":"reviewer","run_id":"run_x3","event":{"type":"TEXT_MESSAGE_CONTENT","delta":"LGTM"}}
 ```
 
-UI 可直接按 `agent_id` 分栏显示 token 流。
+UI  `agent_id`  token 。
 
 ##### 5.2 TeamSSEMultiplexer
 
@@ -1149,49 +1133,49 @@ class TeamSSEMultiplexer:
         self._queue.put_nowait(None)
 ```
 
-##### 5.3 并发安全保证
+##### 5.3 
 
-现有 `AgentEventsMiddleware` 内部的 aggregator 是单实例，多 agent 并发会导致串流。解决方案：
+ `AgentEventsMiddleware`  aggregator ， agent 。：
 
-- **每个 agent/run 使用独立的 `AgentEventsMiddleware` 实例**
-- 每个 middleware 实例持有独立的 aggregator 状态
-- 所有 middleware 共享同一个 `TeamSSEMultiplexer` 作为事件出口
-- 多个 agent 并发时事件可交错，但 envelope 中的 `agent_id` 保证正确
+- ** agent/run  `AgentEventsMiddleware` **
+-  middleware  aggregator 
+-  middleware  `TeamSSEMultiplexer` 
+-  agent ， envelope  `agent_id` 
 
 ```python
-# 为每个 teammate 创建独立的 middleware
+#  teammate  middleware
 for agent_id, role_name in teammate_instances:
     handler = multiplexer.create_event_handler(agent_id, role_name)
     middleware = AgentEventsMiddleware(
         session_id=session_id,
-        on_event=handler,  # 独立 handler → 独立 aggregator
+        on_event=handler,  #  handler →  aggregator
     )
-    # 应用到该 agent 的 config
+    #  agent  config
     agent_config_with_middleware = apply_middleware(agent_config, middleware)
 ```
 
-#### 6. HTTP 新 Endpoints
+#### 6. HTTP  Endpoints
 
-所有 Team endpoints 挂载在 `/team` 前缀下，与现有 `/stream`、`/query` 隔离。
+ Team endpoints  `/team` ， `/stream`、`/query` 。
 
-##### 6.1 Endpoint 清单
+##### 6.1 Endpoint 
 
-| Method | Path | 说明 | 请求体 | 响应 |
+| Method | Path |  |  |  |
 |--------|------|------|--------|------|
-| `POST` | `/team/stream` | 运行 leader + multiplex SSE | `TeamRunRequest` | SSE `TeamStreamEnvelope` |
-| `POST` | `/team/query` | 运行 leader（同步返回） | `TeamRunRequest` | `dict[str, str]` |
-| `GET` | `/team/teammates` | 列出 teammates | query: `user_id`, `session_id` | `list[dict]` |
-| `GET` | `/team/tasks` | 列出任务 | query: `user_id`, `session_id`, `?status=` | `list[dict]` |
-| `POST` | `/team/tasks` | 创建任务 | `CreateTaskRequest` | `dict` |
-| `POST` | `/team/tasks/claim` | 领取任务 | `ClaimTaskRequest` | `dict` |
-| `PATCH` | `/team/tasks/{task_id}` | 更新任务状态 | `UpdateTaskRequest` + query: `user_id`, `session_id` | `dict` |
-| `POST` | `/team/message` | 发送队内消息 | `SendMessageRequest` | `dict` |
-| `POST` | `/team/user-message` | 向 agent 注入用户消息（stream 期间） | `UserMessageRequest` | `dict` |
-| `POST` | `/team/stop` | 强制停止整个 Team | `StopTeamRequest` | `dict` |
-| `GET` | `/team/status` | 查询 Team 运行状态 | query: `user_id`, `session_id` | `dict` |
-| `GET` | `/team/subscribe` | 重连 SSE（前端刷新后订阅新事件） | query: `user_id`, `session_id`, `after` | SSE `TeamStreamEnvelope` |
+| `POST` | `/team/stream` |  leader + multiplex SSE | `TeamRunRequest` | SSE `TeamStreamEnvelope` |
+| `POST` | `/team/query` |  leader（） | `TeamRunRequest` | `dict[str, str]` |
+| `GET` | `/team/teammates` |  teammates | query: `user_id`, `session_id` | `list[dict]` |
+| `GET` | `/team/tasks` |  | query: `user_id`, `session_id`, `?status=` | `list[dict]` |
+| `POST` | `/team/tasks` |  | `CreateTaskRequest` | `dict` |
+| `POST` | `/team/tasks/claim` |  | `ClaimTaskRequest` | `dict` |
+| `PATCH` | `/team/tasks/{task_id}` |  | `UpdateTaskRequest` + query: `user_id`, `session_id` | `dict` |
+| `POST` | `/team/message` |  | `SendMessageRequest` | `dict` |
+| `POST` | `/team/user-message` |  agent （stream ） | `UserMessageRequest` | `dict` |
+| `POST` | `/team/stop` |  Team | `StopTeamRequest` | `dict` |
+| `GET` | `/team/status` |  Team  | query: `user_id`, `session_id` | `dict` |
+| `GET` | `/team/subscribe` |  SSE（） | query: `user_id`, `session_id`, `after` | SSE `TeamStreamEnvelope` |
 
-##### 6.2 请求/响应模型
+##### 6.2 /
 
 ```python
 class TeamRunRequest(BaseModel):
@@ -1199,15 +1183,15 @@ class TeamRunRequest(BaseModel):
     user_id: str
     session_id: str
     message: str
-    variables: ContextValue | None = None  # 运行时上下文变量（模板、运行时变量、沙箱环境变量）
+    variables: ContextValue | None = None  # （、、）
 
 
 class TeamStreamEnvelopeResponse(BaseModel):
     """SSE event wrapper."""
     type: str = "team_event"  # team_event | complete | error
-    envelope: dict[str, object] | None = None  # 序列化后的 TeamStreamEnvelope
+    envelope: dict[str, object] | None = None  #  TeamStreamEnvelope
     session_id: str
-    error: str | None = None  # 仅 type="error" 时填充
+    error: str | None = None  #  type="error" 
 
 
 class CreateTaskRequest(BaseModel):
@@ -1222,7 +1206,7 @@ class CreateTaskRequest(BaseModel):
 class ClaimTaskRequest(BaseModel):
     user_id: str
     session_id: str
-    task_id: str  # 必须显式指定
+    task_id: str  # 
     assignee_agent_id: str | None = None  # None = self-claim by leader
 
 
@@ -1244,7 +1228,7 @@ class UserMessageRequest(BaseModel):
     user_id: str
     session_id: str
     content: str
-    to_agent_id: str = "leader"  # 默认发给 leader
+    to_agent_id: str = "leader"  #  leader
 
 
 class StopTeamRequest(BaseModel):
@@ -1253,7 +1237,7 @@ class StopTeamRequest(BaseModel):
     session_id: str
 ```
 
-##### 6.3 SSE Streaming 实现
+##### 6.3 SSE Streaming 
 
 ```python
 # POST /team/stream
@@ -1261,7 +1245,7 @@ class StopTeamRequest(BaseModel):
 async def team_stream(request: TeamRunRequest) -> StreamingResponse:
     team = registry.get_or_create(request.user_id, request.session_id)
 
-    # 运行结束后从注册表移除（通过 on_complete 回调）
+    # （ on_complete ）
     team.set_on_complete(lambda: registry.remove(request.user_id, request.session_id))
 
     async def event_generator() -> AsyncGenerator[str, None]:
@@ -1282,7 +1266,6 @@ async def team_stream(request: TeamRunRequest) -> StreamingResponse:
             yield f"data: {error_response.model_dump_json()}\n\n"
             return
 
-        # 完成信号
         yield f"data: {TeamStreamEnvelopeResponse(type='complete', session_id=request.session_id).model_dump_json()}\n\n"
 
     return StreamingResponse(
@@ -1292,17 +1275,17 @@ async def team_stream(request: TeamRunRequest) -> StreamingResponse:
     )
 ```
 
-### 示例
+### 
 
-#### 典型工作流：Leader 分配任务给 Teammates
+#### ：Leader  Teammates
 
 ```python
-# 1. 用户发起 team 请求
+# 1.  team 
 # POST /team/stream
-# { "user_id": "u1", "session_id": "s1", "message": "实现一个 TODO 应用",
+# { "user_id": "u1", "session_id": "s1", "message": " TODO ",
 #   "variables": {"template": {"date": "2026-03-04"}} }
 
-# 2. Leader 分析任务，按需 spawn teammates（此时 team 内无任何 teammate）
+# 2. Leader ， spawn teammates（ team  teammate）
 spawn_teammate(role_name="coder")
 # → SpawnResult(agent_id="coder-1", role_name="coder")
 spawn_teammate(role_name="coder")
@@ -1310,31 +1293,31 @@ spawn_teammate(role_name="coder")
 spawn_teammate(role_name="reviewer")
 # → SpawnResult(agent_id="reviewer-1", role_name="reviewer")
 
-# 3. Leader 创建任务
-create_task(title="实现后端 API", description="FastAPI CRUD endpoints", priority=1)
-# → CreateTaskResult(task_id="T-001", title="实现后端 API", status="created", ...)
+# 3. Leader 
+create_task(title=" API", description="FastAPI CRUD endpoints", priority=1)
+# → CreateTaskResult(task_id="T-001", title=" API", status="created", ...)
 
-create_task(title="实现前端页面", description="React TODO list", dependencies=["T-001"])
-# → CreateTaskResult(task_id="T-002", title="实现前端页面", status="created", ...)
+create_task(title="", description="React TODO list", dependencies=["T-001"])
+# → CreateTaskResult(task_id="T-002", title="", status="created", ...)
 
-# 4. Leader 分配任务给已 spawn 的 teammate
+# 4. Leader  spawn  teammate
 claim_task(task_id="T-001", assignee_agent_id="coder-1")
-# → ClaimTaskResult(task_id="T-001", title="实现后端 API", status="claimed", assignee_agent_id="coder-1", ...)
+# → ClaimTaskResult(task_id="T-001", title=" API", status="claimed", assignee_agent_id="coder-1", ...)
 
-# 5. coder-1 开始执行 T-001
-# coder-1 完成后:
+# 5. coder-1  T-001
+# coder-1 :
 update_task_status(task_id="T-001", status="completed", result_summary="API done")
-# → UpdateTaskStatusResult(task_id="T-001", title="实现后端 API", status="completed")
-# → Watchdog 检测到全员空闲，通知 leader
+# → UpdateTaskStatusResult(task_id="T-001", title=" API", status="completed")
+# → Watchdog ， leader
 
-# 6. T-002 依赖解除，coder-2 自助领取:
+# 6. T-002 ，coder-2 :
 list_tasks(status="pending")
 # → [TaskInfo(task_id="T-002", status="pending", is_blocked=False, ...)]
 claim_task(task_id="T-002")
-# → ClaimTaskResult(task_id="T-002", title="实现前端页面", status="claimed", assignee_agent_id="coder-2", ...)
+# → ClaimTaskResult(task_id="T-002", title="", status="claimed", assignee_agent_id="coder-2", ...)
 ```
 
-#### Teammate 自助领取流程
+#### Teammate 
 
 ```
 Teammate                          TaskBoard
@@ -1350,150 +1333,150 @@ Teammate                          TaskBoard
    │   └─ release lock ─────────────▶│
    │◀─ ClaimTaskResult(claimed) ────────│
    │                                  │
-   │  (若冲突)                        │
+   │  ()                        │
    │◀─ ToolError(conflict) ──────────│
    │                                  │
-   ├─ list_tasks() ──────────────────▶│  (重试选择其他任务)
+   ├─ list_tasks() ──────────────────▶│  ()
    └─ claim_task("T-004") ──────────▶│
 ```
 
-## 权衡取舍
+## 
 
-### 考虑过的替代方案
+### 
 
-#### 方案 A：基于 GlobalStorage 的任务管理
+####  A： GlobalStorage 
 
-将任务列表存储在 `SessionModel.storage`（GlobalStorage）中。
+ `SessionModel.storage`（GlobalStorage）。
 
-**未采用原因**：
-- GlobalStorage 是整块覆盖式持久化（last-write-wins），并发写会丢失数据
-- 无法提供行级锁，claim 操作无法保证原子性
-- 不兼容未来分布式扩展
+****：
+- GlobalStorage （last-write-wins），
+- ，claim 
+- 
 
-#### 方案 B：基于文件锁的任务锁
+####  B：
 
-使用文件系统锁（flock）实现任务 claim 互斥。
+（flock） claim 。
 
-**未采用原因**：
-- 仅适用于单机部署
-- 不兼容 `InMemoryDatabaseEngine`（测试场景）和 `RemoteDatabaseEngine`（分布式场景）
-- 与现有 `AgentLockService` 的 DB-backed 设计哲学不一致
+****：
+- 
+-  `InMemoryDatabaseEngine`（） `RemoteDatabaseEngine`（）
+-  `AgentLockService`  DB-backed 
 
-#### 方案 C：复用现有 `/stream` endpoint 做 multi-agent SSE
+####  C： `/stream` endpoint  multi-agent SSE
 
-在现有 SSE 事件中添加 `agent_id` 字段。
+ SSE  `agent_id` 。
 
-**未采用原因**：
-- 破坏旧客户端兼容性
-- 现有 Event 类型不含 team 上下文信息
-- 独立 endpoint + envelope 封装更清晰，不影响单 agent 场景
+****：
+- 
+-  Event  team 
+-  endpoint + envelope ， agent 
 
-### 缺点
+### 
 
-1. **新增 5 张 DB 表**：`TeamModel`、`TeamMemberModel`、`TeamTaskModel`、`TeamTaskLockModel`、`TeamMessageModel`，增加了 schema 复杂度，但这是并发安全和数据独立性的必要代价
-2. **`concurrent.futures.Future` vs `asyncio.Task`**：跨线程调度使用 `run_coroutine_threadsafe` 返回 `Future` 而非 `Task`，API 不同（`future.result(timeout=...)` vs `await task`），但这是 tool executor 使用 `asyncio.run()` 临时事件循环的必然结果
-3. **单进程并发上限**：asyncio 单线程模型下，teammate 数量受限于 LLM API 并发能力
-4. **全员空闲检测而非单 agent 超时**：Watchdog 仅检测全员空闲死锁，不监控单个 agent 的执行时长。若某个 teammate 长时间执行但未完成，leader 无法感知（除非 teammate 主动发消息）
+1. ** 5  DB **：`TeamModel`、`TeamMemberModel`、`TeamTaskModel`、`TeamTaskLockModel`、`TeamMessageModel`， schema ，
+2. **`concurrent.futures.Future` vs `asyncio.Task`**： `run_coroutine_threadsafe`  `Future`  `Task`，API （`future.result(timeout=...)` vs `await task`）， tool executor  `asyncio.run()` 
+3. ****：asyncio ，teammate  LLM API 
+4. ** agent **：Watchdog ， agent 。 teammate ，leader （ teammate ）
 
-## 实现计划
+## 
 
-### 阶段划分
+### 
 
-- [x] Phase 1: 数据模型与基础服务
-  - 新增 `TeamModel`、`TeamMemberModel`、`TeamTaskModel`、`TeamTaskLockModel`、`TeamMessageModel`
-  - 实现 `TaskLockService`（沿用 AgentLockService 模式）
-  - 实现 `TaskBoard`（CRUD + claim/release + 依赖检查）
-  - 实现 `TeamMessageBus`（send/broadcast/drain）
-  - 单元测试覆盖
+- [x] Phase 1: 
+  -  `TeamModel`、`TeamMemberModel`、`TeamTaskModel`、`TeamTaskLockModel`、`TeamMessageModel`
+  -  `TaskLockService`（ AgentLockService ）
+  -  `TaskBoard`（CRUD + claim/release + ）
+  -  `TeamMessageBus`（send/broadcast/drain）
+  - 
 
-- [x] Phase 2: AgentTeam 核心 + Forever-Run 模式
-  - 实现 `AgentTeam` 生命周期管理
-  - Executor `team_mode` 扩展（`_message_available`, `force_stop()`）
-  - Agent 传递 `team_mode=self._team_state is not None` 给 Executor
-  - 跨线程调度：`asyncio.run_coroutine_threadsafe` 替代 `asyncio.create_task`
-  - 消息投递：`enqueue_message` + `message` 替代 middleware drain
-  - 实现 Teammate 永久运行模型（`_run_teammate_forever`）
-  - 实现 `finish_team` stop tool（leader-only）
-  - 集成测试
+- [x] Phase 2: AgentTeam  + Forever-Run 
+  -  `AgentTeam` 
+  - Executor `team_mode` （`_message_available`, `force_stop()`）
+  - Agent  `team_mode=self._team_state is not None`  Executor
+  - ：`asyncio.run_coroutine_threadsafe`  `asyncio.create_task`
+  - ：`enqueue_message` + `message`  middleware drain
+  -  Teammate （`_run_teammate_forever`）
+  -  `finish_team` stop tool（leader-only）
+  - 
 
 - [x] Phase 3: Team Tools
-  - 实现全部 11 个 Team Tools（含 spawn/remove teammate + finish_team）
-  - Tool YAML 定义 + binding
-  - Leader/Teammate 差异化注入
-  - 工具级单元测试
+  -  11  Team Tools（ spawn/remove teammate + finish_team）
+  - Tool YAML  + binding
+  - Leader/Teammate 
+  - 
 
 - [x] Phase 4: Multi-Agent SSE
-  - 实现 `TeamStreamEnvelope` 模型
-  - 实现 `TeamSSEMultiplexer`
-  - 确保每个 agent/run 独立 aggregator 实例
-  - SSE 流式输出集成测试
+  -  `TeamStreamEnvelope` 
+  -  `TeamSSEMultiplexer`
+  -  agent/run  aggregator 
+  - SSE 
 
 - [x] Phase 5: HTTP Endpoints
-  - 实现 `/team/*` 路由
-  - 请求/响应模型
-  - 端到端测试
+  -  `/team/*` 
+  - /
+  - 
 
-### 相关文件
+### 
 
-- `nexau/archs/session/models/` - 新增 TeamModel, TeamMemberModel, TeamTaskModel, TeamTaskLockModel, TeamMessageModel
-- `nexau/archs/session/task_lock_service.py` - 新增 TaskLockService
-- `nexau/archs/main_sub/team/` - 新增 AgentTeam, TaskBoard, TeamMessageBus
-- `nexau/archs/main_sub/team/tools/` - 新增 Team Tools（含 finish_team stop tool）
-- `nexau/archs/main_sub/team/sse/` - 新增 TeamSSEMultiplexer, TeamStreamEnvelope
-- `nexau/archs/main_sub/execution/executor.py` - 新增 team_mode, _message_available, force_stop()
-- `nexau/archs/main_sub/agent.py` - 传递 team_mode 给 Executor
-- `nexau/archs/transports/http/team_routes.py` - 新增 /team/* 路由
-- `nexau/archs/transports/http/team_registry.py` - 新增 TeamRegistry 实例注册表
-- `nexau/archs/transports/http/sse_server.py` - 集成 TeamRegistry
-- `examples/agent_team/start_server.py` - SSE 服务器示例
-- `examples/agent_team/frontend/` - React 多 Agent 前端
+- `nexau/archs/session/models/` -  TeamModel, TeamMemberModel, TeamTaskModel, TeamTaskLockModel, TeamMessageModel
+- `nexau/archs/session/task_lock_service.py` -  TaskLockService
+- `nexau/archs/main_sub/team/` -  AgentTeam, TaskBoard, TeamMessageBus
+- `nexau/archs/main_sub/team/tools/` -  Team Tools（ finish_team stop tool）
+- `nexau/archs/main_sub/team/sse/` -  TeamSSEMultiplexer, TeamStreamEnvelope
+- `nexau/archs/main_sub/execution/executor.py` -  team_mode, _message_available, force_stop()
+- `nexau/archs/main_sub/agent.py` -  team_mode  Executor
+- `nexau/archs/transports/http/team_routes.py` -  /team/* 
+- `nexau/archs/transports/http/team_registry.py` -  TeamRegistry 
+- `nexau/archs/transports/http/sse_server.py` -  TeamRegistry
+- `examples/agent_team/start_server.py` - SSE 
+- `examples/agent_team/frontend/` - React  Agent 
 
-## 测试方案
+## 
 
-### 单元测试
+### 
 
-- **TaskBoard**：create / list / claim / release / update_status / 依赖阻塞 / 并发 claim 冲突
-- **TaskLockService**：acquire / release / TTL 过期 / 并发竞争
-- **TeamMessageBus**：send / broadcast / drain / 持久化验证 / delivered 状态
-- **Team Tools**：每个工具的正常路径 + 错误路径（权限校验、冲突、blocked）
+- **TaskBoard**：create / list / claim / release / update_status /  /  claim 
+- **TaskLockService**：acquire / release / TTL  / 
+- **TeamMessageBus**：send / broadcast / drain /  / delivered 
+- **Team Tools**： + （、、blocked）
 
-### 集成测试
+### 
 
-- **端到端 Team 工作流**：Leader 创建任务 → 分配 → Teammate 执行 → 完成 → Idle 通知
-- **并发 claim**：多个 teammate 同时 claim 同一 task，验证最多一个成功
-- **依赖阻塞**：创建有依赖的任务，验证依赖未完成时 claim 失败
-- **队内消息**：验证消息在迭代边界注入、持久化、跨请求恢复
-- **Multi-agent SSE**：验证同一 SSE 连接能区分多个 agent 的流式输出
+- ** Team **：Leader  →  → Teammate  →  → Idle 
+- ** claim**： teammate  claim  task，
+- ****：， claim 
+- ****：、、
+- **Multi-agent SSE**： SSE  agent 
 
-### 手动验证
+### 
 
-1. 启动 Team SSE 连接，观察多个 agent 的交错输出
-2. 通过 `/team/tasks` API 观察任务状态变化
-3. 模拟 teammate 崩溃后重连，验证状态恢复
-4. 验证 claim-next 被禁止（无 task_id 的 claim 请求应失败）
+1.  Team SSE ， agent 
+2.  `/team/tasks` API 
+3.  teammate ，
+4.  claim-next （ task_id  claim ）
 
-## 未解决的问题
+## 
 
-> 以下问题已在设计评审中确认决策，记录于此供实现参考。
+> ，。
 
-### 已决定
+### 
 
-1. **Teammate 最大并发数**：需要配置上限。`AgentTeam.__init__` 接受 `max_teammates: int = 10`，`spawn_teammate` 超限时返回 `ToolError(code="invalid_state")`。
-2. **任务优先级调度**：不需要强制排序。`priority` 字段仅作标记供 agent 参考，不影响 claim 逻辑。
-3. **Team 跨 session 共享**：没有需求。Team 严格 session-scoped，不支持跨 session 共享。
-4. **消息 TTL / 清理**：不需要。`TeamMessageModel` 随 session 生命周期管理，无独立过期机制。
-5. **Teammate 超时**：不监控单 agent 超时，改为全员空闲死锁检测。`TeammateWatchdog` 以后台 asyncio.Task 运行，检测所有 agent 均处于 idle 时通知 leader 决策（见 §3.5）。
-6. **Team 元信息存储**：使用独立的 `TeamModel` + `TeamMemberModel` 表，不依赖 `SessionModel.context`。Team 严格 session-scoped，但数据独立存储，便于并发安全和查询。
+1. **Teammate **：。`AgentTeam.__init__`  `max_teammates: int = 10`，`spawn_teammate`  `ToolError(code="invalid_state")`。
+2. ****：。`priority`  agent ， claim 。
+3. **Team  session **：。Team  session-scoped， session 。
+4. ** TTL / **：。`TeamMessageModel`  session ，。
+5. **Teammate **： agent ，。`TeammateWatchdog`  asyncio.Task ， agent  idle  leader （ §3.5）。
+6. **Team **： `TeamModel` + `TeamMemberModel` ， `SessionModel.context`。Team  session-scoped，，。
 
-### 待定
+### 
 
-（暂无）
+（）
 
-## 参考资料
+## 
 
-- `nexau/archs/session/agent_lock_service.py` — AgentLockService 实现（锁机制参考）
-- `nexau/archs/session/models/agent_lock.py` — AgentLockModel（数据模型参考）
-- `nexau/archs/main_sub/execution/middleware/agent_events_middleware.py` — 事件中间件（SSE 参考）
-- `nexau/archs/transports/http/sse_server.py` — SSE Transport（endpoint 参考）
-- `nexau/archs/main_sub/agent.py` — Agent 生命周期（并发执行参考）
-- RFC-0001: Agent 中断时状态持久化（stop/interrupt 机制参考）
+- `nexau/archs/session/agent_lock_service.py` — AgentLockService （）
+- `nexau/archs/session/models/agent_lock.py` — AgentLockModel（）
+- `nexau/archs/main_sub/execution/middleware/agent_events_middleware.py` — （SSE ）
+- `nexau/archs/transports/http/sse_server.py` — SSE Transport（endpoint ）
+- `nexau/archs/main_sub/agent.py` — Agent （）
+- RFC-0001: Agent （stop/interrupt ）

@@ -40,7 +40,7 @@ EntrypointShellInstallation = WindowsShellInstallation | GitBashInstallation
 def handoff_git_bash_install_hint() -> str:
     """Return the stable handoff hint shown by CLI entrypoints.
 
-    RFC-0019: Git Bash 缺失依赖接管提示
+    RFC-0019: Git Bash 
 
     The hint is intentionally phrased so both humans and upstream wrappers can
     understand the next step: an outer workflow should guide the user through
@@ -57,7 +57,7 @@ def handoff_git_bash_install_hint() -> str:
 def ensure_git_bash_for_entrypoint(*, stderr: TextIO | None = None) -> GitBashInstallation | None:
     """Fail fast when an explicit Git Bash backend is unavailable.
 
-    RFC-0019: 显式 Git Bash backend 缺失依赖闭环
+    RFC-0019:  Git Bash backend 
 
     This helper is intentionally not called by default CLI entrypoints anymore.
     It remains available for wrappers that explicitly request the optional
@@ -81,7 +81,7 @@ def ensure_default_windows_shell_for_entrypoint(
 ) -> EntrypointShellInstallation | None:
     """Ensure the default Windows shell backend is available.
 
-    RFC-0019: 默认 PowerShell 入口检查
+    RFC-0019: default PowerShell 
 
     Missing Git Bash must not block Windows entrypoints.  On Windows this
     checks the default backend order ``pwsh.exe`` -> ``powershell.exe`` ->

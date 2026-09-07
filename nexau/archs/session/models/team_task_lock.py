@@ -14,7 +14,7 @@
 
 """Team task lock data models.
 
-RFC-0002: Agent Team 协作系统
+RFC-0002: Agent Team 
 
 Stores distributed locks for team task assignment.
 """
@@ -27,7 +27,7 @@ from sqlmodel import Field, SQLModel
 class TeamTaskLockModel(SQLModel, table=True):
     """Team task lock model for preventing concurrent task assignment.
 
-    RFC-0002: 团队任务锁模型
+    RFC-0002: 
 
     Attributes:
         user_id: User identifier (primary key).

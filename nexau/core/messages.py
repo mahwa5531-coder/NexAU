@@ -352,12 +352,12 @@ class Message(BaseModel):
 
     @classmethod
     def user(cls, text: str) -> Message:
-        # micro-compact: 设置 created_at 时间戳
+        # micro-compact:  created_at 
         return cls(role=Role.USER, content=[TextBlock(text=text)], created_at=datetime.now())
 
     @classmethod
     def assistant(cls, text: str) -> Message:
-        # micro-compact: 设置 created_at 时间戳
+        # micro-compact:  created_at 
         return cls(role=Role.ASSISTANT, content=[TextBlock(text=text)], created_at=datetime.now())
 
     def get_text_content(self) -> str:

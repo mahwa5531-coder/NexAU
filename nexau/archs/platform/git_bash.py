@@ -63,6 +63,9 @@ def _path_candidate() -> list[Path]:
 
 def _is_valid_bash_candidate(candidate: Path) -> bool:
     """Return True when *candidate* points to an existing bash executable file."""
+    # Filter out Windows WSL relay stub (C:\Windows\System32\bash.exe) which fails if no WSL distro exists
+    if "system32" in str(candidate).lower():
+        return False
     return candidate.exists() and candidate.is_file()
 
 
@@ -96,7 +99,7 @@ def _candidate_groups() -> tuple[tuple[str, list[Path]], ...]:
 def detect_git_bash() -> GitBashInstallation | None:
     """Detect Git Bash on Windows.
 
-    RFC-0019: Git Bash 可用性健康检查
+    RFC-0019: Git Bash 
 
     Discovery order follows RFC-0019: explicit configuration > PATH > common
     installation directories. A candidate is accepted when it exists on disk.
@@ -122,7 +125,7 @@ def detect_git_bash() -> GitBashInstallation | None:
 def _find_unusable_bash_paths() -> list[Path]:
     """Return configured bash paths that exist but are not files.
 
-    RFC-0019: unusable Git Bash 诊断辅助
+    RFC-0019: unusable Git Bash 
 
     Called only when ``detect_git_bash()`` returns ``None`` to distinguish
     "completely missing" from "present but not an executable file".
@@ -147,7 +150,7 @@ def explain_git_bash_requirement() -> str:
 def explain_unusable_git_bash(unusable_paths: list[Path]) -> str:
     """Return guidance when Git Bash paths are not executable files.
 
-    RFC-0019: unusable Git Bash 用户提示
+    RFC-0019: unusable Git Bash 
     """
     paths_str = ", ".join(str(p) for p in unusable_paths)
     return (
@@ -159,7 +162,7 @@ def explain_unusable_git_bash(unusable_paths: list[Path]) -> str:
 def ensure_git_bash() -> GitBashInstallation:
     """Return the resolved Git Bash installation or raise a fail-fast error.
 
-    RFC-0019: unusable Git Bash 也应 fail-fast
+    RFC-0019: unusable Git Bash  fail-fast
 
     The hot path verifies that the configured/discovered candidate exists as a
     file. It does not run ``bash --version`` because that probe can hang on

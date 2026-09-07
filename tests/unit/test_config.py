@@ -358,7 +358,7 @@ class TestAgentConfigBuilderCore:
         builder.build_core_properties()
 
         assert builder.agent_params["name"] == "builder"
-        assert builder.agent_params["max_context_tokens"] == 128000
+        assert builder.agent_params["max_context_tokens"] == 1048576
         assert builder.agent_params["max_running_subagents"] == 5
         assert builder.agent_params["stop_tools"] == set()
 

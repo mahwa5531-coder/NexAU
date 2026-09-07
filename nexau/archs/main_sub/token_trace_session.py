@@ -82,7 +82,7 @@ def _empty_message_list() -> list[Message]:
 
 
 class TokenTraceContextOverflowError(RuntimeError):
-    """Token trace session 的 token 总数超过了 max_context_tokens。
+    """Token trace session  token  max_context_tokens。
 
     Token trace sessions do not support context compaction because
     reconstructing token lists from compacted message text may be inaccurate.
@@ -181,8 +181,8 @@ class TokenTraceSession:
     def _chat_template_kwargs(self) -> dict[str, object]:
         """Extra kwargs forwarded to ``apply_chat_template``.
 
-        从 ``llm_config.extra_params["chat_template_kwargs"]`` 读取，
-        支持透传 ``enable_thinking`` 等模型特有的 chat template 参数。
+         ``llm_config.extra_params["chat_template_kwargs"]`` ，
+         ``enable_thinking``  chat template 。
         """
         raw = self.llm_config.extra_params.get("chat_template_kwargs")
         if isinstance(raw, dict):
@@ -198,11 +198,11 @@ class TokenTraceSession:
     ) -> list[int]:
         """Encode messages into token ids via HuggingFace AutoTokenizer.
 
-        使用 llm_config.tokenizer_path 指定的 HF 模型路径加载 tokenizer，
-        通过 apply_chat_template 将 Message 列表编码为 token id 列表。
+         llm_config.tokenizer_path  HF  tokenizer，
+         apply_chat_template  Message list token id list。
 
-        ``llm_config.extra_params["chat_template_kwargs"]`` 中的键值对
-        会作为额外 kwargs 透传给 ``apply_chat_template``，例如
+        ``llm_config.extra_params["chat_template_kwargs"]`` keyvalue
+         kwargs  ``apply_chat_template``，
         ``{"enable_thinking": True}``。
         """
         if not messages:
@@ -246,10 +246,10 @@ class TokenTraceSession:
     async def _post_json_async(self, url: str, payload: dict[str, Any]) -> dict[str, Any]:
         """Async version of _post_json using httpx.AsyncClient.
 
-        P2 async/sync 技术债修复: 异步 HTTP 请求
+        P2 async/sync :  HTTP 
 
-        使用 httpx.AsyncClient 替代 sync requests.post，
-        在主事件循环上执行 HTTP 调用，避免阻塞 event loop。
+         httpx.AsyncClient  sync requests.post，
+         HTTP ， event loop。
         """
         async with httpx.AsyncClient(timeout=httpx.Timeout(self.timeout)) as client:
             response = await client.post(
@@ -266,9 +266,9 @@ class TokenTraceSession:
     async def detokenize_async(self, token_ids: list[int]) -> str:
         """Async version of detokenize.
 
-        P2 async/sync 技术债修复: 异步 detokenize
+        P2 async/sync :  detokenize
 
-        使用 _post_json_async 做异步 HTTP 调用。
+         _post_json_async  HTTP 。
         """
         if not token_ids:
             return ""

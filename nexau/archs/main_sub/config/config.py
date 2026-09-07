@@ -63,9 +63,9 @@ HookConfig = str | dict[str, Any] | Callable[..., Any]
 
 _BUILTIN_TOOL_SCHEMA_ROOT = "nexau:archs/tool/builtin/schemas"
 
-# RFC-0028: 聚合 Web 搜索。与上面那些"零配置即可用"的内置工具不同，
-# 它必须有搜索服务商密钥才能工作，因此**仅在配置了密钥时才注入**——
-# 否则每个 Agent 的工具列表里都会多一个一调就报错的工具，白占上下文还诱导误用。
+# RFC-0028:  Web 。"configuration"，
+# ，**configuration**——
+# Agent list，。
 _CONDITIONAL_BUILTIN_TOOL_BINDINGS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     (
         "web_search",
@@ -76,9 +76,9 @@ _CONDITIONAL_BUILTIN_TOOL_BINDINGS: tuple[tuple[str, str, tuple[str, ...]], ...]
 
 
 def _conditional_builtin_bindings() -> tuple[tuple[str, str], ...]:
-    """筛出当前环境已具备前置条件的条件式内置工具。
+    """。
 
-    RFC-0028: 只要任一候选环境变量非空即视为已配置。
+    RFC-0028: configuration。
     """
     enabled: list[tuple[str, str]] = []
     for name, binding, env_keys in _CONDITIONAL_BUILTIN_TOOL_BINDINGS:
@@ -170,7 +170,7 @@ def _require_dict(value: object, *, context: str) -> dict[str, Any]:
 def _inject_builtin_tools(config: dict[str, Any]) -> None:
     """Inject conditional runtime built-in tools without replacing declared tools.
 
-    插件贡献与 agent 自声明的同名工具优先，runtime 仅补齐缺失项。
+     agent ，runtime 。
     """
     tools_raw: object = config.get("tools")
     if tools_raw is None:
@@ -181,7 +181,7 @@ def _inject_builtin_tools(config: dict[str, Any]) -> None:
     else:
         raise ConfigError("'tools' must be a list")
 
-    # 1. 收集插件展开与 agent 自声明的工具名
+    # 1.  agent 
     existing_names: set[str] = set()
     for tool in tools:
         if not isinstance(tool, dict):
@@ -191,7 +191,7 @@ def _inject_builtin_tools(config: dict[str, Any]) -> None:
         if isinstance(name, str):
             existing_names.add(name)
 
-    # 2. 按声明顺序补齐已满足前置条件的 runtime 内置工具
+    # 2.  runtime 
     for name, binding in _conditional_builtin_bindings():
         if name in existing_names:
             continue
@@ -354,7 +354,7 @@ class AgentConfig(
             if ignored_plugins:
                 logger.info("sub_agent_load plugins_ignored=%d", len(ignored_plugins))
 
-        # 在插件与 agent 工具合并后补齐已满足前置条件的 runtime 内置工具
+        # agent  runtime 
         _inject_builtin_tools(config_dict)
 
         agent_builder = AgentConfigBuilder(
@@ -427,9 +427,9 @@ class AgentConfig(
     def _finalize(self):  # type: ignore[override]
         """Finalize configuration by normalizing fields and injecting skill tool.
 
-        RFC-0015: 合并 Sub-agent 工具为统一 Agent 工具
+        RFC-0015:  Sub-agent  Agent 
 
-        当 sub_agents 非空时注入 Agent 工具，并在描述中拼接可用子代理列表。
+         sub_agents  Agent ，list。
         """
         if self._is_finalized:
             return self
@@ -437,14 +437,14 @@ class AgentConfig(
 
         nexau_package_path = Path(__file__).parent.parent.parent.parent
         if self.sub_agents:
-            # 1. 生成可用子代理列表描述后缀
+            # 1. list
             sub_agent_desc_parts: list[str] = ["\n\nAvailable sub-agents:"]
             for _sa_name, _sa_config in self.sub_agents.items():
                 _sa_desc = _sa_config.description or f"Delegate work to sub-agent '{_sa_name}'."
                 sub_agent_desc_parts.append(f"\n- **{_sa_name}**: {_sa_desc}")
             sub_agent_description_suffix = "".join(sub_agent_desc_parts)
 
-            # 2. 注册 Agent 工具
+            # 2.  Agent 
             agent_tool = Tool.from_yaml(
                 str(nexau_package_path / "archs" / "tool" / "builtin" / "schemas" / "Agent.tool.yaml"),
                 binding=call_sub_agent,
@@ -488,7 +488,7 @@ class ExecutionConfig:
     """Configuration for agent execution environment and behavior."""
 
     max_iterations: int = 100
-    max_context_tokens: int = 128000
+    max_context_tokens: int = 1048576
     max_running_subagents: int = 5
     retry_attempts: int = 5
     retry_backoff_max_seconds: int = 30
@@ -634,7 +634,7 @@ class AgentConfigBuilder:
         self.agent_params["source_id"] = self.config.get("source_id")
         self.agent_params["max_context_tokens"] = self.config.get(
             "max_context_tokens",
-            128000,
+            1048576,
         )
         self.agent_params["max_running_subagents"] = self.config.get(
             "max_running_subagents",
@@ -1266,7 +1266,7 @@ class AgentConfigBuilder:
                 f"Tool '{name}' extra_kwargs contains reserved keys that cannot be overridden: {sorted(conflict_keys)}",
             )
 
-        # RFC-0019: 解析权限配置
+        # RFC-0019: configuration
         permissions_raw: object | None = tool_config.get("permissions")
         permissions: dict[str, list[str]] | None = None
         if permissions_raw is not None:

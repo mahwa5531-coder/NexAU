@@ -34,48 +34,103 @@ class RoundAndTokenReminderMiddleware(Middleware):
         *,
         max_context_tokens: int,
         desired_max_tokens: int = 16384,
+        enable_routine_reminders: bool = True,
     ) -> None:
         """Configure the reminder middleware.
 
         Args:
             max_context_tokens: Context window size; required when token hint enabled.
             desired_max_tokens: Preferred response size for token hint messaging.
+            enable_routine_reminders: When False, suppress routine iteration/token
+                counter spam on normal turns. Urgent reminders (remaining iterations <= 1 or low tokens)
+                and steering messages are always delivered. Defaults to True for backward compatibility.
         """
         self.max_context_tokens = max_context_tokens
         self.desired_max_tokens = desired_max_tokens
+        self.enable_routine_reminders = enable_routine_reminders
         # TODO: reuse token counter from AgentConfig
         self.token_counter = TokenCounter()
 
     def before_model(self, hook_input: BeforeModelHookInput) -> HookResult:  # type: ignore[override]
         """Append iteration (and optional token) hints prior to model invocation."""
 
-        # If no assistant messages yet, skip adding hints to avoid front-loading noise.
+        # Check for user mid-flight steering messages queued during execution
+        steering_messages: list[str] = []
+        try:
+            sess_id = None
+            if hook_input.agent_state:
+                ctx = getattr(hook_input.agent_state, "context", None)
+                if ctx is not None:
+                    inner_ctx = getattr(ctx, "context", None)
+                    if isinstance(inner_ctx, dict):
+                        sess_id = inner_ctx.get("session_id")
+                    elif isinstance(ctx, dict):
+                        sess_id = ctx.get("session_id")
+                    else:
+                        sess_id = getattr(ctx, "session_id", None)
+                if not sess_id and hasattr(hook_input.agent_state, "session_id"):
+                    sess_id = hook_input.agent_state.session_id
+            if sess_id:
+                from nexau.archs.session.steering import pop_steering_messages
+                steering_messages = pop_steering_messages(str(sess_id))
+        except Exception as e:
+            logger.debug("[RoundAndTokenReminderMiddleware] Steering check error: %s", e)
+
+        # If no assistant messages yet and no steering, skip adding hints to avoid front-loading noise.
         has_assistant = any(msg.role == Role.ASSISTANT for msg in hook_input.messages)
-        if not has_assistant:
+        if not has_assistant and not steering_messages:
             return HookResult.no_changes()
 
-        iteration_hint = self._build_iteration_hint(
-            hook_input.current_iteration,
-            hook_input.max_iterations,
-            hook_input.max_iterations - hook_input.current_iteration,
-        )
+        steering_blocks = [
+            Message(
+                role=Role.USER,
+                content=[TextBlock(text=f"<USER_STEERING>\n[USER MID-FLIGHT INSTRUCTION]: {s_msg}\nAdapt your current plan and respond to this instruction immediately.\n</USER_STEERING>")]
+            )
+            for s_msg in steering_messages
+        ]
 
+        if not has_assistant:
+            return HookResult.with_modifications(messages=[*hook_input.messages, *steering_blocks])
+
+        remaining_iterations = hook_input.max_iterations - hook_input.current_iteration
         current_tokens = self._count_tokens(hook_input)
         remaining_tokens = max((self.max_context_tokens or 0) - current_tokens, 0)
-        token_hint = self._build_token_limit_hint(
-            current_prompt_tokens=current_tokens,
-            max_tokens=self.max_context_tokens or 0,
-            remaining_tokens=remaining_tokens,
-            desired_max_tokens=self.desired_max_tokens,
-        )
-        hint_content = f"{iteration_hint}\n\n{token_hint}"
+        warning_threshold = min(3 * self.desired_max_tokens, max(1, int((self.max_context_tokens or 0) * 0.20))) if (self.max_context_tokens or 0) > 0 else 3 * self.desired_max_tokens
+
+        is_urgent = (remaining_iterations <= 1) or (remaining_tokens < warning_threshold)
+
+        # On routine turns without urgent conditions, suppress reminder noise unless explicitly enabled
+        if not self.enable_routine_reminders and not is_urgent:
+            if steering_blocks:
+                return HookResult.with_modifications(messages=[*hook_input.messages, *steering_blocks])
+            return HookResult.no_changes()
+
+        hints = []
+        if self.enable_routine_reminders or remaining_iterations <= 1:
+            hints.append(self._build_iteration_hint(
+                hook_input.current_iteration,
+                hook_input.max_iterations,
+                remaining_iterations,
+            ))
+
+        if self.enable_routine_reminders or remaining_tokens < warning_threshold:
+            hints.append(self._build_token_limit_hint(
+                current_prompt_tokens=current_tokens,
+                max_tokens=self.max_context_tokens or 0,
+                remaining_tokens=remaining_tokens,
+                desired_max_tokens=self.desired_max_tokens,
+            ))
+
+        hint_content = "\n\n".join(hints)
+        framework_message = [Message(role=Role.FRAMEWORK, content=[TextBlock(text=hint_content)])] if hint_content else []
 
         updated_messages = [
             *hook_input.messages,
-            Message(role=Role.FRAMEWORK, content=[TextBlock(text=hint_content)]),
+            *steering_blocks,
+            *framework_message,
         ]
 
-        logger.info("[RoundAndTokenReminderMiddleware] Added iteration/token hint message")
+        logger.info("[RoundAndTokenReminderMiddleware] Added iteration/token hint message (steering: %d)", len(steering_messages))
         return HookResult.with_modifications(messages=updated_messages)
 
     def _count_tokens(self, hook_input: BeforeModelHookInput) -> int:
@@ -104,8 +159,7 @@ class RoundAndTokenReminderMiddleware(Middleware):
             return (
                 f"⚠️ WARNING: This is iteration {current_iteration}/{max_iterations}. "
                 f"You have only {remaining_iterations} iteration(s) remaining. "
-                f"Please provide a conclusive response and avoid making additional tool calls or sub-agent calls "
-                f"unless absolutely critical. Focus on summarizing your findings and providing final recommendations."
+                f"Please conclude your current steps and deliver your final findings."
             )
         if remaining_iterations <= 3:
             return (
@@ -126,12 +180,14 @@ class RoundAndTokenReminderMiddleware(Middleware):
     ) -> str:
         """Replicate executor token limit hint messaging."""
 
-        if remaining_tokens < 3 * desired_max_tokens:
+        # ponytail: prevent false-alarm token panic on Turn 1 when 3*desired_max_tokens > max_tokens.
+        # Warn when remaining budget drops below 20% of total window or below 3*desired_max_tokens (whichever is smaller).
+        warning_threshold = min(3 * desired_max_tokens, max(1, int(max_tokens * 0.20))) if max_tokens > 0 else 3 * desired_max_tokens
+        if remaining_tokens < warning_threshold:
             return (
                 f"⚠️ WARNING: Token usage is approaching the limit {current_prompt_tokens}/{max_tokens}."
                 f" You have only {remaining_tokens} tokens left."
-                f" Please be mindful of the token limit and avoid making additional tool calls or sub-agent calls "
-                f"unless absolutely critical. Focus on summarizing your findings and providing final recommendations."
+                f" Please provide your findings within the available context budget."
             )
         return (
             f"🔄 Token Usage: {current_prompt_tokens}/{max_tokens} in the current prompt - {remaining_tokens} tokens left."

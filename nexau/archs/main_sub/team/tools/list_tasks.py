@@ -14,7 +14,7 @@
 
 """list_tasks tool — list tasks on the shared task board.
 
-RFC-0002: 列出共享任务列表
+RFC-0002: list
 """
 
 from __future__ import annotations
@@ -33,10 +33,10 @@ async def list_tasks(
 ) -> list[TaskInfo]:
     """List tasks on the shared task board.
 
-    RFC-0002: 列出共享任务列表
+    RFC-0002: list
 
     Args:
-        status: 可选过滤条件 (pending / in_progress / completed)
+        status:  (pending / in_progress / completed)
     """
     ts = require_team_state(agent_state)
     return await ts.task_board.list_tasks(status=status)

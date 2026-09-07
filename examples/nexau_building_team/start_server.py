@@ -14,7 +14,7 @@
 
 """SSE server for NexAU Building Team.
 
-RFC-0002: NexAU 构建团队 SSE 服务器
+RFC-0002: NexAU  SSE 
 
 Starts an HTTP server that exposes team endpoints for the
 NexAU agent building workflow (requirements → RFC → build → test).
@@ -47,20 +47,20 @@ SCRIPT_DIR = Path(__file__).parent
 def main() -> None:
     """Start SSE server with NexAU building team support.
 
-    RFC-0002: 启动 NexAU 构建团队 SSE 服务器
+    RFC-0002:  NexAU  SSE 
 
     Steps:
-    1. 加载所有 agent 配置
-    2. 创建 SSE server
-    3. 注册 team 配置（leader + 2 candidate roles）
-    4. 启动服务器
+    1.  agent 
+    2.  SSE server
+    3.  team （leader + 2 candidate roles）
+    4. 
     """
-    # 1. 加载 agent 配置
+    # 1.  agent 
     leader_config = AgentConfig.from_yaml(SCRIPT_DIR / "leader_agent.yaml")
     rfc_writer_config = AgentConfig.from_yaml(SCRIPT_DIR / "rfc_writer_agent.yaml")
     builder_config = AgentConfig.from_yaml(SCRIPT_DIR / "builder_agent.yaml")
 
-    # 2. 创建事件存储和 SSE server
+    # 2.  SSE server
     event_store = EventStore()
     engine = InMemoryDatabaseEngine()
     server = SSETransportServer(
@@ -72,7 +72,7 @@ def main() -> None:
         count_events=event_store.count,
     )
 
-    # 3. 注册 team 配置
+    # 3.  team 
     registry = server.team_registry
     if registry is not None:
         registry.register_config(
@@ -84,7 +84,7 @@ def main() -> None:
             },
         )
 
-    # 4. 注册文件浏览 API（直接读取 sandbox 工作目录）
+    # 4.  API（ sandbox ）
     sandbox_work_dir = Path(
         os.environ.get("SANDBOX_WORK_DIR", "") or (leader_config.sandbox_config.work_dir if leader_config.sandbox_config else os.getcwd())
     ).resolve()
@@ -95,18 +95,18 @@ def main() -> None:
     async def file_tree(path: str = Query(default=".")) -> list[dict[str, object]]:
         """List directory contents for the file browser.
 
-        RFC-0002: 文件树浏览 API
+        RFC-0002:  API
 
-        返回指定目录下的文件和子目录列表，按文件夹优先、文件名排序。
+        ，、。
         """
-        # 1. 解析并校验路径安全
+        # 1. 
         target = (sandbox_work_dir / path).resolve()
         if not str(target).startswith(str(sandbox_work_dir)):
             raise HTTPException(status_code=403, detail="Path outside sandbox")
         if not target.is_dir():
             raise HTTPException(status_code=404, detail="Directory not found")
 
-        # 2. 列出目录内容
+        # 2. 
         entries: list[dict[str, object]] = []
         for item in target.iterdir():
             entries.append(
@@ -119,7 +119,7 @@ def main() -> None:
                 }
             )
 
-        # 3. 排序：文件夹优先，然后按名称
+        # 3. ：，
         entries.sort(key=lambda x: (not x["isDirectory"], str(x["name"]).lower()))
         return entries
 
@@ -127,18 +127,18 @@ def main() -> None:
     async def file_content(path: str = Query(...)) -> dict[str, object]:
         """Read file content for the file viewer.
 
-        RFC-0002: 文件内容读取 API
+        RFC-0002:  API
 
-        返回文件内容、大小和语言类型（用于语法高亮）。
+        、（）。
         """
-        # 1. 解析并校验路径安全
+        # 1. 
         target = (sandbox_work_dir / path).resolve()
         if not str(target).startswith(str(sandbox_work_dir)):
             raise HTTPException(status_code=403, detail="Path outside sandbox")
         if not target.is_file():
             raise HTTPException(status_code=404, detail="File not found")
 
-        # 2. 推断语言类型
+        # 2. 
         ext_to_lang: dict[str, str] = {
             ".py": "python",
             ".js": "javascript",
@@ -164,7 +164,7 @@ def main() -> None:
         }
         language = ext_to_lang.get(target.suffix.lower(), "plaintext")
 
-        # 3. 读取文件内容（限制 1MB）
+        # 3. （ 1MB）
         max_size = 1024 * 1024
         file_size = target.stat().st_size
         truncated = file_size > max_size
@@ -192,7 +192,7 @@ def main() -> None:
 
     server.app.include_router(files_router)
 
-    # 5. 注册事件历史 API（用于前端刷新后恢复状态）
+    # 5.  API（）
     history_router = APIRouter(prefix="/team", tags=["history"])
 
     @history_router.get("/history")
@@ -204,10 +204,10 @@ def main() -> None:
     ) -> dict[str, object] | list[dict[str, object]]:
         """Return team history as a compacted snapshot (default) or raw events.
 
-        RFC-0045: 快照模式历史 API（优化首次加载）
+        RFC-0045:  API（）
 
-        默认返回预压缩的快照状态 + event_count，前端可直接加载而无需重播。
-        传 ?raw=true 可获取原始事件列表（用于调试或向后兼容）。
+         + event_count，。
+         ?raw=true （）。
         """
         if raw:
             events = event_store.get_history(user_id, session_id, after=after)
@@ -232,7 +232,7 @@ def main() -> None:
 
     server.app.include_router(history_router)
 
-    # 6. 启动服务器
+    # 6. 
     logger.info("Starting NexAU Building Team SSE server on http://0.0.0.0:8000")
     logger.info("Sandbox work dir: %s", sandbox_work_dir)
     logger.info("Team endpoints: /team/stream, /team/query, /team/tasks, /team/teammates, /team/history, /team/sessions")

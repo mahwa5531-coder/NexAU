@@ -154,7 +154,7 @@ def ask_user(
     Returns:
         Dict with structured questions for frontend rendering, or error.
     """
-    # 1. 验证问题格式
+    # 1. 
     error = _validate_questions(questions)
     if error is not None:
         return error

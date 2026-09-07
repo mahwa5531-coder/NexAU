@@ -15,12 +15,13 @@ from nexau.archs.sandbox.base_sandbox import SandboxError
 
 
 def get_sandbox(agent_state: AgentState | None) -> BaseSandbox:
-    """Get sandbox from agent_state, or raise SandboxError."""
+    """Get sandbox from agent_state, or fallback to LocalSandbox."""
     if agent_state is not None:
         sandbox = agent_state.get_sandbox()
         if sandbox is not None:
             return sandbox
-    raise SandboxError("Sandbox not found")
+    from nexau.archs.sandbox.local_sandbox import LocalSandbox
+    return LocalSandbox(work_dir=Path.cwd())
 
 
 def resolve_path(path: str, sandbox: BaseSandbox) -> str:

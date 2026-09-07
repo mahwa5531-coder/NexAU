@@ -20,10 +20,12 @@ if TYPE_CHECKING:
     from .file_tools.glob_tool import glob
     from .file_tools.list_directory import list_directory
     from .file_tools.read_file import read_file
+    from .file_tools.read_visual_file import read_visual_file
     from .file_tools.read_many_files import read_many_files
     from .file_tools.replace import replace
     from .file_tools.search_file_content import search_file_content
     from .file_tools.write_file import write_file
+    from .audit_tools.audit_skill_tool import audit_skill_tool
     from .mcp_client import (
         MCPClient,
         MCPManager,
@@ -46,13 +48,17 @@ __all__ = [
     "background_task_manage_tool",
     "multiedit_tool",
     "read_file",
+    "read_visual_file",
     "write_file",
+    "audit_skill_tool",
     "replace",
+    "replace_file_content",
     "apply_patch",
     "glob",
     "list_directory",
     "read_many_files",
     "search_file_content",
+    "view_file",
     "run_shell_command",
     "google_web_search",
     "web_fetch",
@@ -90,6 +96,14 @@ def __getattr__(name: str) -> object:
         from .file_tools.read_file import read_file
 
         return _cache_export(name, read_file)
+    if name == "read_visual_file":
+        from .file_tools.read_visual_file import read_visual_file
+
+        return _cache_export(name, read_visual_file)
+    if name == "audit_skill_tool":
+        from .audit_tools.audit_skill_tool import audit_skill_tool
+
+        return _cache_export(name, audit_skill_tool)
     if name == "write_file":
         from .file_tools.write_file import write_file
 
@@ -118,6 +132,14 @@ def __getattr__(name: str) -> object:
         from .file_tools.search_file_content import search_file_content
 
         return _cache_export(name, search_file_content)
+    if name == "view_file":
+        from .file_tools.view_file import view_file
+
+        return _cache_export(name, view_file)
+    if name == "replace_file_content":
+        from .file_tools.replace_file_content import replace_file_content
+
+        return _cache_export(name, replace_file_content)
     if name == "run_shell_command":
         from .shell_tools.run_shell_command import run_shell_command
 

@@ -14,10 +14,10 @@
 
 """Typed framework context for tool and middleware authors.
 
-RFC-0006: FrameworkContext — 类型安全的框架上下文
+RFC-0006: FrameworkContext — type
 
-替代 AgentState，提供分组 API 访问框架服务。
-工具函数声明 ctx: FrameworkContext 即可获得所有框架能力。
+ AgentState， API 。
+function ctx: FrameworkContext 。
 """
 
 from __future__ import annotations
@@ -124,10 +124,10 @@ class HistoryAPI:
 class ExecutionAPI:
     """Execution lifecycle API for stop-aware tools.
 
-    RFC-0006: 封装 shutdown 信号，提供语义化的执行控制接口
+    RFC-0006:  shutdown ，interface
 
-    隐藏底层 threading.Event 实现细节，tool 作者只需调用
-    ``ctx.execution.is_shutting_down()`` 即可判断是否应中止。
+     threading.Event ，tool 
+    ``ctx.execution.is_shutting_down()`` 。
     """
 
     def __init__(
@@ -140,7 +140,7 @@ class ExecutionAPI:
     def is_shutting_down(self) -> bool:
         """Check if the agent is being stopped.
 
-        RFC-0006: 语义化的停止检查
+        RFC-0006: 
 
         Returns:
             True if a shutdown has been signaled.
@@ -151,7 +151,7 @@ class ExecutionAPI:
 class ToolsAPI:
     """Tools management API.
 
-    RFC-0006: 封装 ToolRegistry，只暴露操作语义
+    RFC-0006:  ToolRegistry，
     """
 
     def __init__(
@@ -164,10 +164,10 @@ class ToolsAPI:
     def search(self, *, query: str, max_results: int = 5) -> list[Tool]:
         """Search deferred tools and inject matches.
 
-        RFC-0006: 封装 ToolRegistry.search()
+        RFC-0006:  ToolRegistry.search()
 
-        搜到即注入，下一轮 LLM 可直接 function call。
-        支持 "+keyword" 强制匹配。
+        ， LLM  function call。
+         "+keyword" 。
 
         Args:
             query: Search query string
@@ -181,7 +181,7 @@ class ToolsAPI:
     def add(self, *, tool: Tool) -> None:
         """Dynamically add an eager tool to the current execution.
 
-        RFC-0006: 直接写入 ToolRegistry
+        RFC-0006:  ToolRegistry
 
         Deferred runtime additions are intentionally unsupported for now.
 
@@ -210,11 +210,11 @@ class ToolsAPI:
 class FrameworkContext:
     """Typed framework context for tool and middleware authors.
 
-    RFC-0006: 替代 AgentState，提供类型安全的分组 API。
-    工具函数声明 ctx: FrameworkContext 即可获得所有框架能力。
+    RFC-0006:  AgentState，type API。
+    function ctx: FrameworkContext 。
 
-    当前实现阶段：Tools API + Execution API（Phase 1）
-    后续阶段将加入 skills / agents / sandbox / variables 等分组 API。
+    ：Tools API + Execution API（Phase 1）
+     skills / agents / sandbox / variables  API。
     """
 
     def __init__(
@@ -246,13 +246,13 @@ class FrameworkContext:
         # call tree. None when caller didn't supply one.
         self.trace_id: str | None = trace_id
 
-        # RFC-0019: 权限数据字段
+        # RFC-0019: 
         self.session_id = session_id
         self.tool_name = tool_name
         self.allow_rules: list[str] = allow_rules if allow_rules is not None else ["**"]
         self.deny_rules: list[str] = deny_rules if deny_rules is not None else []
 
-        # 分组 API
+        # API
         self.tools = ToolsAPI(
             _tool_registry=_tool_registry,
         )
@@ -263,7 +263,7 @@ class FrameworkContext:
         # Replaces the deprecated ``agent_state.history`` direct backref.
         self.history = HistoryAPI(_history=_history)
 
-        # RFC-0019: 保留内部引用以便 for_tool_call 复用
+        # RFC-0019:  for_tool_call 
         self._tool_registry = _tool_registry
         self._shutdown_event = _shutdown_event
         self._history = _history
@@ -277,10 +277,10 @@ class FrameworkContext:
     ) -> FrameworkContext:
         """Create a per-tool-call context with tool-specific permission data.
 
-        RFC-0019: 每次 tool call 前构造独立 FrameworkContext
+        RFC-0019:  tool call  FrameworkContext
 
-        共享 ToolsAPI / ExecutionAPI / HistoryAPI 实例，但 permission 字段独立，
-        保证并行 tool call 之间不互相干扰。
+         ToolsAPI / ExecutionAPI / HistoryAPI ， permission ，
+         tool call 。
         """
         return FrameworkContext(
             agent_name=self.agent_name,
@@ -313,10 +313,10 @@ class FrameworkContext:
     ) -> FrameworkContext:
         """Create a FrameworkContext for unit testing tool functions.
 
-        RFC-0006: 测试工厂方法
+        RFC-0006: factorymethod
 
-        提供合理默认值，用户只需覆盖关心的字段。
-        tools API 使用空的 ToolRegistry（支持 search/add/get 但无预注册工具）。
+        defaultvalue，。
+        tools API  ToolRegistry（ search/add/get ）。
 
         Example::
 

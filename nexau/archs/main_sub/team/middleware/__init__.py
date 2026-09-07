@@ -14,5 +14,5 @@
 
 """Team middleware components for agent execution pipeline.
 
-RFC-0002: Team 中间件
+RFC-0002: Team middleware
 """

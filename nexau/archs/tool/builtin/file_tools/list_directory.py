@@ -150,20 +150,27 @@ def list_directory(
         files.sort(key=str.lower)
 
         # Build formatted list
+        total_items = len(directories) + len(files)
+        MAX_ENTRIES = 100
         formatted_entries: list[str] = []
-        for d in directories:
+        for d in directories[:MAX_ENTRIES]:
             formatted_entries.append(f"[DIR] {d}")
-        for f in files:
-            formatted_entries.append(f)
+        
+        remaining_slots = MAX_ENTRIES - len(formatted_entries)
+        if remaining_slots > 0:
+            for f in files[:remaining_slots]:
+                formatted_entries.append(f)
 
         # Create formatted content for LLM (matching gemini-cli format)
         directory_content = "\n".join(formatted_entries)
+        if total_items > MAX_ENTRIES:
+            directory_content += f"\n\n... [Showing first {MAX_ENTRIES} of {total_items} items. Use glob or targeted subdirectories to refine your search.]"
 
         result_message = f"Directory listing for {resolved_path}:\n{directory_content}"
         if ignored_count > 0:
             result_message += f"\n\n({ignored_count} ignored)"
 
-        display_message = f"Listed {len(formatted_entries)} item(s)."
+        display_message = f"Listed {min(total_items, MAX_ENTRIES)} of {total_items} item(s)."
         if ignored_count > 0:
             display_message += f" ({ignored_count} ignored)"
 

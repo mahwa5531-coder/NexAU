@@ -20,10 +20,10 @@ from nexau.core.messages import ToolOutputImage
 class ToolFormatterContext:
     """Execution context passed to tool formatters.
 
-    RFC-0017: formatter 在 after_tool middleware 之前执行
+    RFC-0017: formatter  after_tool middleware 
 
-    tool_output 保留原始 runtime 结果；formatter 负责将其转换为适合 LLM
-    消费的 llm-facing output。
+    tool_output  runtime ；formatter  LLM
+     llm-facing output。
     """
 
     tool_name: str
@@ -39,7 +39,7 @@ ToolFormatter = Callable[[ToolFormatterContext], object]
 def resolve_tool_formatter(formatter: str | ToolFormatter | None) -> ToolFormatter:
     """Resolve a formatter spec to a callable.
 
-    RFC-0017: 支持 builtin alias（markdown / xml）与 import path
+    RFC-0017:  builtin alias（markdown / xml） import path
     """
 
     if formatter is None:

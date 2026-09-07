@@ -166,6 +166,48 @@ class HtmlParser:
             return False, ""
 
 
+class DuckDuckGoSearch:
+    """Free, zero-config search using DuckDuckGo (ddgs)."""
+
+    def search(self, query: str, num_results: int = 4, search_type: str = "search", **kwargs) -> list[dict[str, Any]]:
+        from ddgs import DDGS
+        try:
+            with DDGS() as ddgs:
+                if search_type == "news":
+                    raw = list(ddgs.news(query, max_results=num_results))
+                else:
+                    raw = list(ddgs.text(query, max_results=num_results))
+                return [
+                    {
+                        "title": r.get("title", "Untitled"),
+                        "link": r.get("href", r.get("url", "")),
+                        "snippet": r.get("body", ""),
+                    }
+                    for r in raw
+                ]
+        except Exception as e:
+            logger.warning(f"DuckDuckGo search error for '{query}': {e}")
+            clean_q = query.replace('"', '').replace("'", "").strip()
+            if clean_q != query:
+                try:
+                    with DDGS() as ddgs:
+                        if search_type == "news":
+                            raw = list(ddgs.news(clean_q, max_results=num_results))
+                        else:
+                            raw = list(ddgs.text(clean_q, max_results=num_results))
+                        return [
+                            {
+                                "title": r.get("title", "Untitled"),
+                                "link": r.get("href", r.get("url", "")),
+                                "snippet": r.get("body", ""),
+                            }
+                            for r in raw
+                        ]
+                except Exception:
+                    pass
+            return []
+
+
 # Global instances
 _serper_search: SerperSearch | None = None
 _html_parser: HtmlParser | None = None
@@ -178,7 +220,8 @@ def web_search(
     proxy_url: str | None = None,
 ) -> dict[str, Any]:
     """
-    Search the web using Serper API.
+    Search the web. Uses Serper API if SERPER_API_KEY is present,
+    otherwise seamlessly uses DuckDuckGo (free, zero-config).
 
     Args:
         query: Search query string
@@ -191,10 +234,13 @@ def web_search(
     global _serper_search
 
     try:
-        if _serper_search is None:
-            _serper_search = SerperSearch()
-
-        results = _serper_search.search(query, search_type, num_results, proxy_url)
+        if os.getenv("SERPER_API_KEY"):
+            if _serper_search is None:
+                _serper_search = SerperSearch()
+            results = _serper_search.search(query, search_type, num_results, proxy_url)
+        else:
+            ddg = DuckDuckGoSearch()
+            results = ddg.search(query, num_results=num_results, search_type=search_type)
 
         if isinstance(results, str):
             # Error occurred
@@ -220,7 +266,6 @@ def web_search(
             "error": str(e),
             "query": query,
             "search_type": search_type,
-            "note": "Make sure SERPER_API_KEY environment variable is set",
         }
 
 
@@ -269,9 +314,11 @@ def web_read(
 
     # Fallback to direct HTTP request
     try:
-        user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        user_agent = "NexAU-Bot/1.0 (https://github.com/nexau; nexau-agent@gmail.com) Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
         headers = {
             "User-Agent": user_agent,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
         }
 
         with httpx.Client(timeout=timeout) as client:
@@ -290,36 +337,45 @@ def web_read(
             "method": "direct_http",
         }
 
-        # Extract text if content is HTML
+        # Extract markdown if content is HTML (matching Antigravity read_url_content)
         if "html" in content_type.lower():
             try:
                 from bs4 import BeautifulSoup
+                import markdownify
 
                 soup = BeautifulSoup(content, "html.parser")
 
-                # Remove script and style elements
-                for script in soup(["script", "style"]):
-                    script.decompose()
+                # Remove non-content elements
+                for tag in soup(["script", "style", "noscript", "svg"]):
+                    tag.decompose()
 
-                # Get text
-                text = soup.get_text()
+                # Convert HTML to clean structured markdown
+                md_text = markdownify.markdownify(str(soup), heading_style="ATX")
+                
+                # Collapse excessive consecutive blank lines
+                cleaned_lines = []
+                prev_empty = False
+                for line in md_text.splitlines():
+                    stripped = line.strip()
+                    if not stripped:
+                        if not prev_empty:
+                            cleaned_lines.append("")
+                            prev_empty = True
+                    else:
+                        cleaned_lines.append(line)
+                        prev_empty = False
+                text = "\n".join(cleaned_lines).strip()
 
-                # Clean up text
-                lines = (line.strip() for line in text.splitlines())
-                chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-                text = " ".join(chunk for chunk in chunks if chunk)
-
-                # Truncate extracted text if too long (based on byte size)
+                # Cap extracted markdown at 32KB to prevent context bloat
+                MAX_CAP = 32 * 1024
                 text_bytes = text.encode("utf-8")
-                if len(text_bytes) > MAX_WEB_CONTENT_LENGTH:
-                    text = text_bytes[:MAX_WEB_CONTENT_LENGTH].decode("utf-8", errors="ignore") + "..."
+                if len(text_bytes) > MAX_CAP:
+                    text = text_bytes[:MAX_CAP].decode("utf-8", errors="ignore") + "\n\n... [Content truncated at 32KB to prevent context bloat.]"
                     result["text_truncated"] = True
 
                 result["extracted_text"] = text
-                result["title"] = soup.title.string if soup.title else ""
+                result["title"] = soup.title.string.strip() if soup.title and soup.title.string else ""
 
-            except ImportError:
-                result["note"] = "BeautifulSoup not available. Install with: pip install beautifulsoup4"
             except Exception as e:
                 result["text_extraction_error"] = str(e)
         else:

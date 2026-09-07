@@ -531,7 +531,7 @@ def apply_patch(
     except InvalidPatchError as exc:
         return _error_result(f"Invalid patch: {exc}", "INVALID_PATCH")
 
-    # RFC-0019: 权限检查（解析 patch 后、sandbox 之前，确保异常不被 try/except 吞掉）
+    # RFC-0019: permission check（ patch 、sandbox ，exception try/except ）
     if ctx is not None:
         for hunk in hunks:
             check_path_permission(ctx, hunk.path)

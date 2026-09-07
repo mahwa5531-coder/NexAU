@@ -120,12 +120,12 @@ class CleanupManager:
     def _cleanup_sandbox(self) -> None:
         """Clean up active sandbox on process exit.
 
-        RFC-0140: 退出清理动作可配置（env ``NEXAU_SANDBOX_ATEXIT_ACTION``），默认 ``stop``。
-        - ``stop``（默认 / 非法值回落）：销毁 sandbox（历史行为，单机用户零影响）
-        - ``pause``：best-effort 暂停（``pause_no_wait`` 非阻塞，退出瞬间可能跑不完）
-        - ``none``：不触碰 sandbox，交由 caller 管理（NAC 注入此值，#932 修复）
+        RFC-0140: configuration（env ``NEXAU_SANDBOX_ATEXIT_ACTION``），default ``stop``。
+        - ``stop``（default / value）： sandbox（，）
+        - ``pause``：best-effort （``pause_no_wait`` ，）
+        - ``none``： sandbox， caller （NAC value，#932 ）
 
-        ``atexit`` 与 ``_signal_handler`` 都经由本函数，一处覆盖两条退出路径。
+        ``atexit``  ``_signal_handler`` function，。
         """
         try:
             logger.info("🧹 Cleaning up active sandbox...")
@@ -135,10 +135,10 @@ class CleanupManager:
         if self._sandbox_manager is None:
             return
 
-        # RFC-0140: 退出时读 env 决定动作（执行时读，确保容器注入的 env 一定生效）
+        # RFC-0140:  env （， env ）
         action = os.environ.get("NEXAU_SANDBOX_ATEXIT_ACTION", "stop").strip().lower()
         if action not in ("pause", "stop", "none"):
-            action = "stop"  # 非法值回落 stop，保持历史行为
+            action = "stop"  # value stop，
         if action == "none":
             try:
                 logger.info(
@@ -150,9 +150,9 @@ class CleanupManager:
 
         try:
             if action == "pause":
-                # best-effort：pause_no_wait 不阻塞，退出路径下可能在完成前进程已退
+                # best-effort：pause_no_wait ，completed
                 self._sandbox_manager.pause_no_wait()
-            else:  # stop（默认）
+            else:  # stop（default）
                 self._sandbox_manager.stop()
         except Exception as e:
             try:

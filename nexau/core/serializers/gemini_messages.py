@@ -1,6 +1,6 @@
 """Gemini REST request payload serializers.
 
-RFC-0014: UMP 到 Provider Payload 的统一序列化分层
+RFC-0014: UMP  Provider Payload 
 
 Provides serializer helpers for converting UMP messages into Gemini REST
 ``contents`` / ``systemInstruction`` payloads.
@@ -28,16 +28,27 @@ def serialize_ump_to_gemini_messages_payload(
     last_model_function_names: list[str] = []
     tool_result_index = 0
 
-    def _append_function_response(func_name: str, content: str) -> None:
-        response_part = {"functionResponse": {"name": func_name, "response": {"result": content}}}
+    def _append_function_response(
+        func_name: str,
+        content: str,
+        extra_parts: list[dict[str, Any]] | None = None,
+    ) -> None:
+        response_part = {"functionResponse": {"name": func_name, "response": {"result": content or "OK"}}}
+        parts_to_add = [response_part]
+        if extra_parts:
+            parts_to_add.extend(extra_parts)
+
         if gemini_contents and gemini_contents[-1]["role"] == Role.USER.value:
             existing_parts = cast(list[dict[str, Any]], gemini_contents[-1].get("parts", []))
             if any("functionResponse" in part for part in existing_parts):
-                existing_parts.append(response_part)
+                existing_parts.extend(parts_to_add)
                 return
-        gemini_contents.append({"role": Role.USER.value, "parts": [response_part]})
+        gemini_contents.append({"role": Role.USER.value, "parts": parts_to_add})
 
-    for projection in project_user_shaped_messages(messages):
+    projections = list(project_user_shaped_messages(messages))
+    total_projections = len(projections)
+    for proj_idx, projection in enumerate(projections):
+        is_older_turn = proj_idx < total_projections - 2
         message = projection.message
         if message.role == Role.SYSTEM:
             for block in message.content:
@@ -123,11 +134,23 @@ def serialize_ump_to_gemini_messages_payload(
                         f"Function name is required for tool result messages (tool_use_id={block.tool_use_id})",
                     )
 
+                extra_parts: list[dict[str, Any]] = []
                 if isinstance(block.content, list):
                     response_text = "".join(part.text for part in block.content if isinstance(part, TextBlock))
+                    for part in block.content:
+                        if isinstance(part, ImageBlock):
+                            if part.base64:
+                                extra_parts.append({
+                                    "inlineData": {
+                                        "mimeType": part.mime_type or "image/jpeg",
+                                        "data": part.base64,
+                                    }
+                                })
+                            elif part.url:
+                                extra_parts.append({"fileData": {"fileUri": part.url}})
                 else:
                     response_text = block.content
-                _append_function_response(func_name, response_text)
+                _append_function_response(func_name, response_text, extra_parts=extra_parts)
 
     system_instruction = {"parts": system_parts} if system_parts else None
     return gemini_contents, system_instruction

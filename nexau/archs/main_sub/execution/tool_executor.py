@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 class ToolExecutionResult:
     """Raw and LLM-facing tool outputs for a single execution.
 
-    RFC-0017: tool_output + llm_tool_output 双通道
+    RFC-0017: tool_output + llm_tool_output 
     """
 
     raw_output: JsonDict
@@ -256,7 +256,7 @@ class ToolExecutor:
         execution_params: JsonDict = dict(tool_parameters)
         execution_params["agent_state"] = agent_state
         execution_params["sandbox"] = sandbox
-        # RFC-0006: 注入 FrameworkContext
+        # RFC-0006:  FrameworkContext
         if framework_context is not None:
             execution_params["ctx"] = framework_context
 
@@ -280,9 +280,9 @@ class ToolExecutor:
                 result = self.middleware_manager.wrap_tool_call(call_params, _execute_tool_call)
             else:
                 result = _execute_tool_call(call_params)
-            # NAC#1304: Tool.execute() 把工具内异常兜成 error dict 正常返回，
-            # 一律打 "✅ executed successfully" 会在排障时掩盖真实故障
-            # （曾误导 Connection refused 事故的定位）。按返回值区分日志语义。
+            # NAC#1304: Tool.execute() exception error dict ，
+            # "✅ executed successfully" 
+            # （ Connection refused ）。value。
             if isinstance(result, dict):
                 result_view = cast(JsonDict, result)
                 is_error_result = bool(result_view.get("error")) or result_view.get("status") == "error"
@@ -293,7 +293,7 @@ class ToolExecutor:
             else:
                 logger.info(f"✅ Tool '{tool_name}' executed successfully")
         except (AskPermission, PermissionDenied):
-            # RFC-0019: 权限异常不拦截，直接传播给 Executor 处理
+            # RFC-0019: exception， Executor 
             raise
         except Exception as e:
             logger.error(f"❌ Tool '{tool_name}' execution failed: {e}")
@@ -331,7 +331,7 @@ class ToolExecutor:
     ) -> ToolExecutionResult:
         """Finalize raw and LLM-facing outputs after a tool call.
 
-        RFC-0017: formatter 先于 after_tool middleware 执行
+        RFC-0017: formatter  after_tool middleware 
         """
 
         raw_output = self._normalize_tool_output(result)

@@ -1,6 +1,6 @@
 {
   "rfc": "0019",
-  "title": "NexAU Windows 正式支持（默认 PowerShell，Git Bash 可选）",
+  "title": "NexAU Windows （ PowerShell，Git Bash ）",
   "status": "implemented",
   "priority": "P0",
   "tags": [
@@ -21,14 +21,14 @@
   "tasks": [
     {
       "id": "T1",
-      "title": "支持范围与 shell backend 策略定稿",
+      "title": " shell backend ",
       "depends_on": [],
       "status": "implemented",
       "ref": ""
     },
     {
       "id": "T2",
-      "title": "多 shell backend 执行抽象层重构",
+      "title": " shell backend ",
       "depends_on": [
         "T1"
       ],
@@ -37,7 +37,7 @@
     },
     {
       "id": "T3",
-      "title": "LocalSandbox 跨平台进程管理",
+      "title": "LocalSandbox ",
       "depends_on": [
         "T2"
       ],
@@ -46,7 +46,7 @@
     },
     {
       "id": "T4",
-      "title": "本地执行路径平台化与当前远端 Linux 路径保留",
+      "title": " Linux ",
       "depends_on": [
         "T1"
       ],
@@ -55,7 +55,7 @@
     },
     {
       "id": "T5",
-      "title": "解释器调用与内置工具去 Unix 化",
+      "title": " Unix ",
       "depends_on": [
         "T2",
         "T4"
@@ -65,7 +65,7 @@
     },
     {
       "id": "T6",
-      "title": "CLI 入口与可选 Git Bash 缺失依赖闭环",
+      "title": "CLI  Git Bash ",
       "depends_on": [
         "T1",
         "T4"
@@ -75,7 +75,7 @@
     },
     {
       "id": "T7",
-      "title": "Windows 文本编码边界与 UTF-8 契约",
+      "title": "Windows  UTF-8 ",
       "depends_on": [
         "T1",
         "T6"
@@ -85,7 +85,7 @@
     },
     {
       "id": "T8",
-      "title": "Windows GUI 后台子进程 no-window 契约",
+      "title": "Windows GUI  no-window ",
       "depends_on": [
         "T2",
         "T3",

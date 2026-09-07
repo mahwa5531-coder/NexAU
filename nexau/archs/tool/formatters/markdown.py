@@ -21,17 +21,17 @@ _DISPLAY_ONLY_KEYS: frozenset[str] = frozenset({"returnDisplay"})
 def format_tool_output_as_markdown(context: ToolFormatterContext) -> object:
     """Format a tool output as Markdown unless it should stay multimodal.
 
-    RFC-0017: 默认 Markdown formatter
+    RFC-0017: default Markdown formatter
 
-    1. 字符串输出直接透传，避免无意义包裹
-    2. 图片 / multimodal 输出绕过 Markdown，保留既有多模态链路
-    3. 其他 Dict / List / 标量输出统一转成稳定 Markdown 文本
+    1. string，package
+    2.  / multimodal  Markdown，
+    3.  Dict / List /  Markdown 
     """
 
     sanitized_output = _strip_display_only_fields(context.tool_output)
-    # RFC-0017: 单字段正文快捷路径。
-    # 当工具输出在剥离 returnDisplay 后只剩一个正文键时，直接把值交给 LLM，
-    # 避免多余 Markdown 外壳；这同样适用于 multimodal/image 值。
+    # RFC-0017: 。
+    # returnDisplay key，value LLM，
+    # Markdown ； multimodal/image value。
     direct_content = _unwrap_single_content_field(sanitized_output)
     if direct_content is not None:
         return direct_content
@@ -48,10 +48,10 @@ def format_tool_output_as_markdown(context: ToolFormatterContext) -> object:
 def _unwrap_single_content_field(value: object) -> object | None:
     """Return the bare value for the single-body-field fast path.
 
-    RFC-0017: 单字段直通捷径
+    RFC-0017: 
 
-    当剥离 display-only 字段后只剩 ``{"content": ...}`` 或
-    ``{"result": ...}`` 时，直接返回其值，避免无意义 Markdown 外壳。
+     display-only  ``{"content": ...}`` 
+    ``{"result": ...}`` ，value， Markdown 。
     """
 
     if not isinstance(value, dict):

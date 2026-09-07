@@ -14,10 +14,10 @@
 
 """Stop result data model.
 
-RFC-0001: Agent 中断时状态持久化
+RFC-0001: Agent 
 
-StopResult 封装 agent.stop() 的返回值，
-包含停止时的消息快照、停止原因和可选的部分 LLM 响应。
+StopResult  agent.stop() value，
+package、 LLM 。
 """
 
 from dataclasses import dataclass, field
@@ -30,13 +30,13 @@ from nexau.core.messages import Message
 class StopResult:
     """Result returned by Agent.stop().
 
-    RFC-0001: Agent 停止结果数据模型
+    RFC-0001: Agent 
 
     Attributes:
-        messages: 停止时的完整消息历史快照
-        stop_reason: 停止原因（USER_INTERRUPTED）
-        interrupted_at_iteration: 停止发生时的迭代编号
-        partial_response: 部分 LLM 响应（流式中断时可用）
+        messages: 
+        stop_reason: （USER_INTERRUPTED）
+        interrupted_at_iteration: 
+        partial_response:  LLM （）
     """
 
     messages: list[Message] = field(default_factory=lambda: list[Message]())

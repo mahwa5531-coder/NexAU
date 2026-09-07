@@ -1,6 +1,6 @@
 """OpenAI Responses request payload serializers.
 
-RFC-0014: UMP 到 Provider Payload 的统一序列化分层
+RFC-0014: UMP  Provider Payload 
 
 Provides serializer helpers for converting OpenAI-chat-shaped message payloads
 into OpenAI Responses API input items and tool definitions.
@@ -16,7 +16,7 @@ from typing import Any, cast
 def parse_openai_responses_image_part(part_map: Mapping[str, object]) -> dict[str, object] | None:
     """Convert a legacy ``image_url`` part to Responses ``input_image``.
 
-    RFC-0014: OpenAI Responses 输入图片 part 序列化
+    RFC-0014: OpenAI Responses  part 
     """
 
     image_url_any = part_map.get("image_url")
@@ -46,7 +46,7 @@ def parse_openai_responses_image_part(part_map: Mapping[str, object]) -> dict[st
 def coerce_openai_responses_tool_output_text(output: Any) -> str:
     """Convert arbitrary tool output into Responses-compatible string.
 
-    RFC-0014: OpenAI Responses tool output 文本降级
+    RFC-0014: OpenAI Responses tool output 
     """
 
     if output is None:
@@ -83,7 +83,7 @@ def coerce_openai_responses_tool_output_text(output: Any) -> str:
 def collapse_openai_responses_message_content_to_text(content: Any) -> str:
     """Render structured message content into plain text.
 
-    RFC-0014: OpenAI Responses 指令文本折叠
+    RFC-0014: OpenAI Responses 
     """
 
     if content is None:
@@ -121,7 +121,7 @@ def collapse_openai_responses_message_content_to_text(content: Any) -> str:
 def ensure_openai_responses_reasoning_summary(reasoning_item: dict[str, Any]) -> list[dict[str, Any]]:
     """Guarantee reasoning items include a Responses-compatible summary list.
 
-    RFC-0014: OpenAI Responses reasoning summary 规范化
+    RFC-0014: OpenAI Responses reasoning summary 
     """
 
     summary_entries = reasoning_item.get("summary")
@@ -152,7 +152,7 @@ def sanitize_openai_responses_items_for_input(
 ) -> list[dict[str, Any]]:
     """Strip response-only fields that the Responses API rejects on input.
 
-    RFC-0014: OpenAI Responses 输入 item 清洗
+    RFC-0014: OpenAI Responses  item 
     """
 
     sanitized: list[dict[str, Any]] = []
@@ -237,7 +237,7 @@ def sanitize_openai_responses_items_for_input(
 def reconstruct_openai_responses_reasoning_items_from_message(message: Mapping[str, Any]) -> list[dict[str, Any]]:
     """Rebuild Responses reasoning items from assistant message fields.
 
-    RFC-0014: 非 Responses 来源 reasoning replay 重建
+    RFC-0014:  Responses  reasoning replay 
     """
 
     reasoning_content = message.get("reasoning_content")
@@ -351,8 +351,8 @@ def prepare_openai_responses_api_input(messages: list[dict[str, Any]]) -> tuple[
         if role == "assistant" and isinstance(phase, str) and phase:
             message_item["phase"] = phase
 
-        # RFC-0014: reasoning 必须在 assistant message 和 function_call 之前，
-        # 与 Responses API 原生输出顺序一致：reasoning → message → function_call
+        # RFC-0014: reasoning  assistant message  function_call ，
+        # Responses API ：reasoning → message → function_call
         reasoning_items = message.get("reasoning")
         if reasoning_items:
             if isinstance(reasoning_items, list):
@@ -360,8 +360,8 @@ def prepare_openai_responses_api_input(messages: list[dict[str, Any]]) -> tuple[
         elif role == "assistant":
             prepared.extend(reconstruct_openai_responses_reasoning_items_from_message(message))
 
-        # RFC-0014: 纯 tool_call 的 assistant 不需要空 message item，
-        # Responses API 原生输出为 reasoning → function_call（无 message）
+        # RFC-0014:  tool_call  assistant  message item，
+        # Responses API  reasoning → function_call（ message）
         if content_parts or role != "assistant":
             prepared.append(message_item)
 
@@ -406,7 +406,7 @@ def prepare_openai_responses_api_input(messages: list[dict[str, Any]]) -> tuple[
 def normalize_openai_responses_api_tools(tools: list[Any]) -> list[dict[str, Any]]:
     """Ensure tool definitions align with the Responses API schema.
 
-    RFC-0014: OpenAI Responses tools payload 规范化
+    RFC-0014: OpenAI Responses tools payload 
     """
 
     normalized: list[dict[str, Any]] = []

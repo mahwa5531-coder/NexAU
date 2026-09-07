@@ -1,9 +1,9 @@
 """Gemini REST adapters built from neutral UMP messages.
 
-RFC-0006: Gemini 原生 structured adapter 路径
+RFC-0006: Gemini  structured adapter 
 
-Gemini 请求体直接从统一消息表示生成 ``contents`` / ``systemInstruction``，
-避免 structured tool calling 再经由 OpenAI 形状中转。
+Gemini  ``contents`` / ``systemInstruction``，
+ structured tool calling  OpenAI 。
 """
 
 from __future__ import annotations
@@ -18,10 +18,10 @@ from nexau.core.serializers.gemini_messages import serialize_ump_to_gemini_messa
 class GeminiMessagesAdapter(LLMAdapter):
     """Convert UMP messages into Gemini REST payloads.
 
-    RFC-0006: Gemini 原生消息适配路径
+    RFC-0006: Gemini 
 
-    输入为统一的 UMP Message 列表，输出为 Gemini REST 所需的
-    ``contents`` / ``systemInstruction`` 结构，不依赖 OpenAI message 作为主链路。
+     UMP Message list， Gemini REST 
+    ``contents`` / ``systemInstruction`` ， OpenAI message 。
     """
 
     def to_vendor_format(self, messages: list[Message]) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:

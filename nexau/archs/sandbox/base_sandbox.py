@@ -172,9 +172,9 @@ E2B_DEFAULT_WORK_DIR = "/home/user"
 def _env_float(name: str, default: float) -> float:
     """Parse a float env var crash-safe: empty/invalid values fall back to *default*.
 
-    NAC#1312 CR: 配置默认值在 pydantic default_factory 里求值，若直接
-    ``float(os.getenv(...))``，一个被 Helm 渲染成空串的 env 会让每次
-    config 构造抛 ValueError——整个部署的沙箱全部起不来。
+    NAC#1312 CR: configurationdefaultvalue pydantic default_factory value，
+    ``float(os.getenv(...))``， Helm  env 
+    config  ValueError——。
     """
     raw = os.getenv(name)
     if raw is None or not raw.strip():
@@ -236,8 +236,8 @@ class E2BSandboxConfig(BaseSandboxConfig):
     # outage (e.g. sandbox-proxy restart): the operation stalls, retries with
     # backoff, and succeeds once the path recovers instead of failing fast.
     # <= 0 falls back to legacy count-based retries (max_retries).
-    # crash-safe: 非法/空 env 值回退默认而不是让整个部署的沙箱构造崩掉
-    # （Helm 模板把未设值渲染成空串是真实场景, NAC#1312 CR finding）。
+    # crash-safe: / env valuedefault
+    # （Helm value, NAC#1312 CR finding）。
     transient_retry_window: float = Field(default_factory=lambda: _env_float("E2B_TRANSIENT_RETRY_WINDOW", 60.0))
 
 
@@ -1264,18 +1264,18 @@ class BaseSandboxManager[TSandbox: "BaseSandbox"](ABC):
         Ensures the sandbox and the code using it share the same event loop context.
         Solves cross-thread/event-loop access to asyncio primitives.
         """
-        # 快速路径：已初始化且仍在运行则直接返回（无锁）
+        # ：（）
         inst = self._instance
         if inst is not None:
             if self.is_running():
                 return inst
-            # _instance 存在但沙箱已不在运行（pause/stop 与 start_sync 竞争时的
-            # 安全网）：清除陈旧引用，下方锁内将重新创建。
+            # _instance （pause/stop  start_sync 
+            # ）：，。
             logger.warning("Sandbox instance exists but is not running; will re-create.")
             self._instance = None
 
         with self._start_lock:
-            # Double-check：获取锁后再次检查，避免重复创建
+            # Double-check：，
             if self._instance is not None:
                 return self._instance
 
@@ -1301,7 +1301,7 @@ class BaseSandboxManager[TSandbox: "BaseSandbox"](ABC):
     def add_upload_assets(self, upload_assets: list[tuple[str, str]]) -> None:
         """Add upload assets to the sandbox, uploading immediately if already running.
 
-        动态添加 upload assets（支持 teammate 后期 spawn）
+         upload assets（ teammate  spawn）
 
         Thread-safe: uses _start_lock to coordinate with start_sync().
         If sandbox is already running, uploads immediately.

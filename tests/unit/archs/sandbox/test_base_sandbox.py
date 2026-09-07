@@ -460,11 +460,12 @@ class TestBaseSandboxInterface:
 
     def test_detect_file_encoding_exception_fallback(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """When chardet raises, fall back to utf-8."""
+        import sys
+        from unittest.mock import MagicMock
 
-        def raise_err(_: bytes) -> dict:
-            raise ValueError("detect failed")
-
-        monkeypatch.setattr("chardet.detect", raise_err)
+        mock_chardet = MagicMock()
+        mock_chardet.detect.side_effect = ValueError("detect failed")
+        monkeypatch.setitem(sys.modules, "chardet", mock_chardet)
         encoding = DummySandbox().detect_encoding(b"hello")
         assert encoding == "utf-8"
 

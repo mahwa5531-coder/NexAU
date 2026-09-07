@@ -14,7 +14,7 @@
 
 """Run NexAU Building Team directly without HTTP transport.
 
-RFC-0002: 直接运行 AgentTeam（无 HTTP）
+RFC-0002:  AgentTeam（ HTTP）
 
 Uses AgentTeam.run_streaming() to run the leader + teammates
 and prints streaming events to the console.
@@ -62,19 +62,19 @@ RESET = "\033[0m"
 async def main(message: str) -> None:
     """Run the building team with streaming output.
 
-    RFC-0002: 直接运行 AgentTeam 流式输出
+    RFC-0002:  AgentTeam 
 
     Steps:
-    1. 加载 agent 配置
-    2. 创建 AgentTeam 实例
-    3. 通过 run_streaming() 流式输出事件
+    1.  agent 
+    2.  AgentTeam 
+    3.  run_streaming() 
     """
-    # 1. 加载 agent 配置
+    # 1.  agent 
     leader_config = AgentConfig.from_yaml(SCRIPT_DIR / "leader_agent.yaml")
     rfc_writer_config = AgentConfig.from_yaml(SCRIPT_DIR / "rfc_writer_agent.yaml")
     builder_config = AgentConfig.from_yaml(SCRIPT_DIR / "builder_agent.yaml")
 
-    # 2. 创建 engine、session manager、team
+    # 2.  engine、session manager、team
     engine = InMemoryDatabaseEngine()
     session_manager = SessionManager(engine=engine)
 
@@ -90,7 +90,7 @@ async def main(message: str) -> None:
         session_id="local_session",
     )
 
-    # 3. 流式运行并打印事件
+    # 3. 
     logger.info("Starting team run (streaming)...")
     current_agent: str | None = None
 
@@ -99,12 +99,12 @@ async def main(message: str) -> None:
         role = envelope.role_name or "unknown"
         color = COLORS.get(role, "")
 
-        # 打印 agent 切换标记
+        #  agent 
         if envelope.agent_id != current_agent:
             current_agent = envelope.agent_id
             print(f"\n{color}[{role}:{current_agent}]{RESET}", end=" ", flush=True)
 
-        # 打印事件（使用 isinstance 进行类型收窄）
+        # （ isinstance ）
         if isinstance(event, TextMessageContentEvent):
             print(event.delta, end="", flush=True)
         elif isinstance(event, RunFinishedEvent):
@@ -120,7 +120,6 @@ async def main(message: str) -> None:
 
 
 if __name__ == "__main__":
-    # 从命令行参数或交互式输入获取消息
     if len(sys.argv) > 1:
         user_message = " ".join(sys.argv[1:])
     else:

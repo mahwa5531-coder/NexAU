@@ -27,11 +27,20 @@ def format_run_shell_command_output(context: ToolFormatterContext) -> object:
     stdout = _string_field(output.get("stdout"))
     stderr = _string_field(output.get("stderr"))
     content = _string_field(output.get("content"))
+
     processed_stdout = _normalize_stdout(stdout)
     error_text = _build_error_text(output, stderr=stderr)
     background_info = _build_background_info(output)
 
-    parts = [part for part in (processed_stdout, error_text, background_info) if part]
+    if background_info:
+        parts = [part for part in (processed_stdout, error_text, background_info) if part]
+        return "\n".join(parts)
+
+    # If discrete stdout/stderr are not provided, return the pre-built content (which includes full output & errors)
+    if not stdout and not stderr and content:
+        return content
+
+    parts = [part for part in (processed_stdout, error_text) if part]
     if parts:
         return "\n".join(parts)
 

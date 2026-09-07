@@ -18,11 +18,13 @@ __all__ = [
     "read_visual_file",
     "write_file",
     "replace",
+    "replace_file_content",
     "apply_patch",
     "glob",
     "list_directory",
     "read_many_files",
     "search_file_content",
+    "view_file",
 ]
 
 
@@ -50,6 +52,10 @@ def __getattr__(name: str) -> object:
         from .replace import replace
 
         return _cache_export(name, replace)
+    if name == "replace_file_content":
+        from .replace_file_content import replace_file_content
+
+        return _cache_export(name, replace_file_content)
     if name == "apply_patch":
         from .apply_patch import apply_patch
 
@@ -70,4 +76,8 @@ def __getattr__(name: str) -> object:
         from .search_file_content import search_file_content
 
         return _cache_export(name, search_file_content)
+    if name == "view_file":
+        from .view_file import view_file
+
+        return _cache_export(name, view_file)
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

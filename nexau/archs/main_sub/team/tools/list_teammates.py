@@ -14,7 +14,7 @@
 
 """list_teammates tool — list all teammates and their status.
 
-RFC-0002: 列出队友
+RFC-0002: 
 """
 
 from __future__ import annotations
@@ -32,9 +32,9 @@ async def list_teammates(
 ) -> list[TeammateInfo]:
     """List all teammate agents and their current status.
 
-    RFC-0002: 列出队友
+    RFC-0002: 
 
-    返回所有 teammate 的 agent_id、role_name 和 status。
+     teammate  agent_id、role_name  status。
     """
     ts = require_team_state(agent_state)
     return ts.team.get_teammate_info()

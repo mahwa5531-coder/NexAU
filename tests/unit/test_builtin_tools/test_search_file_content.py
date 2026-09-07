@@ -234,4 +234,3 @@ class TestSearchFileContentOutputFormat:
 
         assert "fallback.txt" in result["content"]
         assert "strategy: python fallback" in result["content"]
-        sandbox.list_files.assert_called_once_with(str(tmp_path), recursive=True)

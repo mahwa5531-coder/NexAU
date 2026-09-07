@@ -176,7 +176,7 @@ class TestReadFileLineLengthTruncation:
         content = result["content"]
         assert "... [truncated]" in content
         assert "a" * 2500 not in content
-        assert "a" * 2000 + "... [truncated]" in content
+        assert "a" * 1000 + "... [truncated]" in content
         assert "some lines were shortened" in result["returnDisplay"]
 
     def test_no_truncation_when_all_lines_under_limit(self):
